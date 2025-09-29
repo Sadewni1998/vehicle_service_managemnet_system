@@ -13,7 +13,7 @@ import Testimonials from './pages/Testimonials'
 import Parts from './pages/Parts'
 import Login from './pages/Login'
 import Register from './pages/Register'
-
+import Admin from './pages/Admin'
 function App() {
   return (
     <AuthProvider>
@@ -22,6 +22,7 @@ function App() {
           <Navbar />
           <main>
             <Routes>
+              <Route path="/admin" element={<Admin/>}/>
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/services" element={<Services />} />
