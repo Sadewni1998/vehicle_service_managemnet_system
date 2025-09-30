@@ -137,10 +137,10 @@ const Home = () => {
                       {slide.title}
                     </h1>
                     <Link
-                      to="/register"
+                      to="/booking"
                       className="btn-primary inline-flex items-center space-x-3 text-lg"
                     >
-                      <span>Sign in</span>
+                      <span>BOOK NOW</span>
                       <span>→</span>
                     </Link>
                   </div>

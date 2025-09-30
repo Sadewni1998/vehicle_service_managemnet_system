@@ -33,16 +33,12 @@ const Booking = () => {
     'Vacuum Cleaning'
   ]
 
-  const vehicleTypes = ['Wagon', 'Sedan']
+  const vehicleTypes = ['Wagon', 'Sedan', 'SUV', 'Hatchback', 'Pickup/ Double Cab', 'Jeep/ Crossover', 'Mini Car/ Kei car', 'Van']
   const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid']
   const vehicleBrands = ['Toyota', 'Honda', 'Suzuki', 'Ford', 'Mazda', 'Isuzu', 'Subaru']
   const transmissionTypes = ['Automatic', 'Manual']
   const oilTypes = ['Synthetic', 'Semi-Synthetic', 'Conventional']
   const oilFilterTypes = ['Toyota', 'Honda', 'Nissan', 'Subaru', 'Mazda', 'Suzuki', 'Mitsubishi']
-  const partsPreferences = [
-    'Buy from Service Center (15% discount)',
-    'Bring from Outside'
-  ]
 
   return (
     <div>
@@ -123,7 +119,7 @@ const Booking = () => {
                   <div>
                     <input
                       type="text"
-                      placeholder="Your Name"
+                      placeholder="Name with Initials"
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
                       {...register('name', { required: 'Name is required' })}
                     />
@@ -165,9 +161,10 @@ const Booking = () => {
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      defaultValue=""
                       {...register('vehicle_type', { required: 'Vehicle type is required' })}
                     >
-                      <option value="">Vehicle Type</option>
+                      <option value="" disabled hidden>Vehicle Type</option>
                       {vehicleTypes.map(type => (
                         <option key={type} value={type.toLowerCase()}>{type}</option>
                       ))}
@@ -177,9 +174,10 @@ const Booking = () => {
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      defaultValue=""
                       {...register('fuel_type', { required: 'Fuel type is required' })}
                     >
-                      <option value="">Fuel Type</option>
+                      <option value="" disabled hidden>Fuel Type</option>
                       {fuelTypes.map(type => (
                         <option key={type} value={type.toLowerCase()}>{type}</option>
                       ))}
@@ -192,9 +190,10 @@ const Booking = () => {
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      defaultValue=""
                       {...register('vehicle_brand', { required: 'Vehicle brand is required' })}
                     >
-                      <option value="">Vehicle Brand</option>
+                      <option value="" disabled hidden>Vehicle Brand</option>
                       {vehicleBrands.map(brand => (
                         <option key={brand} value={brand.toLowerCase()}>{brand}</option>
                       ))}
@@ -225,9 +224,10 @@ const Booking = () => {
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      defaultValue=""
                       {...register('transmission_type', { required: 'Transmission type is required' })}
                     >
-                      <option value="">Transmission Type</option>
+                      <option value="" disabled hidden>Transmission Type</option>
                       {transmissionTypes.map(type => (
                         <option key={type} value={type.toLowerCase()}>{type}</option>
                       ))}
@@ -249,9 +249,10 @@ const Booking = () => {
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      defaultValue=""
                       {...register('oil_type', { required: 'Oil type is required' })}
                     >
-                      <option value="">Type of Oil</option>
+                      <option value="" disabled hidden>Type of Oil</option>
                       {oilTypes.map(type => (
                         <option key={type} value={type.toLowerCase()}>{type}</option>
                       ))}
@@ -264,9 +265,10 @@ const Booking = () => {
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      defaultValue=""
                       {...register('oil_filter_type', { required: 'Oil filter type is required' })}
                     >
-                      <option value="">Type of Oil Filter</option>
+                      <option value="" disabled hidden>Type of Oil Filter</option>
                       {oilFilterTypes.map(type => (
                         <option key={type} value={type.toLowerCase()}>{type}</option>
                       ))}
@@ -298,21 +300,6 @@ const Booking = () => {
                     {errors.service_type && <p className="text-red-200 text-sm mt-1">{errors.service_type.message}</p>}
                   </div>
                   <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('parts_purchase_preference', { required: 'Parts purchase preference is required' })}
-                    >
-                      <option value="">Parts Purchase Preference</option>
-                      {partsPreferences.map(pref => (
-                        <option key={pref} value={pref.includes('Service Center') ? 'service_center' : 'outside'}>{pref}</option>
-                      ))}
-                    </select>
-                    {errors.parts_purchase_preference && <p className="text-red-200 text-sm mt-1">{errors.parts_purchase_preference.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
                     <input
                       type="date"
                       placeholder="Service Date"
@@ -320,15 +307,6 @@ const Booking = () => {
                       {...register('service_date', { required: 'Service date is required' })}
                     />
                     {errors.service_date && <p className="text-red-200 text-sm mt-1">{errors.service_date.message}</p>}
-                  </div>
-                  <div>
-                    <input
-                      type="time"
-                      placeholder="Service Time"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('service_time', { required: 'Service time is required' })}
-                    />
-                    {errors.service_time && <p className="text-red-200 text-sm mt-1">{errors.service_time.message}</p>}
                   </div>
                 </div>
 
