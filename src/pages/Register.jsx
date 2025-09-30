@@ -62,13 +62,13 @@ const Register = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                    Full Name
+                    Name with Initials
                   </label>
                   <input
                     type="text"
                     id="username"
                     className="input-field mt-1"
-                    {...register('username', { required: 'Full name is required' })}
+                    {...register('username', { required: 'name with initials is required' })}
                   />
                   {errors.username && (
                     <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
@@ -136,7 +136,7 @@ const Register = () => {
 
             {/* Password Section */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Security</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Password</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700">
@@ -238,7 +238,7 @@ const Register = () => {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
+                    <div className="col-span-full">
                       <label className="block text-sm font-medium text-gray-700">Vehicle Number</label>
                       <input
                         type="text"
@@ -247,31 +247,15 @@ const Register = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Engine Number</label>
-                      <input
-                        type="text"
-                        className="input-field mt-1"
-                        {...register(`engine_number.${index}`, { required: 'Engine number is required' })}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Vehicle Name</label>
-                      <input
-                        type="text"
-                        className="input-field mt-1"
-                        {...register(`vehicle_name.${index}`, { required: 'Vehicle name is required' })}
-                      />
-                    </div>
-
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Brand</label>
                       <select
-                        className="input-field mt-1"
+                        className="input-field mt-2"
+                        defaultValue=""
                         {...register(`vehicle_brand.${index}`, { required: 'Vehicle brand is required' })}
                       >
-                        <option value="">Select Brand</option>
+                        <option value="" disabled hidden>Select Brand</option>
                         <option value="toyota">Toyota</option>
                         <option value="honda">Honda</option>
                         <option value="suzuki">Suzuki</option>
@@ -286,7 +270,7 @@ const Register = () => {
                       <label className="block text-sm font-medium text-gray-700">Model</label>
                       <input
                         type="text"
-                        className="input-field mt-1"
+                        className="input-field mt-2"
                         {...register(`vehicle_model.${index}`, { required: 'Vehicle model is required' })}
                       />
                     </div>
@@ -294,10 +278,11 @@ const Register = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Type</label>
                       <select
-                        className="input-field mt-1"
+                        className="input-field mt-2"
+                        defaultValue=""
                         {...register(`vehicle_type.${index}`, { required: 'Vehicle type is required' })}
                       >
-                        <option value="">Select Type</option>
+                        <option value="" disabled hidden>Select Type</option>
                         <option value="wagon">Wagon</option>
                         <option value="sedan">Sedan</option>
                         <option value="suv">SUV</option>
@@ -311,7 +296,7 @@ const Register = () => {
                         type="number"
                         min="1990"
                         max="2024"
-                        className="input-field mt-1"
+                        className="input-field mt-2"
                         {...register(`manufacture_year.${index}`, { required: 'Manufacture year is required' })}
                       />
                     </div>
@@ -319,10 +304,11 @@ const Register = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Fuel Type</label>
                       <select
-                        className="input-field mt-1"
+                        className="input-field mt-2"
+                        defaultValue=""
                         {...register(`fuel_type.${index}`, { required: 'Fuel type is required' })}
                       >
-                        <option value="">Select Fuel Type</option>
+                        <option value="" disabled hidden>Select Fuel Type</option>
                         <option value="petrol">Petrol</option>
                         <option value="diesel">Diesel</option>
                         <option value="electric">Electric</option>
@@ -333,10 +319,11 @@ const Register = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700">Transmission</label>
                       <select
-                        className="input-field mt-1"
+                        className="input-field mt-2"
+                        defaultValue=""
                         {...register(`transmission.${index}`, { required: 'Transmission is required' })}
                       >
-                        <option value="">Select Transmission</option>
+                        <option value="" disabled hidden>Select Transmission</option>
                         <option value="auto">Automatic</option>
                         <option value="manual">Manual</option>
                       </select>

@@ -26,40 +26,6 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Top Bar */}
-      <div className="bg-gray-100 py-3 hidden lg:block">
-        <div className="container-custom">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-8">
-              <div className="flex items-center text-sm text-gray-600">
-                <span className="mr-2">📍</span>
-                Old Road Pannipitiya, Colombo, Sri Lanka
-              </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <span className="mr-2">🕒</span>
-                Mon - Fri: 09.00 AM - 09.00 PM
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center text-sm text-gray-600">
-                <span className="mr-2">📞</span>
-                +94 11 2 222 3223
-              </div>
-              <div className="flex space-x-2">
-                {['facebook', 'twitter', 'linkedin', 'instagram'].map((social) => (
-                  <a
-                    key={social}
-                    href="#"
-                    className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-primary-600 hover:bg-primary-600 hover:text-white transition-colors"
-                  >
-                    <span className="text-xs font-bold">{social[0].toUpperCase()}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Main Navbar */}
       <nav className="bg-white shadow-lg sticky top-0 z-50">
