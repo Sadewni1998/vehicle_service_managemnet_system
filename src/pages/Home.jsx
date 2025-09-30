@@ -185,7 +185,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Services Section */}
+      
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
