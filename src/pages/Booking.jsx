@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Calendar, Clock, Car, Wrench, CheckCircle } from 'lucide-react'
+import { Car, Wrench, CheckCircle } from 'lucide-react'
 import { bookingsAPI } from '../utils/api'
 
 const Booking = () => {
@@ -22,16 +22,6 @@ const Booking = () => {
       setIsSubmitting(false)
     }
   }
-
-  const serviceTypes = [
-    'Full Service',
-    'Only Engine Service',
-    'Without Wash',
-    'Car Wash',
-    'Diagnostic Test',
-    'Tires Replacement',
-    'Vacuum Cleaning'
-  ]
 
   const vehicleTypes = ['Wagon', 'Sedan', 'SUV', 'Hatchback', 'Pickup/ Double Cab', 'Jeep/ Crossover', 'Mini Car/ Kei car', 'Van']
   const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid']
@@ -127,12 +117,12 @@ const Booking = () => {
                   </div>
                   <div>
                     <input
-                      type="text"
-                      placeholder="User ID"
+                      type="tel"
+                      placeholder="Phone Number"
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('user_id', { required: 'User ID is required' })}
+                      {...register('phone_number', { required: 'Phone number is required' })}
                     />
-                    {errors.user_id && <p className="text-red-200 text-sm mt-1">{errors.user_id.message}</p>}
+                    {errors.phone_number && <p className="text-red-200 text-sm mt-1">{errors.phone_number.message}</p>}
                   </div>
                 </div>
 
@@ -238,15 +228,6 @@ const Booking = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <input
-                      type="date"
-                      placeholder="Last Oil Change Date"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('last_oil_change_date', { required: 'Last oil change date is required' })}
-                    />
-                    {errors.last_oil_change_date && <p className="text-red-200 text-sm mt-1">{errors.last_oil_change_date.message}</p>}
-                  </div>
-                  <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
                       defaultValue=""
@@ -259,9 +240,6 @@ const Booking = () => {
                     </select>
                     {errors.oil_type && <p className="text-red-200 text-sm mt-1">{errors.oil_type.message}</p>}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <select
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
@@ -275,6 +253,10 @@ const Booking = () => {
                     </select>
                     {errors.oil_filter_type && <p className="text-red-200 text-sm mt-1">{errors.oil_filter_type.message}</p>}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
                   <div>
                     <input
                       type="number"
@@ -283,21 +265,6 @@ const Booking = () => {
                       {...register('kilometers_run', { required: 'Kilometers run is required' })}
                     />
                     {errors.kilometers_run && <p className="text-red-200 text-sm mt-1">{errors.kilometers_run.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('service_type', { required: 'Service type is required' })}
-                    >
-                      <option value="">Service Type</option>
-                      {serviceTypes.map(type => (
-                        <option key={type} value={type.toLowerCase().replace(' ', '_')}>{type}</option>
-                      ))}
-                    </select>
-                    {errors.service_type && <p className="text-red-200 text-sm mt-1">{errors.service_type.message}</p>}
                   </div>
                   <div>
                     <input
@@ -309,7 +276,48 @@ const Booking = () => {
                     {errors.service_date && <p className="text-red-200 text-sm mt-1">{errors.service_date.message}</p>}
                   </div>
                 </div>
+                
+                {/*Services Checkboxes */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white">
+                  <div className="grid grid-cols-1 gap-3">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="fullservice" {...register("services")} />
+                      <span>Full Service</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="engine" {...register("services")} />
+                      <span>Engine Servicing</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="transmission" {...register("services")} />
+                      <span>Transmission Service</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="oil" {...register("services")} />
+                      <span>Oil & Filter Service</span>
+                    </label>
+                  </div>
 
+                  <div className="grid grid-cols-1 gap-3">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="wash" {...register("services")} />
+                      <span>Body Wash</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="diagnostic" {...register("services")} />
+                      <span>Diagnostic Test</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="tire" {...register("services")} />
+                      <span>Tire Replacement</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" value="vacuum" {...register("services")} />
+                      <span>Vacuum Cleaning</span>
+                    </label>
+                  </div>
+                </div>
+                
                 <div>
                   <textarea
                     placeholder="Special Requests"

@@ -18,7 +18,6 @@ const Navbar = () => {
   ]
 
   const dropdownItems = [
-    { path: '/booking', label: 'Booking' },
     { path: '/team', label: 'Technicians' },
     { path: '/testimonials', label: 'Testimonial' },
     { path: '/parts', label: 'Parts' },
@@ -78,7 +77,9 @@ const Navbar = () => {
                     </Link>
                   ))}
                 </div>
+                
               </div>
+              
             </div>
 
             {/* Login/User Menu */}
@@ -100,10 +101,9 @@ const Navbar = () => {
                   className="btn-primary flex items-center space-x-2"
                 >
                   <span>Login</span>
-                  <span>→</span>
                 </Link>
               )}
-            </div>
+            </div>            
 
             {/* Mobile menu button */}
             <button

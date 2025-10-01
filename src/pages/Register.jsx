@@ -290,8 +290,6 @@ const Register = () => {
                         <option value="doublecab">Pickup/ Double Cab</option>
                         <option value="jeep">Jeep/ Crosssover</option>
                         <option value="minicar">Mini Car/ Kei Car</option>
-                        <option value="hybrid">Hybrid</option>
-                        <option value="ev">Electric car</option>
                         <option value="van">Van</option>
                       </select>
                     </div>
