@@ -40,7 +40,7 @@ const Register = () => {
         <div className="text-center mb-8">
           <div className="flex justify-center items-center space-x-3 mb-4">
             <img src="/logo.png" alt="GearGuard" className="w-12 h-12" />
-            <h1 className="text-3xl font-bold text-primary-600">GearGuard Auto Care</h1>
+            <h1 className="text-3xl font-bold text-primary-600">GearUp Auto Care</h1>
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
           <p className="mt-2 text-gray-600">

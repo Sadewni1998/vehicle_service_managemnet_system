@@ -24,14 +24,14 @@ const Home = () => {
       id: 3,
       title: "Quality Engine Maintenance",
       subtitle: "// Oil & Filter Service //",
-      image: "/OIL.jpg",
+      image: "/img/carousel-bg-1.jpg",
       carImage: "/img/carousel-1.png"
     },
     {
       id: 4,
       title: "Premium Auto Parts",
       subtitle: "// Genuine Parts //",
-      image: "/OIL2.jpg",
+      image: "/img/carousel-bg-2.jpg",
       carImage: "/img/carousel-2.png"
     }
   ]
@@ -66,29 +66,29 @@ const Home = () => {
       id: 1,
       title: "Diagnostic Test",
       icon: <Car className="w-8 h-8" />,
-      image: "/TR1.png",
-      description: "With over 15 years of experience in auto servicing, GearUp has established itself as a leader in the automotive industry."
+      image: "/img/service-1.jpg",
+      description: "With over 15 years of experience in auto servicing, Gear Guard Auto Care has established itself as a leader in the automotive industry."
     },
     {
       id: 2,
       title: "Engine Servicing",
       icon: <Car className="w-8 h-8" />,
-      image: "/EG1.jpg",
+      image: "/img/service-2.jpg",
       description: "Our team of skilled technicians brings a wealth of knowledge and expertise to every service and repair job."
     },
     {
       id: 3,
-      title: "Oil & Filter Service",
+      title: "Tires Replacement",
       icon: <Wrench className="w-8 h-8" />,
-      image: "/OIL.jpg",
+      image: "/img/service-3.jpg",
       description: "Whether you need routine maintenance, complex repairs, or specialized modifications, we have the skills and dedication."
     },
     {
       id: 4,
-      title: "Premium Parts",
+      title: "Oil Changing",
       icon: <Wrench className="w-8 h-8" />,
-      image: "/OIL2.jpg",
-      description: "At GearUp, our commitment to quality service and customer satisfaction is unmatched."
+      image: "/img/service-4.jpg",
+      description: "At Gear Guard Auto Care, our commitment to quality service and customer satisfaction is unmatched."
     }
   ]
 
@@ -130,17 +130,17 @@ const Home = () => {
               <div className="container-custom">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                   <div className="text-white">
-                    <h6 className="text-lg font-semibold mb-4 text-primary-400">
+                    <h6 className="text-lg font-semibold mb-4 text-primary-400 uppercase">
                       {slide.subtitle}
                     </h6>
-                    <h1 className="text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                    <h1 className="text-4xl lg:text-6xl font-bold mb-6 leading-tight font-barlow">
                       {slide.title}
                     </h1>
                     <Link
                       to="/booking"
                       className="btn-primary inline-flex items-center space-x-3 text-lg"
                     >
-                      <span>BOOK NOW</span>
+                      <span>Book Now</span>
                       <span>→</span>
                     </Link>
                   </div>
@@ -148,7 +148,8 @@ const Home = () => {
                     <img
                       src={slide.carImage}
                       alt="Car"
-                      className="w-full h-auto"
+                      className={`w-full h-auto transition-transform duration-[5000ms] ease-in-out ${index === currentSlide ? "scale-110" : "scale-100"
+                      }`}
                     />
                   </div>
                 </div>
@@ -228,13 +229,13 @@ const Home = () => {
               </div>
             </div>
             <div>
-              <h6 className="text-primary-600 font-semibold text-lg mb-4">// About Us //</h6>
-              <h1 className="text-4xl font-bold mb-6">
-                <span className="text-primary-600">GearUp</span> Is The Best Place For Your Auto Care
+              <h6 className="text-primary-600 font-semibold text-lg mb-4 uppercase">// About Us //</h6>
+              <h1 className="text-4xl font-bold mb-6 font-barlow">
+                <span className="text-primary-600">GearGard Auto Care</span> Is The Best Place For Your Auto Care
               </h1>
               <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                GearUp stands out as the premier destination for all your automotive needs. 
-                With a commitment to excellence and a passion for cars, we provide unparalleled service and expertise.
+                Gear Guard Auto Care stands out as the premier destination for all your automotive needs. 
+                With a commitment to excellence and a passion for cars, Gear Guard Auto Care provides unparalleled service and expertise.
               </p>
               
               <div className="space-y-6 mb-8">
@@ -297,8 +298,8 @@ const Home = () => {
       <section className="section-padding bg-gray-50">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Our Work //</h6>
-            <h1 className="text-4xl font-bold">See Our Expert Technicians In Action</h1>
+            <h6 className="text-primary-600 font-semibold text-lg mb-4 uppercase">// Our Work //</h6>
+            <h1 className="text-4xl font-bold font-barlow">See Our Expert Technicians In Action</h1>
             <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
               Our skilled mechanics use advanced diagnostic tools and modern equipment to provide the best auto care services.
             </p>
@@ -357,8 +358,8 @@ const Home = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Our Services //</h6>
-            <h1 className="text-4xl font-bold">Explore Our Services</h1>
+            <h6 className="text-primary-600 font-semibold text-lg mb-4 uppercase">// Our Services //</h6>
+            <h1 className="text-4xl font-bold font-barlow">Explore Our Services</h1>
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

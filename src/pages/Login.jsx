@@ -25,8 +25,8 @@ const Login = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="flex items-center space-x-3">
-            <img src="/logo.png" alt="GearGuard" className="w-12 h-12" />
-            <h2 className="text-2xl font-bold text-primary-600">GearGuard Auto Care</h2>
+            <img src="/logo.png" alt="GearUp" className="w-12 h-12" />
+            <h2 className="text-2xl font-bold text-primary-600">GearUp Auto Care</h2>
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">

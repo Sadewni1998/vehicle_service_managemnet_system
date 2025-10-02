@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Car, Wrench, Check } from 'lucide-react'
+import { Link } from "react-router-dom"
 
 const Services = () => {
   const [activeTab, setActiveTab] = useState(1)
@@ -134,10 +135,13 @@ const Services = () => {
                           </div>
                         ))}
                       </div>
-                      <button className="btn-primary inline-flex items-center space-x-3">
-                        <span>Read More</span>
+                      <Link 
+                        to="/booking" 
+                        className="btn-primary inline-flex items-center space-x-3"
+                      >
+                        <span>Book Now</span>
                         <span>→</span>
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

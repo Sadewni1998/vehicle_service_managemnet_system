@@ -84,7 +84,7 @@ const Booking = () => {
       </section>
 
       {/* Booking Form */}
-      <section className="section-padding bg-gray-100">
+      <section className="section-padding bg-gray-900">
         <div className="container-custom">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Left Side - Info */}
@@ -105,7 +105,7 @@ const Booking = () => {
               <h2 className="text-3xl font-bold text-white mb-8 text-center">Book For A Service</h2>
               
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <div>
                     <input
                       type="text"
@@ -115,6 +115,10 @@ const Booking = () => {
                     />
                     {errors.name && <p className="text-red-200 text-sm mt-1">{errors.name.message}</p>}
                   </div>
+                  
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <input
                       type="tel"
@@ -124,9 +128,6 @@ const Booking = () => {
                     />
                     {errors.phone_number && <p className="text-red-200 text-sm mt-1">{errors.phone_number.message}</p>}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <input
                       type="text"
@@ -135,15 +136,6 @@ const Booking = () => {
                       {...register('vehicle_number', { required: 'Vehicle number is required' })}
                     />
                     {errors.vehicle_number && <p className="text-red-200 text-sm mt-1">{errors.vehicle_number.message}</p>}
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Engine Number"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('engine_number', { required: 'Engine number is required' })}
-                    />
-                    {errors.engine_number && <p className="text-red-200 text-sm mt-1">{errors.engine_number.message}</p>}
                   </div>
                 </div>
 
@@ -339,7 +331,10 @@ const Booking = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-white text-primary-600 hover:bg-gray-100 font-semibold py-4 px-6 rounded-lg transition-colors disabled:opacity-50"
+                  className="w-full bg-blue-900 text-white font-semibold py-4 px-6 rounded-lg 
+                            transition-colors duration-300 
+                            hover:bg-white hover:text-red-600 
+                            disabled:opacity-50"
                 >
                   {isSubmitting ? 'Booking...' : 'Book Now'}
                 </button>

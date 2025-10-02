@@ -1,3 +1,11 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@600;700&family=Ubuntu:wght@400;500&display=swap');
+
+/* Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Base styles - minimal reset for Tailwind compatibility */
 * {
   box-sizing: border-box;
@@ -7,8 +15,181 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  font-family: 'Ubuntu', sans-serif;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Custom CSS Variables matching GearGard */
+:root {
+  --primary: #D81324;
+  --secondary: #0B2154;
+  --light: #F2F2F2;
+  --dark: #111111;
+}
+
+/* Custom Components */
+@layer components {
+  .container-custom {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  .section-padding {
+    @apply py-16 lg:py-20;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 uppercase tracking-wide;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary-600 hover:bg-secondary-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 uppercase tracking-wide;
+  }
+  
+  .text-primary-custom {
+    color: var(--primary);
+  }
+  
+  .text-secondary-custom {
+    color: var(--secondary);
+  }
+  
+  .bg-primary-custom {
+    background-color: var(--primary);
+  }
+  
+  .bg-secondary-custom {
+    background-color: var(--secondary);
+  }
+}
+
+/* Button Styles */
+.btn {
+  font-weight: 500;
+  text-transform: uppercase;
+  transition: .5s;
+}
+
+.btn-square {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: normal;
+  border-radius: 2px;
+}
+
+.btn-sm-square {
+  width: 32px;
+  height: 32px;
+}
+
+.btn-lg-square {
+  width: 48px;
+  height: 48px;
+}
+
+/* Navbar Styles */
+.navbar-light .navbar-nav .nav-link {
+  margin-right: 30px;
+  padding: 25px 0;
+  color: #111111;
+  font-size: 15px;
+  text-transform: uppercase;
+  outline: none;
+  font-weight: 500;
+}
+
+.navbar-light .navbar-nav .nav-link:hover,
+.navbar-light .navbar-nav .nav-link.active {
+  color: var(--primary);
+}
+
+/* Carousel Styles */
+.carousel-caption {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, .7);
+  z-index: 1;
+}
+
+/* Team Overlay Styles */
+.team-item .team-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  transform: scale(0);
+  transition: .5s;
+}
+
+.team-item:hover .team-overlay {
+  transform: scale(1);
+}
+
+.team-item .team-overlay .btn {
+  color: var(--primary);
+  background: #FFFFFF;
+}
+
+.team-item .team-overlay .btn:hover {
+  color: #FFFFFF;
+  background: var(--secondary);
+}
+
+/* Footer Styles */
+.footer {
+  background: linear-gradient(rgba(0, 0, 0, .9), rgba(0, 0, 0, .9)), url(/img/carousel-bg-1.jpg) center center no-repeat;
+  background-size: cover;
+}
+
+.footer .btn.btn-social {
+  margin-right: 5px;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--light);
+  border: 1px solid #FFFFFF;
+  border-radius: 35px;
+  transition: .3s;
+}
+
+.footer .btn.btn-social:hover {
+  color: var(--primary);
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  .navbar-light .navbar-nav .nav-link {
+    margin-right: 0;
+    padding: 10px 0;
+  }
+  
+  .navbar-light .navbar-nav {
+    border-top: 1px solid #EEEEEE;
+  }
 }

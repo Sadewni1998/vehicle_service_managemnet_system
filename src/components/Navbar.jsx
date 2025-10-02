@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, Car, User, LogOut } from 'lucide-react'
+import { Menu, X, MapPin, Clock, Phone, Facebook, Twitter, Linkedin, Instagram, LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 const Navbar = () => {
@@ -18,6 +18,7 @@ const Navbar = () => {
   ]
 
   const dropdownItems = [
+    { path: '/booking', label: 'Booking' },
     { path: '/team', label: 'Technicians' },
     { path: '/testimonials', label: 'Testimonial' },
     { path: '/parts', label: 'Parts' },
@@ -25,16 +26,15 @@ const Navbar = () => {
 
   return (
     <>
-
       {/* Main Navbar */}
       <nav className="bg-white shadow-lg sticky top-0 z-50">
         <div className="container-custom">
-          <div className="flex justify-between items-center py-4">
+          <div className="flex justify-between items-center">
             {/* Logo */}
-            <Link to="/" className="flex items-center space-x-3">
-              <img src="/logo.png" alt="GearUp" className="w-16 h-14" />
-              <h2 className="text-2xl font-bold text-primary-600">
-                GearUp
+            <Link to="/" className="flex items-center space-x-3 py-4">
+              <img src="/logo.png" alt="GearGuard Auto Care" className="w-20 h-16" />
+              <h2 className="text-2xl font-bold text-primary-600 font-barlow">
+                GearGuard Auto Care
               </h2>
             </Link>
 
@@ -44,7 +44,7 @@ const Navbar = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`font-medium transition-colors ${
+                  className={`navbar-light navbar-nav nav-link font-medium transition-colors uppercase text-sm ${
                     isActive(item.path)
                       ? 'text-primary-600'
                       : 'text-gray-700 hover:text-primary-600'
@@ -56,7 +56,7 @@ const Navbar = () => {
               
               {/* Dropdown */}
               <div className="relative group">
-                <button className="font-medium text-gray-700 hover:text-primary-600 transition-colors flex items-center">
+                <button className="navbar-light navbar-nav nav-link font-medium text-gray-700 hover:text-primary-600 transition-colors flex items-center uppercase text-sm">
                   Pages
                   <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -77,13 +77,11 @@ const Navbar = () => {
                     </Link>
                   ))}
                 </div>
-                
               </div>
-              
             </div>
 
             {/* Login/User Menu */}
-            <div className="hidden lg:block">
+            <div className="hidden lg:flex items-center">
               {isAuthenticated ? (
                 <div className="flex items-center space-x-4">
                   <span className="text-gray-700">Welcome, {user?.username}</span>
@@ -98,12 +96,12 @@ const Navbar = () => {
               ) : (
                 <Link
                   to="/login"
-                  className="btn-primary flex items-center space-x-2"
+                  className="btn-primary flex items-center space-x-2 py-4 px-6"
                 >
                   <span>Login</span>
                 </Link>
               )}
-            </div>            
+            </div>   
 
             {/* Mobile menu button */}
             <button
