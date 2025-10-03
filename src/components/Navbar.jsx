@@ -174,6 +174,13 @@ const Navbar = () => {
                     Login
                   </Link>
                 )}
+
+                {/* Breakdown requests */}
+                <div>
+                  <button className='btn-secondary w-full flex items-center justify-center space-x-2'>
+                    <span>View Breakdown Requests</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

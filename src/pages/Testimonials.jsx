@@ -8,22 +8,22 @@ const Testimonials = () => {
     {
       name: "Manuja Archana",
       image: "/img/testimonial-1.jpg",
-      text: "GearUp is simply the best! Their expertise and attention to detail are unmatched. I wouldn't trust my car with anyone else."
+      text: "Hybrid Lanka is simply the best! Their expertise and attention to detail are unmatched. I wouldn't trust my car with anyone else."
     },
     {
       name: "Disnaka Kalwin",
       image: "/img/testimonial-2.jpg",
-      text: "I've been taking my car to GearUp for years. Their service is consistently excellent, and their staff is friendly and knowledgeable."
+      text: "I've been taking my car to Hybrid Lanka for years. Their service is consistently excellent, and their staff is friendly and knowledgeable."
     },
     {
       name: "Senumi Chanya",
       image: "/img/testimonial-3.jpg",
-      text: "GearUp fixed an issue with my car that other mechanics couldn't. I'm so thankful for their expertise and dedication."
+      text: "Hybrid Lanka fixed an issue with my car that other mechanics couldn't. I'm so thankful for their expertise and dedication."
     },
     {
       name: "Buddhima Wijewardhane",
       image: "/img/testimonial-4.jpg",
-      text: "I always recommend GearUp to friends and family. They provide reliable service and go above and beyond to ensure customer satisfaction."
+      text: "I always recommend Hybrid Lanka to friends and family. They provide reliable service and go above and beyond to ensure customer satisfaction."
     }
   ]
 
@@ -61,7 +61,6 @@ const Testimonials = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Testimonial //</h6>
             <h1 className="text-4xl font-bold">Our Clients Say!</h1>
           </div>
           
@@ -119,7 +118,7 @@ const Testimonials = () => {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">What Our Customers Say</h2>
             <p className="text-gray-600 text-lg max-w-3xl mx-auto">
-              Don't just take our word for it. Here's what our satisfied customers have to say about their experience with GearGuard Auto Care.
+              Don't just take our word for it. Here's what our satisfied customers have to say about their experience with Hybrid Lanka.
             </p>
           </div>
           
@@ -144,7 +143,7 @@ const Testimonials = () => {
         <div className="container-custom text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Experience Our Service?</h2>
           <p className="text-xl mb-8 opacity-90">
-            Join thousands of satisfied customers who trust GearGuard Auto Care for their automotive needs.
+            Join thousands of satisfied customers who trust Hybrid Lanka for their automotive needs.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <a href="/booking" className="bg-white text-primary-600 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-colors">
