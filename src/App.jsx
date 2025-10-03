@@ -7,6 +7,7 @@ import Home from './pages/Home'
 import About from './pages/About'
 import Services from './pages/Services'
 import Booking from './pages/Booking'
+import Request from './pages/Request'
 import Contact from './pages/Contact'
 import Team from './pages/Team'
 import Testimonials from './pages/Testimonials'
@@ -27,6 +28,7 @@ function App() {
               <Route path="/about" element={<About />} />
               <Route path="/services" element={<Services />} />
               <Route path="/booking" element={<Booking />} />
+              <Route path="/request" element={<Request />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/team" element={<Team />} />
               <Route path="/testimonials" element={<Testimonials />} />

@@ -67,6 +67,16 @@ export const contactAPI = {
   getStats: () => api.get('/contact/stats'),
 }
 
+// Breakdown Service API
+export const breakdownAPI = {
+  create: (requestData) => api.post('/breakdown', requestData),
+  getAll: (params) => api.get('/breakdown', { params }),
+  getById: (id) => api.get(`/breakdown/${id}`),
+  updateStatus: (id, status) => api.put(`/breakdown/${id}/status`, status),
+  delete: (id) => api.delete(`/breakdown/${id}`),
+  getStats: () => api.get('/breakdown/stats'),
+}
+
 // General API
 export const generalAPI = {
   getServices: () => api.get('/users/services'),
