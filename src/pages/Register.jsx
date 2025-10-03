@@ -259,25 +259,14 @@ const Register = () => {
                   <span className="ml-2 text-sm text-gray-500">(Optional)</span>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={includeVehicles}
-                      onChange={toggleVehicleSection}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Add vehicle information</span>
-                  </label>
-                  {includeVehicles && (
-                    <button
-                      type="button"
-                      onClick={addVehicle}
-                      className="btn-primary flex items-center space-x-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Vehicle</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={addVehicle}
+                    className="btn-primary flex items-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Vehicle</span>
+                  </button>
                 </div>
               </div>
 

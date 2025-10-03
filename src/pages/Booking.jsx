@@ -165,38 +165,6 @@ const Booking = () => {
             <div className="bg-primary-600 p-8 rounded-lg">
               <h2 className="text-3xl font-bold text-white mb-8 text-center">Book For A Service</h2>
               
-              {/* Booking Availability Status */}
-              {isCheckingAvailability ? (
-                <div className="mb-6 p-4 bg-blue-100 rounded-lg">
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                    <span className="ml-2 text-blue-800">Checking availability...</span>
-                  </div>
-                </div>
-              ) : (
-                <div className={`mb-6 p-4 rounded-lg ${bookingAvailability.isAvailable 
-                  ? 'bg-green-100 border border-green-300' 
-                  : 'bg-red-100 border border-red-300'
-                }`}>
-                  <div className="flex items-center">
-                    {bookingAvailability.isAvailable ? (
-                      <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                    ) : (
-                      <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                    )}
-                    <div>
-                      <p className={`font-medium ${bookingAvailability.isAvailable ? 'text-green-800' : 'text-red-800'}`}>
-                        {bookingAvailability.message}
-                      </p>
-                      {bookingAvailability.isAvailable && (
-                        <p className="text-sm text-green-700">
-                          {bookingAvailability.remainingSlots} slots remaining today
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
               
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
