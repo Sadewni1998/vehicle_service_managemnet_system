@@ -24,17 +24,11 @@ const Footer = () => {
               </p>
             </div>
             <div className="flex space-x-2 mt-4">
-              <a href="#" className="btn btn-social">
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a href="#" className="btn btn-social">
+              <a href="https://www.facebook.com/hybridlankak" target="_blank" rel="noopener noreferrer" className="btn btn-social">
                 <Facebook className="w-4 h-4" />
               </a>
-              <a href="#" className="btn btn-social">
+              <a href="https://www.youtube.com/@hybridhub5555" target="_blank" rel="noopener noreferrer" className="btn btn-social">
                 <Youtube className="w-4 h-4" />
-              </a>
-              <a href="#" className="btn btn-social">
-                <Linkedin className="w-4 h-4" />
               </a>
             </div>
           </div>

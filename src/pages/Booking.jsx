@@ -281,35 +281,6 @@ const Booking = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      defaultValue=""
-                      {...register('oil_type', { required: 'Oil type is required' })}
-                    >
-                      <option value="" disabled hidden>Type of Oil</option>
-                      {oilTypes.map(type => (
-                        <option key={type} value={type.toLowerCase()}>{type}</option>
-                      ))}
-                    </select>
-                    {errors.oil_type && <p className="text-red-200 text-sm mt-1">{errors.oil_type.message}</p>}
-                  </div>
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      defaultValue=""
-                      {...register('oil_filter_type', { required: 'Oil filter type is required' })}
-                    >
-                      <option value="" disabled hidden>Type of Oil Filter</option>
-                      {oilFilterTypes.map(type => (
-                        <option key={type} value={type.toLowerCase()}>{type}</option>
-                      ))}
-                    </select>
-                    {errors.oil_filter_type && <p className="text-red-200 text-sm mt-1">{errors.oil_filter_type.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   
                   <div>
                     <input
@@ -378,15 +349,6 @@ const Booking = () => {
                     rows={4}
                     className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
                     {...register('special_requests')}
-                  />
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    placeholder="Add Promo Code"
-                    className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                    {...register('promo_code')}
                   />
                 </div>
 

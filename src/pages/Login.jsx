@@ -25,26 +25,26 @@ const Login = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="flex items-center space-x-3">
-            <img src="/logo.png" alt="Hybrid Lanka" className="w-24 h-12" />
+            <img src="/logo.png" alt="Hybrid Lanka" className="w-24.5 h-12" />
             <h2 className="text-4xl font-bold text-primary-600">Hybrid Lanka</h2>
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Sign in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Or{' '}
-          <Link
-            to="/register"
-            className="font-medium text-primary-600 hover:text-primary-500"
-          >
-            create a new account
-          </Link>
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <h2 className="text-center text-3xl font-bold text-gray-900">
+            Sign in
+          </h2>
+          <p className="mt-2 mb-6 text-center text-sm text-gray-600">
+            Or{' '}
+            <Link
+              to="/register"
+              className="font-medium text-primary-600 hover:text-primary-500"
+            >
+              create an account
+            </Link>
+          </p>
           <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -122,7 +122,7 @@ const Login = () => {
 
               <div className="text-sm">
                 <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
-                  Forgot your password?
+                  Forgot password?
                 </a>
               </div>
             </div>

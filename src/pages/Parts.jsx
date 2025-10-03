@@ -112,7 +112,6 @@ const Parts = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Auto Parts //</h6>
             <h1 className="text-4xl font-bold mb-6">Quality Auto Parts & Accessories</h1>
             <p className="text-gray-600 text-lg max-w-3xl mx-auto">
               Find genuine and high-quality auto parts for your vehicle. We offer competitive prices and 15% discount when purchased with service.

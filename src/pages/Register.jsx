@@ -72,19 +72,21 @@ const Register = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <div className="flex justify-center items-center space-x-3 mb-4">
-            <img src="/logo.png" alt="GearGuard" className="w-24 h-12" />
-            <h1 className="text-3xl font-bold text-primary-600">GearUp Auto Care</h1>
+            <img src="/logo.png" alt="Hybrid Lanka" className="w-24.5 h-12" />
+            <h1 className="text-3xl font-bold text-primary-600">Hybrid Lanka Auto Care</h1>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
-          <p className="mt-2 text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-              Sign in here
-            </Link>
-          </p>
         </div>
 
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className="flex justify-center items-center flex-col mt-10">
+            <h2 className="text-2xl font-bold text-gray-900">Sign Up</h2>
+              <p className="mt-2 text-gray-600">
+                Already have an account?{' '}
+                <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+                  Sign in
+                </Link>
+              </p>
+          </div>
           <form onSubmit={handleSubmit(onSubmit)} className="p-8">
             {/* Personal Information */}
             <div className="mb-8">
