@@ -1,23 +1,84 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Car, Wrench, CheckCircle } from 'lucide-react'
+import { Car, Wrench, CheckCircle, AlertCircle } from 'lucide-react'
 import { bookingsAPI } from '../utils/api'
 
 const Booking = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [bookingAvailability, setBookingAvailability] = useState({
+    isAvailable: true,
+    currentCount: 0,
+    limit: 10,
+    remainingSlots: 10,
+    message: ''
+  })
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(true)
   const { register, handleSubmit, formState: { errors }, reset } = useForm()
 
+  // Check booking availability on component mount
+  useEffect(() => {
+    checkBookingAvailability()
+  }, [])
+
+  const checkBookingAvailability = async () => {
+    try {
+      setIsCheckingAvailability(true)
+      const response = await fetch('http://localhost:5000/api/bookings/availability')
+      const data = await response.json()
+      setBookingAvailability(data)
+    } catch (error) {
+      console.error('Error checking booking availability:', error)
+      toast.error('Failed to check booking availability')
+    } finally {
+      setIsCheckingAvailability(false)
+    }
+  }
+
   const onSubmit = async (data) => {
+    // Check if booking is still available before submitting
+    if (!bookingAvailability.isAvailable) {
+      toast.error('Booking limit reached for today. Please try again tomorrow.')
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      const response = await bookingsAPI.create(data)
+      // Transform form data to match backend expectations
+      const bookingData = {
+        name: data.name,
+        phone: data.phone_number,
+        vehicleNumber: data.vehicle_number,
+        vehicleType: data.vehicle_type,
+        fuelType: data.fuel_type,
+        vehicleBrand: data.vehicle_brand,
+        vehicleBrandModel: data.vehicle_brand_model,
+        manufacturedYear: data.manufactured_year,
+        transmissionType: data.transmission_type,
+        oilType: data.oil_type,
+        oilFilterType: data.oil_filter_type,
+        kilometersRun: data.kilometers_run,
+        bookingDate: data.service_date,
+        serviceTypes: data.services || [],
+        specialRequests: data.special_requests,
+        promoCode: data.promo_code
+      }
+      
+      const response = await bookingsAPI.create(bookingData)
       toast.success('Booking submitted successfully!')
       reset()
+      
+      // Refresh booking availability after successful booking
+      await checkBookingAvailability()
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to submit booking. Please try again.'
       toast.error(message)
       console.error('Booking error:', error)
+      
+      // If it's a limit reached error, refresh availability
+      if (error.response?.status === 429) {
+        await checkBookingAvailability()
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -103,6 +164,39 @@ const Booking = () => {
             {/* Right Side - Form */}
             <div className="bg-primary-600 p-8 rounded-lg">
               <h2 className="text-3xl font-bold text-white mb-8 text-center">Book For A Service</h2>
+              
+              {/* Booking Availability Status */}
+              {isCheckingAvailability ? (
+                <div className="mb-6 p-4 bg-blue-100 rounded-lg">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <span className="ml-2 text-blue-800">Checking availability...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className={`mb-6 p-4 rounded-lg ${bookingAvailability.isAvailable 
+                  ? 'bg-green-100 border border-green-300' 
+                  : 'bg-red-100 border border-red-300'
+                }`}>
+                  <div className="flex items-center">
+                    {bookingAvailability.isAvailable ? (
+                      <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+                    )}
+                    <div>
+                      <p className={`font-medium ${bookingAvailability.isAvailable ? 'text-green-800' : 'text-red-800'}`}>
+                        {bookingAvailability.message}
+                      </p>
+                      {bookingAvailability.isAvailable && (
+                        <p className="text-sm text-green-700">
+                          {bookingAvailability.remainingSlots} slots remaining today
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
@@ -330,13 +424,21 @@ const Booking = () => {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-blue-900 text-white font-semibold py-4 px-6 rounded-lg 
-                            transition-colors duration-300 
-                            hover:bg-white hover:text-red-600 
-                            disabled:opacity-50"
+                  disabled={isSubmitting || !bookingAvailability.isAvailable || isCheckingAvailability}
+                  className={`w-full font-semibold py-4 px-6 rounded-lg transition-colors duration-300 ${
+                    !bookingAvailability.isAvailable || isCheckingAvailability
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                      : 'bg-blue-900 text-white hover:bg-white hover:text-red-600'
+                  } disabled:opacity-50`}
                 >
-                  {isSubmitting ? 'Booking...' : 'Book Now'}
+                  {isCheckingAvailability 
+                    ? 'Checking Availability...' 
+                    : !bookingAvailability.isAvailable 
+                    ? 'Booking Unavailable' 
+                    : isSubmitting 
+                    ? 'Booking...' 
+                    : 'Book Now'
+                  }
                 </button>
               </form>
             </div>

@@ -8,7 +8,8 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [vehicles, setVehicles] = useState([{ id: 1 }])
+  const [vehicles, setVehicles] = useState([])
+  const [includeVehicles, setIncludeVehicles] = useState(false)
   const { register, handleSubmit, formState: { errors }, watch } = useForm()
   const { register: registerUser } = useAuth()
   const navigate = useNavigate()
@@ -20,14 +21,56 @@ const Register = () => {
   }
 
   const removeVehicle = (id) => {
-    if (vehicles.length > 1) {
-      setVehicles(vehicles.filter(vehicle => vehicle.id !== id))
+    setVehicles(vehicles.filter(vehicle => vehicle.id !== id))
+  }
+
+  const toggleVehicleSection = () => {
+    setIncludeVehicles(!includeVehicles)
+    if (!includeVehicles) {
+      setVehicles([{ id: Date.now() }])
+    } else {
+      setVehicles([])
     }
   }
 
   const onSubmit = async (data) => {
     setIsLoading(true)
-    const result = await registerUser(data)
+    
+    // Prepare the data for submission
+    const submitData = {
+      name: data.username,
+      email: data.email,
+      password: data.password,
+      phone: data.contact_number,
+      address: data.address
+    }
+
+    // Only include vehicle data if user chose to add vehicles
+    if (includeVehicles && vehicles.length > 0) {
+      const vehicleData = vehicles.map((_, index) => ({
+        vehicleNumber: data[`vehicle_number.${index}`],
+        brand: data[`vehicle_brand.${index}`],
+        model: data[`vehicle_model.${index}`],
+        type: data[`vehicle_type.${index}`],
+        manufactureYear: data[`manufacture_year.${index}`],
+        fuelType: data[`fuel_type.${index}`],
+        transmission: data[`transmission.${index}`]
+      })).filter(vehicle => 
+        vehicle.vehicleNumber && 
+        vehicle.brand && 
+        vehicle.model && 
+        vehicle.type && 
+        vehicle.manufactureYear && 
+        vehicle.fuelType && 
+        vehicle.transmission
+      )
+      
+      if (vehicleData.length > 0) {
+        submitData.vehicles = vehicleData
+      }
+    }
+
+    const result = await registerUser(submitData)
     if (result.success) {
       navigate('/')
     }
@@ -208,33 +251,47 @@ const Register = () => {
             {/* Vehicle Information */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Car className="w-5 h-5 mr-2 text-primary-600" />
-                  Vehicle Information
-                </h3>
-                <button
-                  type="button"
-                  onClick={addVehicle}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Vehicle</span>
-                </button>
+                <div className="flex items-center">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Car className="w-5 h-5 mr-2 text-primary-600" />
+                    Vehicle Information
+                  </h3>
+                  <span className="ml-2 text-sm text-gray-500">(Optional)</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={includeVehicles}
+                      onChange={toggleVehicleSection}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Add vehicle information</span>
+                  </label>
+                  {includeVehicles && (
+                    <button
+                      type="button"
+                      onClick={addVehicle}
+                      className="btn-primary flex items-center space-x-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Vehicle</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {vehicles.map((vehicle, index) => (
+              {includeVehicles && vehicles.map((vehicle, index) => (
                 <div key={vehicle.id} className="border border-gray-200 rounded-lg p-6 mb-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="font-medium text-gray-900">Vehicle {index + 1}</h4>
-                    {vehicles.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeVehicle(vehicle.id)}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeVehicle(vehicle.id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -243,7 +300,7 @@ const Register = () => {
                       <input
                         type="text"
                         className="input-field mt-1"
-                        {...register(`vehicle_number.${index}`, { required: 'Vehicle number is required' })}
+                        {...register(`vehicle_number.${index}`)}
                       />
                     </div>
 
@@ -253,7 +310,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`vehicle_brand.${index}`, { required: 'Vehicle brand is required' })}
+                        {...register(`vehicle_brand.${index}`)}
                       >
                         <option value="" disabled hidden>Select Brand</option>
                         <option value="toyota">Toyota</option>
@@ -271,7 +328,7 @@ const Register = () => {
                       <input
                         type="text"
                         className="input-field mt-2"
-                        {...register(`vehicle_model.${index}`, { required: 'Vehicle model is required' })}
+                        {...register(`vehicle_model.${index}`)}
                       />
                     </div>
 
@@ -280,7 +337,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`vehicle_type.${index}`, { required: 'Vehicle type is required' })}
+                        {...register(`vehicle_type.${index}`)}
                       >
                         <option value="" disabled hidden>Select Type</option>
                         <option value="wagon">Wagon</option>
@@ -301,7 +358,7 @@ const Register = () => {
                         min="1990"
                         max="2024"
                         className="input-field mt-2"
-                        {...register(`manufacture_year.${index}`, { required: 'Manufacture year is required' })}
+                        {...register(`manufacture_year.${index}`)}
                       />
                     </div>
 
@@ -310,7 +367,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`fuel_type.${index}`, { required: 'Fuel type is required' })}
+                        {...register(`fuel_type.${index}`)}
                       >
                         <option value="" disabled hidden>Select Fuel Type</option>
                         <option value="petrol">Petrol</option>
@@ -325,7 +382,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`transmission.${index}`, { required: 'Transmission is required' })}
+                        {...register(`transmission.${index}`)}
                       >
                         <option value="" disabled hidden>Select Transmission</option>
                         <option value="auto">Automatic</option>
