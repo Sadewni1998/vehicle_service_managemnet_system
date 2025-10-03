@@ -27,11 +27,44 @@ const Register = () => {
 
   const onSubmit = async (data) => {
     setIsLoading(true)
-    const result = await registerUser(data)
-    if (result.success) {
-      navigate('/')
+    
+    try {
+      // Transform form data to match backend expectations
+      const registrationData = {
+        name: data.username,
+        email: data.email,
+        password: data.password,
+        phone: data.contact_number,
+        address: data.address,
+        vehicles: []
+      }
+
+      // Process vehicle data if provided
+      if (data.vehicle_number && Array.isArray(data.vehicle_number)) {
+        data.vehicle_number.forEach((vehicleNumber, index) => {
+          if (vehicleNumber) { // Only add if vehicle number is provided
+            registrationData.vehicles.push({
+              vehicleNumber: vehicleNumber,
+              brand: data.vehicle_brand?.[index] || '',
+              model: data.vehicle_model?.[index] || '',
+              type: data.vehicle_type?.[index] || '',
+              manufactureYear: data.manufacture_year?.[index] || null,
+              fuelType: data.fuel_type?.[index] || '',
+              transmission: data.transmission?.[index] || ''
+            })
+          }
+        })
+      }
+
+      const result = await registerUser(registrationData)
+      if (result.success) {
+        navigate('/')
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   return (
@@ -243,7 +276,7 @@ const Register = () => {
                       <input
                         type="text"
                         className="input-field mt-1"
-                        {...register(`vehicle_number.${index}`, { required: 'Vehicle number is required' })}
+                        {...register(`vehicle_number.${index}`)}
                       />
                     </div>
 
@@ -253,7 +286,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`vehicle_brand.${index}`, { required: 'Vehicle brand is required' })}
+                        {...register(`vehicle_brand.${index}`)}
                       >
                         <option value="" disabled hidden>Select Brand</option>
                         <option value="toyota">Toyota</option>
@@ -271,7 +304,7 @@ const Register = () => {
                       <input
                         type="text"
                         className="input-field mt-2"
-                        {...register(`vehicle_model.${index}`, { required: 'Vehicle model is required' })}
+                        {...register(`vehicle_model.${index}`)}
                       />
                     </div>
 
@@ -280,7 +313,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`vehicle_type.${index}`, { required: 'Vehicle type is required' })}
+                        {...register(`vehicle_type.${index}`)}
                       >
                         <option value="" disabled hidden>Select Type</option>
                         <option value="wagon">Wagon</option>
@@ -301,7 +334,7 @@ const Register = () => {
                         min="1990"
                         max="2024"
                         className="input-field mt-2"
-                        {...register(`manufacture_year.${index}`, { required: 'Manufacture year is required' })}
+                        {...register(`manufacture_year.${index}`)}
                       />
                     </div>
 
@@ -310,7 +343,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`fuel_type.${index}`, { required: 'Fuel type is required' })}
+                        {...register(`fuel_type.${index}`)}
                       >
                         <option value="" disabled hidden>Select Fuel Type</option>
                         <option value="petrol">Petrol</option>
@@ -325,7 +358,7 @@ const Register = () => {
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`transmission.${index}`, { required: 'Transmission is required' })}
+                        {...register(`transmission.${index}`)}
                       >
                         <option value="" disabled hidden>Select Transmission</option>
                         <option value="auto">Automatic</option>

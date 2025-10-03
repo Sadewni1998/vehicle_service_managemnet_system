@@ -66,3 +66,28 @@ CREATE TABLE booking (
     customerId INT NULL,
     FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL
 );
+
+-- New table to store breakdown service requests
+CREATE TABLE breakdown_request (
+    requestId INT AUTO_INCREMENT PRIMARY KEY,
+    customerId INT NOT NULL,
+    vehicleId INT NOT NULL,
+    
+    -- Fields from your form
+    emergencyType VARCHAR(255) NOT NULL,
+    latitude DECIMAL(10, 8) NOT NULL,  -- For storing location coordinates
+    longitude DECIMAL(11, 8) NOT NULL, -- For storing location coordinates
+    problemDescription TEXT,
+    additionalInfo TEXT,
+    
+    -- Status to track the request progress
+    status ENUM('Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
+    
+    -- Timestamps for tracking
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    -- Foreign keys to link with other tables
+    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE CASCADE,
+    FOREIGN KEY (vehicleId) REFERENCES vehicle(vehicleId) ON DELETE CASCADE
+);

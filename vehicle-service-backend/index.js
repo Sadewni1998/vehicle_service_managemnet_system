@@ -6,6 +6,7 @@ require("dotenv").config(); // Load environment variables from .env file
 
 const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
+const breakdownRoutes = require("./routes/breakdownRoutes");
 
 // Initialize the Express app
 const app = express();
@@ -37,6 +38,7 @@ const bookingController = require("./controllers/bookingController");
 app.get("/api/bookings/availability", bookingController.checkBookingAvailability);
 
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/breakdown", breakdownRoutes);
 
 // Placeholder routes for frontend compatibility
 app.get("/api/users/services", (req, res) => {
