@@ -114,7 +114,7 @@ const Booking = () => {
               {
                 icon: <CheckCircle className="w-12 h-12 text-primary-600" />,
                 title: "Quality Servicing",
-                description: "At GearUp, we deliver top-notch service with skilled technicians and advanced tools, ensuring meticulous care for every vehicle."
+                description: "At Hybrid Lanka, we deliver top-notch service with skilled technicians and advanced tools, ensuring meticulous care for every vehicle."
               },
               {
                 icon: <Wrench className="w-12 h-12 text-primary-600" />,
@@ -154,7 +154,7 @@ const Booking = () => {
                 Certified and Award Winning Car Repair Service Provider
               </h1>
               <p className="text-white text-lg leading-relaxed">
-                GearUp is a certified, award-winning car repair service provider committed to excellence. 
+                Hybrid Lanka is a certified, award-winning car repair service provider committed to excellence. 
                 We have a team of skilled technicians equipped with the latest tools and technology to provide top-quality 
                 repairs and maintenance. Our dedication to customer satisfaction and high standards of service has earned 
                 us numerous awards and certifications in the automotive industry.

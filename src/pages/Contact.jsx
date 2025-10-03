@@ -24,16 +24,16 @@ const Contact = () => {
 
   const contactInfo = [
     {
-      title: "// Booking //",
-      email: "book@gearup.com"
+      title: "Booking",
+      email: "book@hybridlanka.com"
     },
     {
-      title: "// General //",
-      email: "info@gearup.com"
+      title: "General",
+      email: "info@hybridlanka.com"
     },
     {
-      title: "// Technical //",
-      email: "tech@gearup.com"
+      title: "Technical",
+      email: "tech@hybridlanka.com"
     }
   ]
 
@@ -56,7 +56,6 @@ const Contact = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Contact Us //</h6>
             <h1 className="text-4xl font-bold">Contact For Any Query</h1>
           </div>
 
@@ -77,7 +76,7 @@ const Contact = () => {
             {/* Map */}
             <div className="h-96">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3961.366206281661!2d79.94842857448234!3d6.846628519325059!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae2504e9377994d%3A0xddb9d3f9d51dc2eb!2sPannipitiya%20Old%20Rd%2C%20Pannipitiya!5e0!3m2!1sen!2slk!4v1718006801785!5m2!1sen!2slk"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3765.7573900489488!2d79.93758117475585!3d6.7962219932010886!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae24feaed0a1911%3A0x4928c5b0ae88ce65!2sHybrid%20Lanka!5e1!3m2!1sen!2slk!4v1759487870052!5m2!1sen!2slk"
                 className="w-full h-full rounded-lg border-0"
                 allowFullScreen=""
                 loading="lazy"
@@ -88,7 +87,7 @@ const Contact = () => {
             {/* Contact Form */}
             <div>
               <p className="text-gray-600 mb-6 text-lg">
-                Welcome to GearUp! Whether you have questions, need advice, or want to learn more about our services, 
+                Welcome to Hybrid Lanka! Whether you have questions, need advice, or want to learn more about our services, 
                 we're here to help. Please fill out the form below, and our dedicated team will get back to you as soon as possible. 
                 We look forward to assisting you with all your automotive needs!
               </p>

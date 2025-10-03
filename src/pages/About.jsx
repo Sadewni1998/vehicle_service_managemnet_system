@@ -55,7 +55,7 @@ const About = () => {
               {
                 icon: <Award className="w-12 h-12 text-primary-600" />,
                 title: "Quality Servicing",
-                description: "At GearUp, we deliver top-notch service with skilled technicians and advanced tools, ensuring meticulous care for every vehicle."
+                description: "At Hybrid Lanka, we deliver top-notch service with skilled technicians and advanced tools, ensuring meticulous care for every vehicle."
               },
               {
                 icon: <Users className="w-12 h-12 text-primary-600" />,
@@ -101,13 +101,12 @@ const About = () => {
               </div>
             </div>
             <div>
-              <h6 className="text-primary-600 font-semibold text-lg mb-4">// About Us //</h6>
               <h1 className="text-4xl font-bold mb-6">
-                <span className="text-primary-600">GearGard Auto Care</span> Is The Best Place For Your Auto Care
+                <span className="text-primary-600">Hybrid Lanka</span> Is The Best Place For Your Auto Care
               </h1>
               <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                GearUp stands out as the premier destination for all your automotive needs. 
-                With a commitment to excellence and a passion for cars, GearUp provides unparalleled service and expertise. 
+                Hybrid Lanka stands out as the premier destination for all your automotive needs. 
+                With a commitment to excellence and a passion for cars, Hybrid Lanka provides unparalleled service and expertise. 
                 Whether you require routine maintenance, complex repairs, or custom modifications, our skilled technicians are dedicated to ensuring your vehicle receives the utmost care and attention.
               </p>
               
@@ -116,17 +115,17 @@ const About = () => {
                   {
                     number: "01",
                     title: "Professional & Expert",
-                    description: "GearUp is home to a team of professionals and experts dedicated to providing exceptional automotive service. Our staff consists of highly trained technicians with extensive experience in vehicle maintenance, repair, and modification."
+                    description: "Hybrid Lanka is home to a team of professionals and experts dedicated to providing exceptional automotive service. Our staff consists of highly trained technicians with extensive experience in vehicle maintenance, repair, and modification."
                   },
                   {
                     number: "02",
                     title: "Quality Servicing Center",
-                    description: "GearUp's quality servicing center combines state-of-the-art technology and expert technicians to provide exceptional automotive care, ensuring meticulous attention to detail and customer satisfaction with every service."
+                    description: "Hybrid Lanka's quality servicing center combines state-of-the-art technology and expert technicians to provide exceptional automotive care, ensuring meticulous attention to detail and customer satisfaction with every service."
                   },
                   {
                     number: "03",
                     title: "Awards Winning Workers",
-                    description: "Our team at GearUp consists of award-winning professionals who are recognized for their excellence in automotive service. These skilled technicians have been honored for their dedication, expertise, and commitment to providing exceptional care for vehicles."
+                    description: "Our team at Hybrid Lanka consists of award-winning professionals who are recognized for their excellence in automotive service. These skilled technicians have been honored for their dedication, expertise, and commitment to providing exceptional care for vehicles."
                   }
                 ].map((item, index) => (
                   <div key={index} className="flex">
@@ -171,7 +170,6 @@ const About = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Our Technicians //</h6>
             <h1 className="text-4xl font-bold">Our Expert Technicians</h1>
           </div>
           

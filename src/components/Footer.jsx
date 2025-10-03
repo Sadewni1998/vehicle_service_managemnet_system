@@ -12,15 +12,15 @@ const Footer = () => {
             <div className="space-y-2 text-gray-300">
               <p className="flex items-center">
                 <MapPin className="w-4 h-4 mr-3 text-primary-600" />
-                Old Road Pannipitiya, Colombo, Sri Lanka.
+                134/3 Horana road, Piliyandala
               </p>
               <p className="flex items-center">
                 <Phone className="w-4 h-4 mr-3 text-primary-600" />
-                +94 11 2 222 3223
+                +94 112 620 757
               </p>
               <p className="flex items-center">
                 <Mail className="w-4 h-4 mr-3 text-primary-600" />
-                info@gearguardautocare.com
+                info@hybridlanka.com
               </p>
             </div>
             <div className="flex space-x-2 mt-4">
@@ -45,11 +45,11 @@ const Footer = () => {
             <div className="space-y-2 text-gray-300">
               <div>
                 <h6 className="text-white font-medium">Monday - Friday:</h6>
-                <p>09.00 AM - 09.00 PM</p>
+                <p>07.30 AM - 07.30 PM</p>
               </div>
               <div>
                 <h6 className="text-white font-medium">Saturday - Sunday:</h6>
-                <p>09.00 AM - 12.00 PM</p>
+                <p>07.30 AM - 12.00 PM</p>
               </div>
             </div>
           </div>
@@ -80,7 +80,7 @@ const Footer = () => {
           <div>
             <h4 className="text-lg font-semibold mb-4 text-white">Newsletter</h4>
             <p className="text-gray-300 mb-4">
-              "Gear Guard Auto Care Summer Special: Beat the heat with our Summer Service Special! 
+              "Hybrid Lanka Summer Special: Beat the heat with our Summer Service Special! 
               A/C check, coolant inspection, tire rotation, fluid top-off. Mention promo code "SUMMERGGAC."
             </p>
             <div className="flex max-w-md">
@@ -102,7 +102,7 @@ const Footer = () => {
         <div className="container-custom py-6">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="text-gray-400 text-sm">
-              © GearGard Auto Care, All Right Reserved. Designed By Group 19
+              © Hybrid Lanka, All Right Reserved. Designed By Group 25
             </div>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link to="/" className="text-gray-400 hover:text-white text-sm transition-colors">

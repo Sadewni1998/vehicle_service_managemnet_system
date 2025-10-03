@@ -32,9 +32,9 @@ const Navbar = () => {
           <div className="flex justify-between items-center">
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3 py-4">
-              <img src="/logo.png" alt="GearGuard Auto Care" className="w-20 h-16" />
-              <h2 className="text-2xl font-bold text-primary-600 font-barlow">
-                GearGuard Auto Care
+              <img src="/logo.png" alt="Hybrid Lanka" className="w-25 h-16" />
+              <h2 className="text-5xl font-bold text-primary-600 font-barlow">
+                Hybrid Lanka
               </h2>
             </Link>
 

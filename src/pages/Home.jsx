@@ -9,28 +9,24 @@ const Home = () => {
     {
       id: 1,
       title: "Professional Auto Care Services",
-      subtitle: "// Expert Mechanics //",
       image: "/img/carousel-bg-1.jpg",
       carImage: "/img/carousel-1.png"
     },
     {
       id: 2,
       title: "Advanced Diagnostic Technology",
-      subtitle: "// Modern Equipment //",
       image: "/img/carousel-bg-2.jpg",
       carImage: "/img/carousel-2.png"
     },
     {
       id: 3,
       title: "Quality Engine Maintenance",
-      subtitle: "// Oil & Filter Service //",
       image: "/img/carousel-bg-1.jpg",
       carImage: "/img/carousel-1.png"
     },
     {
       id: 4,
       title: "Premium Auto Parts",
-      subtitle: "// Genuine Parts //",
       image: "/img/carousel-bg-2.jpg",
       carImage: "/img/carousel-2.png"
     }
@@ -40,7 +36,7 @@ const Home = () => {
     {
       icon: <Award className="w-12 h-12 text-primary-600" />,
       title: "Quality Servicing",
-      description: "At Gear Guard Auto Care, we deliver top-notch service with skilled technicians and advanced tools, ensuring meticulous care for every vehicle."
+      description: "At Hybrid Lanka, we deliver top-notch service with skilled technicians and advanced tools, ensuring meticulous care for every vehicle."
     },
     {
       icon: <Users className="w-12 h-12 text-primary-600" />,
@@ -67,7 +63,7 @@ const Home = () => {
       title: "Diagnostic Test",
       icon: <Car className="w-8 h-8" />,
       image: "/img/service-1.jpg",
-      description: "With over 15 years of experience in auto servicing, Gear Guard Auto Care has established itself as a leader in the automotive industry."
+      description: "With over 15 years of experience in auto servicing, Hybrid Lanka has established itself as a leader in the automotive industry."
     },
     {
       id: 2,
@@ -97,7 +93,7 @@ const Home = () => {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % carouselData.length)
-    }, 5000)
+    }, 3500)
     return () => clearInterval(timer)
   }, [])
 
@@ -116,7 +112,7 @@ const Home = () => {
         {carouselData.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
+            className={`absolute inset-0 transition-opacity duration-200 ${
               index === currentSlide ? 'opacity-100' : 'opacity-0'
             }`}
           >
@@ -148,7 +144,7 @@ const Home = () => {
                     <img
                       src={slide.carImage}
                       alt="Car"
-                      className={`w-full h-auto transition-transform duration-[5000ms] ease-in-out ${index === currentSlide ? "scale-110" : "scale-100"
+                      className={`w-full h-auto transition-transform duration-[1000ms] ease-in-out ${index === currentSlide ? "scale-110" : "scale-100"
                       }`}
                     />
                   </div>
@@ -229,13 +225,12 @@ const Home = () => {
               </div>
             </div>
             <div>
-              <h6 className="text-primary-600 font-semibold text-lg mb-4 uppercase">// About Us //</h6>
               <h1 className="text-4xl font-bold mb-6 font-barlow">
-                <span className="text-primary-600">GearGard Auto Care</span> Is The Best Place For Your Auto Care
+                <span className="text-primary-600">Hybrid Lanka</span> Is The Best Place For Your Auto Care
               </h1>
               <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                Gear Guard Auto Care stands out as the premier destination for all your automotive needs. 
-                With a commitment to excellence and a passion for cars, Gear Guard Auto Care provides unparalleled service and expertise.
+                Hybrid Lanka stands out as the premier destination for all your automotive needs.
+                With a commitment to excellence and a passion for cars, Hybrid Lanka provides unparalleled service and expertise.
               </p>
               
               <div className="space-y-6 mb-8">
@@ -298,7 +293,6 @@ const Home = () => {
       <section className="section-padding bg-gray-50">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4 uppercase">// Our Work //</h6>
             <h1 className="text-4xl font-bold font-barlow">See Our Expert Technicians In Action</h1>
             <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
               Our skilled mechanics use advanced diagnostic tools and modern equipment to provide the best auto care services.
@@ -358,7 +352,6 @@ const Home = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4 uppercase">// Our Services //</h6>
             <h1 className="text-4xl font-bold font-barlow">Explore Our Services</h1>
           </div>
           

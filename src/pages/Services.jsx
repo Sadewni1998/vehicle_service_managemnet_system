@@ -32,7 +32,7 @@ const Services = () => {
       title: "Oil Changing",
       icon: <Wrench className="w-8 h-8" />,
       image: "/img/service-4.jpg",
-      description: "At GearUp, our commitment to quality service and customer satisfaction is unmatched, making us the go-to choice for auto care needs. We provide comprehensive oil change services with high-quality oils and filters."
+      description: "At Hybrid Lanka, our commitment to quality service and customer satisfaction is unmatched, making us the go-to choice for auto care needs. We provide comprehensive oil change services with high-quality oils and filters."
     }
   ]
 
@@ -40,22 +40,22 @@ const Services = () => {
     {
       name: "Manuja Archana",
       image: "/img/testimonial-1.jpg",
-      text: "GearUp is simply the best! Their expertise and attention to detail are unmatched. I wouldn't trust my car with anyone else."
+      text: "Hybrid Lanka is simply the best! Their expertise and attention to detail are unmatched. I wouldn't trust my car with anyone else."
     },
     {
       name: "Disnaka Kalwin",
       image: "/img/testimonial-2.jpg",
-      text: "I've been taking my car to GearUp for years. Their service is consistently excellent, and their staff is friendly and knowledgeable."
+      text: "I've been taking my car to Hybrid Lanka for years. Their service is consistently excellent, and their staff is friendly and knowledgeable."
     },
     {
       name: "Senumi Chanya",
       image: "/img/testimonial-3.jpg",
-      text: "GearUp fixed an issue with my car that other mechanics couldn't. I'm so thankful for their expertise and dedication."
+      text: "Hybrid Lanka fixed an issue with my car that other mechanics couldn't. I'm so thankful for their expertise and dedication."
     },
     {
       name: "Buddhima Wijewardhane",
       image: "/img/testimonial-4.jpg",
-      text: "I always recommend GearUp to friends and family. They provide reliable service and go above and beyond to ensure customer satisfaction."
+      text: "I always recommend Hybrid Lanka to friends and family. They provide reliable service and go above and beyond to ensure customer satisfaction."
     }
   ]
 
@@ -78,7 +78,6 @@ const Services = () => {
       <section className="section-padding bg-white">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Our Services //</h6>
             <h1 className="text-4xl font-bold">Explore Our Services</h1>
           </div>
           
@@ -155,7 +154,6 @@ const Services = () => {
       <section className="section-padding bg-gray-50">
         <div className="container-custom">
           <div className="text-center mb-12">
-            <h6 className="text-primary-600 font-semibold text-lg mb-4">// Testimonial //</h6>
             <h1 className="text-4xl font-bold">Our Clients Say!</h1>
           </div>
           
