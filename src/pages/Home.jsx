@@ -32,20 +32,11 @@ const Home = () => {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % carouselData.length)
-    }, 3500)
-    return () => clearInterval(timer)
-  }, [])
-
-  // ✅ Testimonials auto-rotate
-  useEffect(() => {
-    const timer = setInterval(() => {
       setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
     }, 5000)
     return () => clearInterval(timer)
   }, [])
 
-  // ✅ Testimonials navigation functions
   const nextTestimonial = () => {
     setCurrentTestimonial((prev) => (prev + 1) % testimonials.length)
   }
@@ -53,6 +44,49 @@ const Home = () => {
   const prevTestimonial = () => {
     setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length)
   }
+
+  const teamMembers = [
+    {
+      name: "Pathum Gamage",
+      position: "Senior Automotive Engineer",
+      image: "/img/team-1.jpg",
+      social: {
+        facebook: "#",
+        twitter: "#",
+        instagram: "#"
+      }
+    },
+    {
+      name: "Piyumal Kalwin",
+      position: "Artificer",
+      image: "/img/team-2.jpg",
+      social: {
+        facebook: "#",
+        twitter: "#",
+        instagram: "#"
+      }
+    },
+    {
+      name: "Archana Sedarage",
+      position: "Mechanic Engineer",
+      image: "/img/team-3.jpg",
+      social: {
+        facebook: "#",
+        twitter: "#",
+        instagram: "#"
+      }
+    },
+    {
+      name: "Pubudu Perera",
+      position: "Mechanical Technician",
+      image: "/img/team-4.jpg",
+      social: {
+        facebook: "#",
+        twitter: "#",
+        instagram: "#"
+      }
+    }
+  ]
 
   const carouselData = [
     {
@@ -347,53 +381,79 @@ const Home = () => {
               Our skilled mechanics use advanced diagnostic tools and modern equipment to provide the best auto care services.
             </p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Mechanic working on engine */}
-            <div className="relative group overflow-hidden rounded-lg shadow-lg">
-              <img
-                src="/EG1.jpg"
-                alt="Expert mechanic working on car engine"
-                className="w-full h-80 object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
-                <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center">
-                  <h3 className="text-xl font-bold mb-2">Expert Engine Service</h3>
-                  <p className="text-sm">Professional diagnostics and repair</p>
-                </div>
+          {/* Team Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {teamMembers.map((member, index) => (
+                  <div key={index} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+                    <div className="relative overflow-hidden group">
+                      <img
+                        src={member.image}
+                        alt={member.name}
+                        className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex space-x-3">
+                          {Object.entries(member.social).map(([platform, url]) => (
+                            <a
+                              key={platform}
+                              href={url}
+                              className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary-600 hover:bg-primary-600 hover:text-white transition-colors"
+                            >
+                              <span className="text-sm font-bold">{platform[0].toUpperCase()}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6 text-center">
+                      <h5 className="text-xl font-bold mb-2">{member.name}</h5>
+                      <p className="text-gray-600">{member.position}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
 
-            {/* Diagnostic laptop on car */}
-            <div className="relative group overflow-hidden rounded-lg shadow-lg">
-              <img
-                src="/TR1.png"
-                alt="Advanced diagnostic equipment in use"
-                className="w-full h-80 object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
-                <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center">
-                  <h3 className="text-xl font-bold mb-2">Modern Diagnostics</h3>
-                  <p className="text-sm">State-of-the-art diagnostic technology</p>
-                </div>
+          {/* Team Stats */}
+          <section className="section-padding bg-gray-50">
+            <div className="container-custom">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold mb-4">Why Choose Our Team?</h2>
+                <p className="text-gray-600 text-lg max-w-3xl mx-auto">
+                  Our team of expert technicians brings years of experience and specialized training to every job. 
+                  We're committed to providing the highest quality service and ensuring your complete satisfaction.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[
+                  {
+                    icon: <Users className="w-12 h-12 text-primary-600" />,
+                    title: "Expert Technicians",
+                    description: "Our team consists of certified professionals with extensive experience in automotive repair and maintenance."
+                  },
+                  {
+                    icon: <Users className="w-12 h-12 text-primary-600" />,
+                    title: "Continuous Training",
+                    description: "We invest in ongoing education to stay current with the latest automotive technologies and repair techniques."
+                  },
+                  {
+                    icon: <Users className="w-12 h-12 text-primary-600" />,
+                    title: "Customer Focused",
+                    description: "Every team member is dedicated to providing exceptional customer service and building long-term relationships."
+                  }
+                ].map((item, index) => (
+                  <div key={index} className="text-center">
+                    <div className="flex justify-center mb-4">
+                      {item.icon}
+                    </div>
+                    <h3 className="text-xl font-semibold mb-3">{item.title}</h3>
+                    <p className="text-gray-600">{item.description}</p>
+                  </div>
+                ))}
               </div>
             </div>
+          </section>
 
-            {/* Oil service */}
-            <div className="relative group overflow-hidden rounded-lg shadow-lg">
-              <img
-                src="/OIL.jpg"
-                alt="Premium oil and filter service"
-                className="w-full h-80 object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 flex items-center justify-center">
-                <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center">
-                  <h3 className="text-xl font-bold mb-2">Oil & Filter Service</h3>
-                  <p className="text-sm">Premium quality oil and genuine filters</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -575,4 +635,3 @@ const Home = () => {
 }
 
 export default Home
-

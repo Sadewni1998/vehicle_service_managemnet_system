@@ -9,8 +9,6 @@ import Services from './pages/Services'
 import Booking from './pages/Booking'
 import Request from './pages/Request'
 import Contact from './pages/Contact'
-import Team from './pages/Team'
-import Testimonials from './pages/Testimonials'
 import Parts from './pages/Parts'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -30,8 +28,6 @@ function App() {
               <Route path="/booking" element={<Booking />} />
               <Route path="/request" element={<Request />} />
               <Route path="/contact" element={<Contact />} />
-              <Route path="/team" element={<Team />} />
-              <Route path="/testimonials" element={<Testimonials />} />
               <Route path="/parts" element={<Parts />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />

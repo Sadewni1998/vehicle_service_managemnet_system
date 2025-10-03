@@ -19,8 +19,6 @@ const Navbar = () => {
 
   const dropdownItems = [
     { path: '/request', label: 'Request' },
-    { path: '/team', label: 'Technicians' },
-    { path: '/testimonials', label: 'Testimonial' },
     { path: '/parts', label: 'Parts' },
   ]
 
