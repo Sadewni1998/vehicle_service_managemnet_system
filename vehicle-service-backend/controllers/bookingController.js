@@ -14,20 +14,16 @@ const createBooking = async (req, res) => {
     name,
     phone,
     vehicleNumber,
-    engineNumber,
     vehicleType,
     fuelType,
     vehicleBrand,
     vehicleBrandModel,
     manufacturedYear,
     transmissionType,
-    oilType,
-    oilFilterType,
     kilometersRun,
     bookingDate,
     serviceTypes,
     specialRequests,
-    promoCode,
   } = req.body;
 
   // Basic validation
@@ -60,11 +56,11 @@ const createBooking = async (req, res) => {
     }
     const sql = `
       INSERT INTO booking (
-        name, phone, vehicleNumber, engineNumber, vehicleType, fuelType,
+        name, phone, vehicleNumber, vehicleType, fuelType,
         vehicleBrand, vehicleBrandModel, manufacturedYear, transmissionType,
-        oilType, oilFilterType, kilometersRun, bookingDate, serviceTypes,
-        specialRequests, promoCode, customerId, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        kilometersRun, bookingDate, serviceTypes,
+        specialRequests, customerId, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     // The 'serviceTypes' array from the frontend is converted to a JSON string for storage.
@@ -72,20 +68,16 @@ const createBooking = async (req, res) => {
       name,
       phone,
       vehicleNumber,
-      engineNumber,
       vehicleType,
       fuelType,
       vehicleBrand,
       vehicleBrandModel,
       manufacturedYear,
       transmissionType,
-      oilType,
-      oilFilterType,
       kilometersRun,
       bookingDate,
       JSON.stringify(serviceTypes || []),
       specialRequests,
-      promoCode,
       customerId,
       'pending' // Default status
     ];

@@ -55,13 +55,10 @@ const Booking = () => {
         vehicleBrandModel: data.vehicle_brand_model,
         manufacturedYear: data.manufactured_year,
         transmissionType: data.transmission_type,
-        oilType: data.oil_type,
-        oilFilterType: data.oil_filter_type,
         kilometersRun: data.kilometers_run,
         bookingDate: data.service_date,
         serviceTypes: data.services || [],
-        specialRequests: data.special_requests,
-        promoCode: data.promo_code
+        specialRequests: data.special_requests
       }
       
       const response = await bookingsAPI.create(bookingData)

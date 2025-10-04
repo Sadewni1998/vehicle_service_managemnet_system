@@ -58,7 +58,7 @@ const Register = () => {
 
       const result = await registerUser(registrationData)
       if (result.success) {
-        navigate('/')
+        navigate('/login')
       }
     } catch (error) {
       console.error('Registration error:', error)
