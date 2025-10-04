@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Car, Wrench, CheckCircle, AlertCircle } from 'lucide-react'
-import { bookingsAPI } from '../utils/api'
+import { bookingsAPI, authAPI } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
 
 const Booking = () => {
+  const { user, isAuthenticated } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [bookingAvailability, setBookingAvailability] = useState({
     isAvailable: true,
@@ -14,12 +16,20 @@ const Booking = () => {
     message: ''
   })
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true)
-  const { register, handleSubmit, formState: { errors }, reset } = useForm()
+  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm()
 
   // Check booking availability on component mount
   useEffect(() => {
     checkBookingAvailability()
   }, [])
+
+  // Auto-populate customer data when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setValue('name', user.name || '')
+      setValue('phone_number', user.phone || '')
+    }
+  }, [isAuthenticated, user, setValue])
 
   const checkBookingAvailability = async () => {
     try {
