@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
 import { 
   Calendar, 
   Car, 
@@ -9,7 +10,10 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  X,
+  Edit,
+  Trash2
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { bookingsAPI } from '../utils/api'
@@ -20,7 +24,11 @@ const CustomerDashboard = () => {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [vehicles, setVehicles] = useState([])
+  const [showAddVehicleForm, setShowAddVehicleForm] = useState(false)
+  const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false)
   const { user } = useAuth()
+  const { register, handleSubmit, formState: { errors }, reset } = useForm()
 
   // Fetch user bookings on component mount
   useEffect(() => {
@@ -44,6 +52,58 @@ const CustomerDashboard = () => {
     }
   }, [user])
 
+  // Load vehicles from localStorage (in a real app, this would come from an API)
+  useEffect(() => {
+    const savedVehicles = localStorage.getItem('userVehicles')
+    if (savedVehicles) {
+      setVehicles(JSON.parse(savedVehicles))
+    }
+  }, [])
+
+  // Save vehicles to localStorage
+  const saveVehicles = (vehiclesList) => {
+    localStorage.setItem('userVehicles', JSON.stringify(vehiclesList))
+    setVehicles(vehiclesList)
+  }
+
+  // Add new vehicle
+  const onAddVehicle = async (data) => {
+    setIsSubmittingVehicle(true)
+    try {
+      const newVehicle = {
+        id: Date.now(),
+        vehicleNumber: data.vehicleNumber,
+        brand: data.brand,
+        model: data.model,
+        type: data.type,
+        manufactureYear: data.manufactureYear,
+        fuelType: data.fuelType,
+        transmission: data.transmission,
+        addedDate: new Date().toISOString()
+      }
+      
+      const updatedVehicles = [...vehicles, newVehicle]
+      saveVehicles(updatedVehicles)
+      setShowAddVehicleForm(false)
+      reset()
+      toast.success('Vehicle added successfully!')
+    } catch (error) {
+      console.error('Error adding vehicle:', error)
+      toast.error('Failed to add vehicle')
+    } finally {
+      setIsSubmittingVehicle(false)
+    }
+  }
+
+  // Delete vehicle
+  const deleteVehicle = (vehicleId) => {
+    if (window.confirm('Are you sure you want to delete this vehicle?')) {
+      const updatedVehicles = vehicles.filter(v => v.id !== vehicleId)
+      saveVehicles(updatedVehicles)
+      toast.success('Vehicle deleted successfully!')
+    }
+  }
+
   // Calculate summary statistics
   const activeBookings = bookings.filter(booking => 
     ['Pending', 'Confirmed', 'In Progress'].includes(booking.status)
@@ -57,14 +117,14 @@ const CustomerDashboard = () => {
       color: 'bg-white'
     },
     {
-      title: 'Total Bookings',
-      value: bookings.length.toString(),
+      title: 'Vehicles',
+      value: vehicles.length.toString(),
       icon: <Car className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
-      title: 'Completed',
-      value: bookings.filter(b => b.status === 'Completed').length.toString(),
+      title: 'Total Bookings',
+      value: bookings.length.toString(),
       icon: <CheckCircle className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
@@ -254,14 +314,245 @@ const CustomerDashboard = () => {
 
             {activeTab === 'vehicles' && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">My Vehicles</h3>
-                <div className="text-center py-12">
-                  <Car className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No vehicles registered yet</p>
-                  <button className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                    Add Vehicle
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">My Vehicles</h3>
+                  <button 
+                    onClick={() => setShowAddVehicleForm(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Vehicle</span>
                   </button>
                 </div>
+
+                {vehicles.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Car className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No vehicles registered yet</p>
+                    <button 
+                      onClick={() => setShowAddVehicleForm(true)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Add Your First Vehicle
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {vehicles.map((vehicle) => (
+                      <div key={vehicle.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-bold text-gray-900 mb-2">
+                              {vehicle.brand} {vehicle.model} - {vehicle.vehicleNumber}
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-600">
+                              <div>
+                                <p><span className="font-medium">Vehicle Number:</span> {vehicle.vehicleNumber}</p>
+                                <p><span className="font-medium">Brand:</span> {vehicle.brand}</p>
+                                <p><span className="font-medium">Model:</span> {vehicle.model}</p>
+                              </div>
+                              <div>
+                                <p><span className="font-medium">Type:</span> {vehicle.type}</p>
+                                <p><span className="font-medium">Year:</span> {vehicle.manufactureYear}</p>
+                                <p><span className="font-medium">Fuel Type:</span> {vehicle.fuelType}</p>
+                              </div>
+                              <div>
+                                <p><span className="font-medium">Transmission:</span> {vehicle.transmission}</p>
+                                <p><span className="font-medium">Added:</span> {new Date(vehicle.addedDate).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex space-x-2 ml-4">
+                            <button
+                              onClick={() => deleteVehicle(vehicle.id)}
+                              className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                              title="Delete Vehicle"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add Vehicle Form Modal */}
+                {showAddVehicleForm && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                      <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                        <h3 className="text-xl font-bold text-gray-900">Add New Vehicle</h3>
+                        <button
+                          onClick={() => {
+                            setShowAddVehicleForm(false)
+                            reset()
+                          }}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-6 h-6" />
+                        </button>
+                      </div>
+                      
+                      <form onSubmit={handleSubmit(onAddVehicle)} className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="col-span-full">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Vehicle Number
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              {...register('vehicleNumber', { required: 'Vehicle number is required' })}
+                            />
+                            {errors.vehicleNumber && (
+                              <p className="mt-1 text-sm text-red-600">{errors.vehicleNumber.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Brand
+                            </label>
+                            <select
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              defaultValue=""
+                              {...register('brand', { required: 'Brand is required' })}
+                            >
+                              <option value="" disabled hidden>Select Brand</option>
+                              <option value="toyota">Toyota</option>
+                              <option value="honda">Honda</option>
+                              <option value="suzuki">Suzuki</option>
+                              <option value="ford">Ford</option>
+                              <option value="mazda">Mazda</option>
+                              <option value="isuzu">Isuzu</option>
+                              <option value="subaru">Subaru</option>
+                            </select>
+                            {errors.brand && (
+                              <p className="mt-1 text-sm text-red-600">{errors.brand.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Model
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              {...register('model', { required: 'Model is required' })}
+                            />
+                            {errors.model && (
+                              <p className="mt-1 text-sm text-red-600">{errors.model.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Vehicle Type
+                            </label>
+                            <select
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              defaultValue=""
+                              {...register('type', { required: 'Vehicle type is required' })}
+                            >
+                              <option value="" disabled hidden>Select Type</option>
+                              <option value="wagon">Wagon</option>
+                              <option value="sedan">Sedan</option>
+                              <option value="suv">SUV</option>
+                              <option value="hatchback">Hatchback</option>
+                              <option value="doublecab">Pickup/ Double Cab</option>
+                              <option value="jeep">Jeep/ Crossover</option>
+                              <option value="minicar">Mini Car/ Kei Car</option>
+                              <option value="van">Van</option>
+                            </select>
+                            {errors.type && (
+                              <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Manufacture Year
+                            </label>
+                            <input
+                              type="number"
+                              min="1990"
+                              max="2024"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              {...register('manufactureYear', { 
+                                required: 'Manufacture year is required',
+                                min: { value: 1990, message: 'Year must be 1990 or later' },
+                                max: { value: 2024, message: 'Year must be 2024 or earlier' }
+                              })}
+                            />
+                            {errors.manufactureYear && (
+                              <p className="mt-1 text-sm text-red-600">{errors.manufactureYear.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Fuel Type
+                            </label>
+                            <select
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              defaultValue=""
+                              {...register('fuelType', { required: 'Fuel type is required' })}
+                            >
+                              <option value="" disabled hidden>Select Fuel Type</option>
+                              <option value="petrol">Petrol</option>
+                              <option value="diesel">Diesel</option>
+                              <option value="electric">Electric</option>
+                              <option value="hybrid">Hybrid</option>
+                            </select>
+                            {errors.fuelType && (
+                              <p className="mt-1 text-sm text-red-600">{errors.fuelType.message}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Transmission
+                            </label>
+                            <select
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              defaultValue=""
+                              {...register('transmission', { required: 'Transmission is required' })}
+                            >
+                              <option value="" disabled hidden>Select Transmission</option>
+                              <option value="auto">Automatic</option>
+                              <option value="manual">Manual</option>
+                            </select>
+                            {errors.transmission && (
+                              <p className="mt-1 text-sm text-red-600">{errors.transmission.message}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end space-x-4 mt-6">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddVehicleForm(false)
+                              reset()
+                            }}
+                            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isSubmittingVehicle}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSubmittingVehicle ? 'Adding...' : 'Add Vehicle'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
