@@ -35,13 +35,6 @@ app.get("/api/health", (req, res) => {
 // Use the authentication routes with a base path of /api/auth
 app.use("/api/auth", authRoutes);
 
-// Public route to check booking availability (no authentication required)
-const bookingController = require("./controllers/bookingController");
-app.get(
-  "/api/bookings/availability",
-  bookingController.checkBookingAvailability
-);
-
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/breakdown", breakdownRoutes);
 

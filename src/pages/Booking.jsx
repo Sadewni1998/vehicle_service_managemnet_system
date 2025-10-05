@@ -19,12 +19,18 @@ const Booking = () => {
   const [bookingAvailability, setBookingAvailability] = useState({
     isAvailable: true,
     currentCount: 0,
-    limit: 10,
-    remainingSlots: 10,
+    limit: 8,
+    remainingSlots: 8,
     message: ''
   })
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(true)
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm()
+  const [timeSlotAvailability, setTimeSlotAvailability] = useState({
+    availableTimeSlots: [],
+    bookedTimeSlots: [],
+    isLoading: true
+  })
+  const [selectedDate, setSelectedDate] = useState('')
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm()
 
   // Check booking availability on component mount
   useEffect(() => {
@@ -38,6 +44,15 @@ const Booking = () => {
       setValue('phone_number', user.phone || '')
     }
   }, [isAuthenticated, user, setValue])
+
+  // Watch for date changes to update time slot availability
+  const watchedDate = watch('service_date')
+  useEffect(() => {
+    if (watchedDate) {
+      setSelectedDate(watchedDate)
+      checkTimeSlotAvailability(watchedDate)
+    }
+  }, [watchedDate])
 
   const checkBookingAvailability = async () => {
     try {
@@ -53,10 +68,37 @@ const Booking = () => {
     }
   }
 
+  const checkTimeSlotAvailability = async (date) => {
+    try {
+      setTimeSlotAvailability(prev => ({ ...prev, isLoading: true }))
+      const response = await fetch(`http://localhost:5000/api/bookings/time-slots?date=${date}`)
+      const data = await response.json()
+      setTimeSlotAvailability({
+        availableTimeSlots: data.availableTimeSlots || [],
+        bookedTimeSlots: data.bookedTimeSlots || [],
+        isLoading: false
+      })
+    } catch (error) {
+      console.error('Error checking time slot availability:', error)
+      toast.error('Failed to check time slot availability')
+      setTimeSlotAvailability(prev => ({ ...prev, isLoading: false }))
+    }
+  }
+
   const onSubmit = async (data) => {
     // Check if booking is still available before submitting
     if (!bookingAvailability.isAvailable) {
       toast.error('Booking limit reached for today. Please try again tomorrow.')
+      return
+    }
+
+    // Check if selected time slot is still available
+    if (timeSlotAvailability.bookedTimeSlots.includes(data.time_slots)) {
+      toast.error('The selected time slot is no longer available. Please choose another time slot.')
+      // Refresh time slot availability
+      if (selectedDate) {
+        await checkTimeSlotAvailability(selectedDate)
+      }
       return
     }
 
@@ -75,6 +117,7 @@ const Booking = () => {
         transmissionType: data.transmission_type,
         kilometersRun: data.kilometers_run,
         bookingDate: data.service_date,
+        timeSlot: data.time_slots, // Add timeSlot field
         serviceTypes: data.services || [],
         specialRequests: data.special_requests
       }
@@ -83,8 +126,11 @@ const Booking = () => {
       toast.success('Booking submitted successfully!')
       reset()
       
-      // Refresh booking availability after successful booking
+      // Refresh booking availability and time slots after successful booking
       await checkBookingAvailability()
+      if (selectedDate) {
+        await checkTimeSlotAvailability(selectedDate)
+      }
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to submit booking. Please try again.'
       toast.error(message)
@@ -229,16 +275,41 @@ const Booking = () => {
                     <select
                       className="block w-full h-[48px] px-4 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-white appearance-none"
                       defaultValue=""
-                      {...register('time_slots', { required: 'Time slot is required' })}
+                      {...register('time_slots', { 
+                        required: 'Time slot is required',
+                        validate: (value) => {
+                          if (!selectedDate) return 'Please select a date first'
+                          if (timeSlotAvailability.bookedTimeSlots.includes(value)) {
+                            return 'This time slot is no longer available'
+                          }
+                          return true
+                        }
+                      })}
+                      disabled={!selectedDate || timeSlotAvailability.isLoading}
                     >
                       <option value="" disabled hidden>
-                        Select Time Slot
+                        {!selectedDate 
+                          ? 'Select Date First' 
+                          : timeSlotAvailability.isLoading 
+                          ? 'Loading time slots...' 
+                          : 'Select Time Slot'
+                        }
                       </option>
-                      {timeSlots.map((slot) => (
-                        <option key={slot} value={slot.toLowerCase()}>
-                          {slot}
-                        </option>
-                      ))}
+                      {timeSlots.map((slot) => {
+                        const isAvailable = timeSlotAvailability.availableTimeSlots.includes(slot)
+                        const isBooked = timeSlotAvailability.bookedTimeSlots.includes(slot)
+                        
+                        return (
+                          <option 
+                            key={slot} 
+                            value={slot}
+                            disabled={isBooked}
+                            className={isBooked ? 'text-gray-400 bg-gray-100' : ''}
+                          >
+                            {slot} {isBooked ? '(Booked)' : isAvailable ? '(Available)' : ''}
+                          </option>
+                        )
+                      })}
                     </select>
                     {errors.time_slots && (
                       <p className="text-red-200 text-sm mt-1">
@@ -301,17 +372,28 @@ const Booking = () => {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting || !bookingAvailability.isAvailable || isCheckingAvailability}
+                  disabled={
+                    isSubmitting || 
+                    !bookingAvailability.isAvailable || 
+                    isCheckingAvailability ||
+                    !selectedDate ||
+                    timeSlotAvailability.isLoading
+                  }
                   className={`w-full font-semibold py-4 px-6 rounded-lg transition-colors duration-300 ${
-                    !bookingAvailability.isAvailable || isCheckingAvailability
+                    !bookingAvailability.isAvailable || 
+                    isCheckingAvailability || 
+                    !selectedDate ||
+                    timeSlotAvailability.isLoading
                       ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
                       : 'bg-blue-900 text-white hover:bg-white hover:text-red-600'
                   } disabled:opacity-50`}
                 >
-                  {isCheckingAvailability 
+                  {isCheckingAvailability || timeSlotAvailability.isLoading
                     ? 'Checking Availability...' 
                     : !bookingAvailability.isAvailable 
                     ? 'Booking Unavailable' 
+                    : !selectedDate
+                    ? 'Select Date First'
                     : isSubmitting 
                     ? 'Booking...' 
                     : 'Book Now'

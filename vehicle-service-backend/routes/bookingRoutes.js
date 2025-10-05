@@ -5,7 +5,16 @@ const router = express.Router();
 const bookingController = require("../controllers/bookingController");
 const { ensureAuthenticated } = require("../middleware/authMiddleware");
 
-// Apply authentication middleware to all booking routes
+// Public routes (no authentication required)
+// Route to get available time slots for a specific date
+// GET /api/bookings/time-slots?date=2024-01-15
+router.get("/time-slots", bookingController.getAvailableTimeSlots);
+
+// Route to check daily booking availability
+// GET /api/bookings/availability
+router.get("/availability", bookingController.checkBookingAvailability);
+
+// Apply authentication middleware to all other booking routes
 router.use(ensureAuthenticated);
 
 // Route to create a new booking

@@ -22,19 +22,40 @@ const createBooking = async (req, res) => {
     transmissionType,
     kilometersRun,
     bookingDate,
+    timeSlot,
     serviceTypes,
     specialRequests,
   } = req.body;
 
   // Basic validation
-  if (!name || !phone || !vehicleNumber || !bookingDate) {
+  if (!name || !phone || !vehicleNumber || !bookingDate || !timeSlot) {
     return res.status(400).json({
-      message: "Name, phone, vehicle number, and booking date are required.",
+      message: "Name, phone, vehicle number, booking date, and time slot are required.",
     });
   }
 
-  // Check daily booking limit (10 bookings per day)
-  const DAILY_BOOKING_LIMIT = 10;
+  // Check if the selected time slot is available for the booking date
+  try {
+    const [timeSlotResult] = await db.query(
+      "SELECT bookingId FROM booking WHERE bookingDate = ? AND timeSlot = ?",
+      [bookingDate, timeSlot]
+    );
+    
+    if (timeSlotResult.length > 0) {
+      return res.status(409).json({
+        message: `The selected time slot "${timeSlot}" is already booked for ${bookingDate}. Please choose a different time slot.`,
+        conflict: true,
+        timeSlot: timeSlot,
+        bookingDate: bookingDate
+      });
+    }
+  } catch (error) {
+    console.error("Time slot availability check error:", error);
+    return res.status(500).json({ message: "Server error checking time slot availability." });
+  }
+
+  // Check daily booking limit (8 bookings per day)
+  const DAILY_BOOKING_LIMIT = 8;
   const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
 
   try {
@@ -58,9 +79,9 @@ const createBooking = async (req, res) => {
       INSERT INTO booking (
         name, phone, vehicleNumber, vehicleType, fuelType,
         vehicleBrand, vehicleBrandModel, manufacturedYear, transmissionType,
-        kilometersRun, bookingDate, serviceTypes,
+        kilometersRun, bookingDate, timeSlot, serviceTypes,
         specialRequests, customerId, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     // The 'serviceTypes' array from the frontend is converted to a JSON string for storage.
@@ -76,6 +97,7 @@ const createBooking = async (req, res) => {
       transmissionType,
       kilometersRun,
       bookingDate,
+      timeSlot,
       JSON.stringify(serviceTypes || []),
       specialRequests,
       customerId,
@@ -260,7 +282,7 @@ const getBookingStats = async (req, res) => {
  * Check daily booking availability
  */
 const checkBookingAvailability = async (req, res) => {
-  const DAILY_BOOKING_LIMIT = 10;
+  const DAILY_BOOKING_LIMIT = 8;
   const today = new Date().toISOString().split('T')[0];
 
   try {
@@ -288,6 +310,52 @@ const checkBookingAvailability = async (req, res) => {
   }
 };
 
+/**
+ * Get available time slots for a specific date
+ */
+const getAvailableTimeSlots = async (req, res) => {
+  const { date } = req.query;
+  
+  if (!date) {
+    return res.status(400).json({ message: "Date parameter is required" });
+  }
+
+  // Define all available time slots
+  const allTimeSlots = [
+    '07:30 AM - 09:00 AM',
+    '09:00 AM - 10:30 AM', 
+    '10:30 AM - 12:00 PM',
+    '12:30 PM - 02:00 PM',
+    '02:00 PM - 03:30 PM',
+    '03:30 PM - 05:00 PM',
+    '05:00 PM - 06:30 PM',
+    '06:30 PM - 07:30 PM'
+  ];
+
+  try {
+    // Get booked time slots for the specified date
+    const [bookedSlots] = await db.query(
+      "SELECT timeSlot FROM booking WHERE bookingDate = ?",
+      [date]
+    );
+    
+    const bookedTimeSlots = bookedSlots.map(slot => slot.timeSlot);
+    const availableTimeSlots = allTimeSlots.filter(slot => !bookedTimeSlots.includes(slot));
+    
+    res.json({
+      date: date,
+      availableTimeSlots: availableTimeSlots,
+      bookedTimeSlots: bookedTimeSlots,
+      totalSlots: allTimeSlots.length,
+      availableCount: availableTimeSlots.length,
+      bookedCount: bookedTimeSlots.length
+    });
+  } catch (error) {
+    console.error("Error fetching available time slots:", error);
+    res.status(500).json({ message: "Server error fetching available time slots" });
+  }
+};
+
 module.exports = {
   createBooking,
   updateBooking,
@@ -298,4 +366,5 @@ module.exports = {
   deleteBooking,
   getBookingStats,
   checkBookingAvailability,
+  getAvailableTimeSlots,
 };

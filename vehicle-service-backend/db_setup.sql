@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS customer (
     address TEXT,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 -- Use your existing database
 USE vehicle_service_db;
 
@@ -23,6 +22,8 @@ ALTER TABLE customer
     ADD COLUMN googleId VARCHAR(255) UNIQUE NULL,
     -- Add a column to track the authentication provider ('local' or 'google')
     ADD COLUMN provider VARCHAR(50) NOT NULL DEFAULT 'local';
+
+    
 
 -- *NEW* vehicle table to store vehicle information
 -- This table is linked to the customer via the 'customerId' foreign key.
@@ -49,24 +50,21 @@ CREATE TABLE booking (
     name VARCHAR(255) NOT NULL,
     phone VARCHAR(20) NOT NULL,
     vehicleNumber VARCHAR(100) NOT NULL,
-    engineNumber VARCHAR(100),
     vehicleType VARCHAR(100),
     fuelType VARCHAR(50),
     vehicleBrand VARCHAR(100),
     vehicleBrandModel VARCHAR(100),
     manufacturedYear YEAR,
     transmissionType VARCHAR(50),
-    oilType VARCHAR(100),
-    oilFilterType VARCHAR(100),
     kilometersRun INT,
     bookingDate DATE NOT NULL,
+    timeSlot VARCHAR(100) NOT NULL,
     
     -- We use the JSON data type to store the array of selected services.
     -- This is perfect for handling multiple checkbox selections.
     serviceTypes JSON, 
     
     specialRequests TEXT,
-    promoCode VARCHAR(50),
     
     -- It's good practice to have a status for the booking
     status ENUM('Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
@@ -76,7 +74,10 @@ CREATE TABLE booking (
 
     -- Optional: If a booking is made by a logged-in user, we can link it
     customerId INT NULL,
-    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL
+    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL,
+    
+    -- Ensure one time slot per date can only be booked once
+    UNIQUE KEY unique_time_slot (bookingDate, timeSlot)
 );
 
 -- New table to store breakdown service requests
@@ -102,4 +103,21 @@ CREATE TABLE breakdown_request (
     -- Foreign keys to link with other tables
     FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE CASCADE,
     FOREIGN KEY (vehicleId) REFERENCES vehicle(vehicleId) ON DELETE CASCADE
+);
+
+-- Use your existing database
+USE vehicle_service_db;
+
+-- New table to store messages from the contact form
+CREATE TABLE contact_submissions (
+    submissionId INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    subject VARCHAR(255),
+    message TEXT NOT NULL,
+    
+    -- A flag to help staff track which messages have been read
+    isRead BOOLEAN DEFAULT FALSE,
+    
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
