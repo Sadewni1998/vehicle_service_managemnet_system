@@ -3,15 +3,15 @@
 const db = require('../config/db');
 
 /**
- * Creates a new breakdown service request for the logged-in user.
+ * Creates a new breakdown service request (public access - no authentication required).
  */
 const createBreakdownRequest = async (req, res) => {
-  // The customerId is securely taken from the logged-in user's token
-  const customerId = req.user.customerId;
-
-  // Get the rest of the details from the request body
+  // Get the details from the request body
   const { 
-    vehicleId, 
+    name,
+    phone,
+    vehicleNumber,
+    vehicleType,
     emergencyType, 
     latitude, 
     longitude, 
@@ -20,18 +20,30 @@ const createBreakdownRequest = async (req, res) => {
   } = req.body;
 
   // Basic validation
-  if (!vehicleId || !emergencyType || !latitude || !longitude) {
-    return res.status(400).json({ message: 'Vehicle, emergency type, and location are required.' });
+  if (!name || !phone || !vehicleNumber || !emergencyType || !latitude || !longitude) {
+    return res.status(400).json({ message: 'Name, phone, vehicle number, emergency type, and location are required.' });
   }
 
   try {
+    // For public requests, we'll use customerId = NULL and store contact info directly
     const sql = `
       INSERT INTO breakdown_request (
-        customerId, vehicleId, emergencyType, latitude, longitude, problemDescription, additionalInfo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        customerId, vehicleId, emergencyType, latitude, longitude, problemDescription, additionalInfo,
+        contactName, contactPhone, vehicleNumber, vehicleType
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
-      customerId, vehicleId, emergencyType, latitude, longitude, problemDescription, additionalInfo
+      null, // customerId - NULL for public requests
+      null, // vehicleId - NULL for public requests
+      emergencyType, 
+      latitude, 
+      longitude, 
+      problemDescription, 
+      additionalInfo,
+      name,
+      phone,
+      vehicleNumber,
+      vehicleType
     ];
 
     const [result] = await db.query(sql, values);

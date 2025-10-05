@@ -7,14 +7,35 @@ import { breakdownAPI } from '../utils/api'
 const Request = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [coordinates, setCoordinates] = useState({ latitude: null, longitude: null })
   const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm()
 
   const onSubmit = async (data) => {
+    // Check if location is available
+    if (!coordinates.latitude || !coordinates.longitude) {
+      toast.error('Please get your current location before submitting')
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      const response = await breakdownAPI.create(data)
+      // Map form data to backend expected format for public requests
+      const requestData = {
+        name: data.name,
+        phone: data.phone_number,
+        vehicleNumber: data.vehicle_number,
+        vehicleType: data.vehicle_type,
+        emergencyType: data.emergency_type,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        problemDescription: data.problem_description,
+        additionalInfo: data.additional_info || ''
+      }
+
+      const response = await breakdownAPI.create(requestData)
       toast.success('Breakdown service request submitted successfully!')
       reset()
+      setCoordinates({ latitude: null, longitude: null })
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to submit breakdown request. Please try again.'
       toast.error(message)
@@ -51,10 +72,12 @@ const Request = () => {
           if (data.results && data.results.length > 0) {
             const address = data.results[0].formatted_address
             setValue('location', address)
+            setCoordinates({ latitude, longitude })
             toast.success('Location detected and filled automatically!')
           } else {
             // Fallback to coordinates if address not found
             setValue('location', `${latitude}, ${longitude}`)
+            setCoordinates({ latitude, longitude })
             toast.success('Location coordinates detected!')
           }
         } catch (error) {
@@ -62,6 +85,7 @@ const Request = () => {
           // Fallback to coordinates
           const { latitude, longitude } = position.coords
           setValue('location', `${latitude}, ${longitude}`)
+          setCoordinates({ latitude, longitude })
           toast.success('Location coordinates detected!')
         } finally {
           setIsGettingLocation(false)

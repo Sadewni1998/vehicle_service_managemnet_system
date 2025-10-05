@@ -70,7 +70,8 @@ export const contactAPI = {
 
 // Breakdown Service API
 export const breakdownAPI = {
-  create: (requestData) => api.post('/breakdown', requestData),
+  create: (requestData) => api.post('/breakdown/request', requestData),
+  getMyRequests: () => api.get('/breakdown/my-requests'),
   getAll: (params) => api.get('/breakdown', { params }),
   getById: (id) => api.get(`/breakdown/${id}`),
   updateStatus: (id, status) => api.put(`/breakdown/${id}/status`, status),
