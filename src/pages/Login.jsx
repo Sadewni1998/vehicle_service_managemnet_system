@@ -17,7 +17,7 @@ const Login = () => {
     setIsLoading(true)
     const result = await login(data)
     if (result.success) {
-      navigate('/')
+      navigate('/customer-dashboard')
     }
     setIsLoading(false)
   }
@@ -27,7 +27,7 @@ const Login = () => {
       const googleToken = await signInWithGoogle()
       const result = await googleSignIn(googleToken)
       if (result.success) {
-        navigate('/')
+        navigate('/customer-dashboard')
       }
     } catch (error) {
       console.error('Google sign-in error:', error)

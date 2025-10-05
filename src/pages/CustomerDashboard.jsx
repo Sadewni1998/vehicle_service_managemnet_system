@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Calendar, 
@@ -8,35 +8,70 @@ import {
   Plus,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
+import { bookingsAPI } from '../utils/api'
+import toast from 'react-hot-toast'
 
 const CustomerDashboard = () => {
   const [activeTab, setActiveTab] = useState('appointments')
+  const [bookings, setBookings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const { user } = useAuth()
+
+  // Fetch user bookings on component mount
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true)
+        const response = await bookingsAPI.getUserBookings()
+        setBookings(response.data || [])
+        setError(null)
+      } catch (err) {
+        console.error('Error fetching bookings:', err)
+        setError('Failed to load bookings')
+        toast.error('Failed to load your bookings')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (user) {
+      fetchBookings()
+    }
+  }, [user])
+
+  // Calculate summary statistics
+  const activeBookings = bookings.filter(booking => 
+    ['Pending', 'Confirmed', 'In Progress'].includes(booking.status)
+  ).length
 
   const summaryCards = [
     {
       title: 'Active Bookings',
-      value: '3',
+      value: activeBookings.toString(),
       icon: <Calendar className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
-      title: 'Vehicles',
-      value: '2',
+      title: 'Total Bookings',
+      value: bookings.length.toString(),
       icon: <Car className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
-      title: 'Total Spent',
-      value: 'Rs. 28,000',
-      icon: <DollarSign className="w-8 h-8 text-red-600" />,
+      title: 'Completed',
+      value: bookings.filter(b => b.status === 'Completed').length.toString(),
+      icon: <CheckCircle className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
-      title: 'Cart Items',
-      value: '5',
-      icon: <ShoppingCart className="w-8 h-8 text-red-600" />,
+      title: 'Pending',
+      value: bookings.filter(b => b.status === 'Pending').length.toString(),
+      icon: <Clock className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     }
   ]
@@ -49,24 +84,45 @@ const CustomerDashboard = () => {
     { id: 'e-shop', label: 'E-Shop' }
   ]
 
-  const appointments = [
-    {
-      id: 1,
-      service: 'Car Wash',
-      vehicle: 'ABC1234',
-      date: 'Dec 15, 2024 at 10:00 AM',
-      status: 'Pending',
-      statusColor: 'bg-yellow-100 text-yellow-800'
-    },
-    {
-      id: 2,
-      service: 'Oil Change',
-      vehicle: 'XYZ9876',
-      date: 'Dec 20, 2024 at 2:00 PM',
-      status: 'Confirmed',
-      statusColor: 'bg-green-100 text-green-800'
+  // Helper function to get status color
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800'
+      case 'in progress':
+        return 'bg-purple-100 text-purple-800'
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
     }
-  ]
+  }
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date not set'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  // Helper function to parse service types
+  const parseServiceTypes = (serviceTypes) => {
+    if (!serviceTypes) return 'No services specified'
+    try {
+      const services = typeof serviceTypes === 'string' ? JSON.parse(serviceTypes) : serviceTypes
+      return Array.isArray(services) ? services.join(', ') : 'No services specified'
+    } catch {
+      return 'No services specified'
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -118,7 +174,7 @@ const CustomerDashboard = () => {
             {activeTab === 'appointments' && (
               <div>
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-900">My Appointments</h3>
+                  <h3 className="text-xl font-bold text-gray-900">My Bookings</h3>
                   <Link
                     to="/booking"
                     className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
@@ -128,23 +184,71 @@ const CustomerDashboard = () => {
                   </Link>
                 </div>
 
-                <div className="space-y-4">
-                  {appointments.map((appointment) => (
-                    <div key={appointment.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-bold text-gray-900 mb-1">
-                            {appointment.service} - {appointment.vehicle}
-                          </h4>
-                          <p className="text-gray-600 text-sm">{appointment.date}</p>
+                {loading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+                    <span className="ml-2 text-gray-600">Loading your bookings...</span>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <button 
+                      onClick={() => window.location.reload()} 
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                ) : bookings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No bookings found</p>
+                    <Link
+                      to="/booking"
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
+                    >
+                      Make Your First Booking
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {bookings.map((booking) => (
+                      <div key={booking.bookingId} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <h4 className="font-bold text-gray-900 mb-2">
+                              {parseServiceTypes(booking.serviceTypes)} - {booking.vehicleNumber}
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div>
+                                <p><span className="font-medium">Date:</span> {formatDate(booking.bookingDate)}</p>
+                                <p><span className="font-medium">Time:</span> {booking.timeSlot || 'Not specified'}</p>
+                                <p><span className="font-medium">Vehicle:</span> {booking.vehicleBrand} {booking.vehicleBrandModel}</p>
+                              </div>
+                              <div>
+                                <p><span className="font-medium">Contact:</span> {booking.phone}</p>
+                                <p><span className="font-medium">Year:</span> {booking.manufacturedYear || 'Not specified'}</p>
+                                <p><span className="font-medium">Fuel Type:</span> {booking.fuelType || 'Not specified'}</p>
+                              </div>
+                            </div>
+                            {booking.specialRequests && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                <p className="text-sm"><span className="font-medium">Special Requests:</span> {booking.specialRequests}</p>
+                              </div>
+                            )}
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
+                            {booking.status}
+                          </span>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${appointment.statusColor}`}>
-                          {appointment.status}
-                        </span>
+                        <div className="text-xs text-gray-500">
+                          Booking ID: {booking.bookingId} • Created: {formatDate(booking.createdAt)}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

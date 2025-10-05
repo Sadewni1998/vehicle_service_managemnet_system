@@ -13,6 +13,7 @@ import Parts from './pages/Parts'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Admin from './pages/Admin'
+import CustomerDashboard from './pages/CustomerDashboard'
 function App() {
   return (
     <AuthProvider>
@@ -22,6 +23,7 @@ function App() {
           <main>
             <Routes>
               <Route path="/admin" element={<Admin/>}/>
+              <Route path="/customer-dashboard" element={<CustomerDashboard />} />
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/services" element={<Services />} />

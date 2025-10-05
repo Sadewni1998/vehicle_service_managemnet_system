@@ -74,12 +74,17 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const logout = () => {
+  const logout = (navigate) => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setToken(null)
     setUser(null)
     toast.success('Logged out successfully')
+    
+    // Redirect to home page if navigate function is provided
+    if (navigate) {
+      navigate('/')
+    }
   }
 
   const updateProfile = async (profileData) => {
