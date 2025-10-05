@@ -85,10 +85,53 @@ const Booking = () => {
     }
   }
 
+  // Helper function to check if a time slot is in the past
+  const isTimeSlotInPast = (timeSlot, selectedDate) => {
+    if (!selectedDate || !timeSlot) return false
+    
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0] // Get today's date as YYYY-MM-DD
+    
+    // If selected date is in the future, no time slots are in the past
+    if (selectedDate > todayStr) return false
+    
+    // If selected date is in the past, all time slots are in the past
+    if (selectedDate < todayStr) return true
+    
+    // If selected date is today, check if the time slot has passed
+    if (selectedDate === todayStr) {
+      const currentTime = today.getHours() * 60 + today.getMinutes()
+      
+      // Extract start time from time slot (e.g., "07:30 AM - 09:00 AM" -> "07:30 AM")
+      const startTimeStr = timeSlot.split(' - ')[0]
+      const [time, period] = startTimeStr.split(' ')
+      const [hours, minutes] = time.split(':').map(Number)
+      
+      let slotStartMinutes = hours * 60 + minutes
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) {
+        slotStartMinutes += 12 * 60
+      } else if (period === 'AM' && hours === 12) {
+        slotStartMinutes -= 12 * 60
+      }
+      
+      return currentTime > slotStartMinutes
+    }
+    
+    return false
+  }
+
   const onSubmit = async (data) => {
     // Check if booking is still available before submitting
     if (!bookingAvailability.isAvailable) {
       toast.error('Booking limit reached for today. Please try again tomorrow.')
+      return
+    }
+
+    // Check if selected time slot is in the past
+    if (isTimeSlotInPast(data.time_slots, data.service_date)) {
+      toast.error('The selected time slot is in the past. Please choose a future time slot.')
       return
     }
 
@@ -279,6 +322,9 @@ const Booking = () => {
                         required: 'Time slot is required',
                         validate: (value) => {
                           if (!selectedDate) return 'Please select a date first'
+                          if (isTimeSlotInPast(value, selectedDate)) {
+                            return 'This time slot is in the past'
+                          }
                           if (timeSlotAvailability.bookedTimeSlots.includes(value)) {
                             return 'This time slot is no longer available'
                           }
@@ -298,15 +344,32 @@ const Booking = () => {
                       {timeSlots.map((slot) => {
                         const isAvailable = timeSlotAvailability.availableTimeSlots.includes(slot)
                         const isBooked = timeSlotAvailability.bookedTimeSlots.includes(slot)
+                        const isInPast = isTimeSlotInPast(slot, selectedDate)
+                        const isDisabled = isBooked || isInPast
+                        
+                        let statusText = ''
+                        if (isInPast) {
+                          statusText = '(Past)'
+                        } else if (isBooked) {
+                          statusText = '(Booked)'
+                        } else if (isAvailable) {
+                          statusText = '(Available)'
+                        }
                         
                         return (
                           <option 
                             key={slot} 
                             value={slot}
-                            disabled={isBooked}
-                            className={isBooked ? 'text-gray-400 bg-gray-100' : ''}
+                            disabled={isDisabled}
+                            className={
+                              isInPast 
+                                ? 'text-gray-500 bg-gray-200' 
+                                : isBooked 
+                                ? 'text-gray-400 bg-gray-100' 
+                                : ''
+                            }
                           >
-                            {slot} {isBooked ? '(Booked)' : isAvailable ? '(Available)' : ''}
+                            {slot} {statusText}
                           </option>
                         )
                       })}
