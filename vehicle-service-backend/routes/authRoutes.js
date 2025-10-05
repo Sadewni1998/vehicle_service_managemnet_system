@@ -16,6 +16,15 @@ router.post("/login", authController.login);
 // Protected routes
 router.get("/profile", ensureAuthenticated, authController.getProfile);
 router.put("/profile", ensureAuthenticated, authController.updateProfile);
-router.put("/change-password", ensureAuthenticated, authController.changePassword);
+router.put(
+  "/change-password",
+  ensureAuthenticated,
+  authController.changePassword
+);
 
+// Add the new route for Google Sign-In
+// @route   POST /api/auth/google
+// @desc    Authenticate user with Google
+// @access  Public
+router.post("/google", authController.googleSignIn);
 module.exports = router;

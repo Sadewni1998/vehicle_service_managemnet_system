@@ -3,6 +3,8 @@
 const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
  * Handles new customer registration with optional vehicle details.
@@ -97,7 +99,7 @@ const register = async (req, res) => {
       expiresIn: "1h",
     });
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: "Customer registered successfully!",
       token: token,
       user: {
@@ -105,8 +107,8 @@ const register = async (req, res) => {
         name: name,
         email: email,
         phone: phone,
-        address: address
-      }
+        address: address,
+      },
     });
   } catch (error) {
     // If any error occurred during the process, roll back all changes
@@ -175,8 +177,8 @@ const login = async (req, res) => {
         name: customer.name,
         email: customer.email,
         phone: customer.phone,
-        address: customer.address
-      }
+        address: customer.address,
+      },
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -190,22 +192,25 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const customerId = req.user.customerId;
-    
-    const [rows] = await db.query("SELECT * FROM customer WHERE customerId = ?", [customerId]);
+
+    const [rows] = await db.query(
+      "SELECT * FROM customer WHERE customerId = ?",
+      [customerId]
+    );
     const customer = rows[0];
-    
+
     if (!customer) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     res.json({
       user: {
         id: customer.customerId,
         name: customer.name,
         email: customer.email,
         phone: customer.phone,
-        address: customer.address
-      }
+        address: customer.address,
+      },
     });
   } catch (error) {
     console.error("Get profile error:", error);
@@ -220,16 +225,16 @@ const updateProfile = async (req, res) => {
   try {
     const customerId = req.user.customerId;
     const { name, phone, address } = req.body;
-    
+
     const [result] = await db.query(
       "UPDATE customer SET name = ?, phone = ?, address = ? WHERE customerId = ?",
       [name, phone, address, customerId]
     );
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     res.json({ message: "Profile updated successfully" });
   } catch (error) {
     console.error("Update profile error:", error);
@@ -244,32 +249,159 @@ const changePassword = async (req, res) => {
   try {
     const customerId = req.user.customerId;
     const { currentPassword, newPassword } = req.body;
-    
+
     // Get current password
-    const [rows] = await db.query("SELECT password FROM customer WHERE customerId = ?", [customerId]);
+    const [rows] = await db.query(
+      "SELECT password FROM customer WHERE customerId = ?",
+      [customerId]
+    );
     const customer = rows[0];
-    
+
     if (!customer) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, customer.password);
     if (!isMatch) {
       return res.status(400).json({ message: "Current password is incorrect" });
     }
-    
+
     // Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
-    
+
     // Update password
-    await db.query("UPDATE customer SET password = ? WHERE customerId = ?", [hashedPassword, customerId]);
-    
+    await db.query("UPDATE customer SET password = ? WHERE customerId = ?", [
+      hashedPassword,
+      customerId,
+    ]);
+
     res.json({ message: "Password changed successfully" });
   } catch (error) {
     console.error("Change password error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * Handles Sign-In with Google.
+ * Verifies the Google token, then finds or creates a user in our database.
+ */
+const googleSignIn = async (req, res) => {
+  const { token } = req.body; // This is the user info from the frontend
+
+  // Debug: Check if Google Client ID is loaded
+  console.log('Google Client ID from env:', process.env.GOOGLE_CLIENT_ID);
+  console.log('Received token:', token ? 'Token received' : 'No token');
+
+  if (!token) {
+    return res.status(400).json({ message: "Google token is required." });
+  }
+
+  try {
+    // Parse the user info from frontend
+    let userInfo;
+    try {
+      userInfo = JSON.parse(token);
+    } catch (parseError) {
+      return res.status(400).json({ message: "Invalid token format." });
+    }
+
+    const { access_token } = userInfo;
+
+    // Verify the access token with Google
+    if (!access_token) {
+      return res.status(400).json({ message: "Access token is required for verification." });
+    }
+
+    try {
+      const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${access_token}`);
+      const verifiedUserInfo = await response.json();
+      
+      if (verifiedUserInfo.error) {
+        return res.status(400).json({ message: "Invalid Google access token." });
+      }
+      
+      // Use verified data from Google
+      const verifiedGoogleId = verifiedUserInfo.id;
+      const verifiedName = verifiedUserInfo.name;
+      const verifiedEmail = verifiedUserInfo.email;
+
+      // 4. CHECK IF USER EXISTS IN OUR DATABASE
+      const [rows] = await db.query("SELECT * FROM customer WHERE email = ?", [
+        verifiedEmail,
+      ]);
+      let customer = rows[0];
+
+      // 5. IF USER DOES NOT EXIST, CREATE A NEW ONE
+      if (!customer) {
+        const newUserSql = `
+          INSERT INTO customer (name, email, googleId, provider) 
+          VALUES (?, ?, ?, 'google')
+        `;
+        const [result] = await db.query(newUserSql, [verifiedName, verifiedEmail, verifiedGoogleId]);
+
+        // Fetch the newly created customer to get their customerId
+        const [newRows] = await db.query(
+          "SELECT * FROM customer WHERE customerId = ?",
+          [result.insertId]
+        );
+        customer = newRows[0];
+      }
+
+      // Security Check: If a user exists but signed up locally, you might want to handle this
+      if (customer.provider === "local") {
+        // You could return an error, or link the Google account.
+        // For now, we'll proceed, but this is a point for future improvement.
+      }
+
+      // 6. CREATE *OUR* JWT FOR THE USER
+      const appTokenPayload = {
+        customerId: customer.customerId,
+        email: customer.email,
+        name: customer.name,
+      };
+
+      const appToken = jwt.sign(appTokenPayload, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+
+      // 7. SEND OUR TOKEN BACK TO THE FRONTEND
+      res.status(200).json({
+        message: "Google Sign-In successful!",
+        token: appToken,
+        user: {
+          id: customer.customerId,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          address: customer.address,
+        },
+      });
+    } catch (fetchError) {
+      console.error("Error verifying with Google:", fetchError);
+      res.status(400).json({ message: "Failed to verify Google access token." });
+    }
+  } catch (error) {
+    console.error("Google Sign-In error:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // Return more specific error message
+    if (error.message.includes('Invalid token')) {
+      res.status(400).json({ message: "Invalid Google token provided." });
+    } else if (error.message.includes('Client ID')) {
+      res.status(500).json({ message: "Google OAuth configuration error. Please check Google Client ID." });
+    } else {
+      res.status(500).json({ 
+        message: "Server error during Google Sign-In.",
+        error: error.message 
+      });
+    }
   }
 };
 
@@ -279,4 +411,5 @@ module.exports = {
   getProfile,
   updateProfile,
   changePassword,
+  googleSignIn,
 };

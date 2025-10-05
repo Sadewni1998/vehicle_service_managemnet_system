@@ -12,6 +12,18 @@ CREATE TABLE IF NOT EXISTS customer (
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Use your existing database
+USE vehicle_service_db;
+
+-- Modify the customer table to support Google Sign-In
+ALTER TABLE customer
+    -- Make the password nullable, as Google users won't have one in our system
+    MODIFY COLUMN password VARCHAR(255) NULL,
+    -- Add a column to store the user's unique Google ID
+    ADD COLUMN googleId VARCHAR(255) UNIQUE NULL,
+    -- Add a column to track the authentication provider ('local' or 'google')
+    ADD COLUMN provider VARCHAR(50) NOT NULL DEFAULT 'local';
+
 -- *NEW* vehicle table to store vehicle information
 -- This table is linked to the customer via the 'customerId' foreign key.
 CREATE TABLE IF NOT EXISTS vehicle (

@@ -109,6 +109,25 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const googleSignIn = async (googleToken) => {
+    try {
+      const response = await authAPI.googleSignIn(googleToken)
+      const { user: userData, token: authToken } = response.data
+      
+      localStorage.setItem('token', authToken)
+      localStorage.setItem('user', JSON.stringify(userData))
+      setToken(authToken)
+      setUser(userData)
+      
+      toast.success('Google sign-in successful!')
+      return { success: true }
+    } catch (error) {
+      const message = error.response?.data?.message || 'Google sign-in failed'
+      toast.error(message)
+      return { success: false, error: message }
+    }
+  }
+
   const value = {
     user,
     token,
@@ -118,6 +137,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     updateProfile,
     changePassword,
+    googleSignIn,
     isAuthenticated: !!user
   }
 

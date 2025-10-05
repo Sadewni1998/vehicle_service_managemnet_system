@@ -3,13 +3,15 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Car } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import useGoogleAuth from '../hooks/useGoogleAuth'
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm()
-  const { login } = useAuth()
+  const { login, googleSignIn } = useAuth()
   const navigate = useNavigate()
+  const { isGoogleLoaded, isLoading: isGoogleLoading, signInWithGoogle } = useGoogleAuth()
 
   const onSubmit = async (data) => {
     setIsLoading(true)
@@ -18,6 +20,18 @@ const Login = () => {
       navigate('/')
     }
     setIsLoading(false)
+  }
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const googleToken = await signInWithGoogle()
+      const result = await googleSignIn(googleToken)
+      if (result.success) {
+        navigate('/')
+      }
+    } catch (error) {
+      console.error('Google sign-in error:', error)
+    }
   }
 
   return (
@@ -151,10 +165,16 @@ const Login = () => {
             <div className="mt-6 gap-3">
               <button
                 type="button"
-                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                onClick={handleGoogleSignIn}
+                disabled={!isGoogleLoaded || isGoogleLoading}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="sr-only">Sign in with Google</span>
-                <span className="text-sm font-semibold">Google</span>
+                {isGoogleLoading ? (
+                  <span className="text-sm font-semibold">Signing in...</span>
+                ) : (
+                  <span className="text-sm font-semibold">Google</span>
+                )}
               </button>
             </div>
           </div>
