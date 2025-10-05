@@ -27,6 +27,7 @@ const CustomerDashboard = () => {
   const [vehicles, setVehicles] = useState([])
   const [showAddVehicleForm, setShowAddVehicleForm] = useState(false)
   const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const { user } = useAuth()
   const { register, handleSubmit, formState: { errors }, reset } = useForm()
 
@@ -40,8 +41,24 @@ const CustomerDashboard = () => {
         setError(null)
       } catch (err) {
         console.error('Error fetching bookings:', err)
-        setError('Failed to load bookings')
-        toast.error('Failed to load your bookings')
+        
+        // Handle different types of errors
+        if (err.response?.status === 401) {
+          // Auth error - don't show error message as user will be redirected
+          setError('Authentication required')
+        } else if (err.response?.status >= 500) {
+          // Server error
+          setError('Server error. Please try again later.')
+          toast.error('Server error. Please try again later.')
+        } else if (err.code === 'NETWORK_ERROR' || !err.response) {
+          // Network error - allow retry
+          setError('Network error. Please check your connection.')
+          toast.error('Network error. Please check your connection.')
+        } else {
+          // Other errors
+          setError('Failed to load bookings')
+          toast.error('Failed to load your bookings')
+        }
       } finally {
         setLoading(false)
       }
@@ -50,7 +67,12 @@ const CustomerDashboard = () => {
     if (user) {
       fetchBookings()
     }
-  }, [user])
+  }, [user, retryCount])
+
+  // Retry function for failed API calls
+  const retryFetchBookings = () => {
+    setRetryCount(prev => prev + 1)
+  }
 
   // Load vehicles from localStorage (in a real app, this would come from an API)
   useEffect(() => {
@@ -254,7 +276,7 @@ const CustomerDashboard = () => {
                     <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
                     <p className="text-gray-600 mb-4">{error}</p>
                     <button 
-                      onClick={() => window.location.reload()} 
+                      onClick={retryFetchBookings} 
                       className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                     >
                       Try Again

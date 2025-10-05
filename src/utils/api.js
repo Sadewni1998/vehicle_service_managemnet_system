@@ -29,10 +29,25 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+      // Token expired or invalid - handle gracefully
+      const currentPath = window.location.pathname
+      
+      // Only redirect to login if not already on login/register pages
+      if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+        // Clear auth data
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        
+        // Show user-friendly message
+        if (window.toast) {
+          window.toast.error('Session expired. Please log in again.')
+        }
+        
+        // Small delay before redirect to allow toast to show
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 1000)
+      }
     }
     return Promise.reject(error)
   }
@@ -77,6 +92,23 @@ export const breakdownAPI = {
   updateStatus: (id, status) => api.put(`/breakdown/${id}/status`, status),
   delete: (id) => api.delete(`/breakdown/${id}`),
   getStats: () => api.get('/breakdown/stats'),
+}
+
+// Staff API
+export const staffAPI = {
+  register: (staffData) => api.post('/staff/register', staffData),
+  login: (credentials) => api.post('/staff/login', credentials),
+  getProfile: () => api.get('/staff/profile'),
+  updateProfile: (staffData) => api.put('/staff/profile', staffData),
+}
+
+// Receptionist API
+export const receptionistAPI = {
+  getAllBookings: (params) => api.get('/bookings', { params }),
+  getBookingById: (id) => api.get(`/bookings/${id}`),
+  updateBookingStatus: (id, status) => api.put(`/bookings/${id}/status`, { status }),
+  getBookingStats: () => api.get('/bookings/stats'),
+  getTodayBookings: () => api.get('/bookings/today'),
 }
 
 // General API

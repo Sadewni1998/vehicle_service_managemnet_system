@@ -7,7 +7,7 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, userType, isStaff, isCustomer } = useAuth()
 
   const isActive = (path) => location.pathname === path
 
@@ -56,7 +56,23 @@ const Navbar = () => {
           <div className="hidden lg:flex items-center gap-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <span className="text-gray-700">Welcome, {user?.username}</span>
+                <span className="text-gray-700">Welcome, {user?.name || user?.username}</span>
+                {isStaff && (
+                  <Link
+                    to={user?.role === 'receptionist' ? '/receptionist-dashboard' : '/admin'}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                )}
+                {isCustomer && (
+                  <Link
+                    to="/customer-dashboard"
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                )}
                 <button
                   onClick={() => logout(navigate)}
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
@@ -114,8 +130,26 @@ const Navbar = () => {
               {isAuthenticated ? (
                 <div className="space-y-4">
                   <div className="text-center">
-                    <span className="text-gray-700">Welcome, {user?.username}</span>
+                    <span className="text-gray-700">Welcome, {user?.name || user?.username}</span>
                   </div>
+                  {isStaff && (
+                    <Link
+                      to={user?.role === 'receptionist' ? '/receptionist-dashboard' : '/admin'}
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors w-full justify-center"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                  )}
+                  {isCustomer && (
+                    <Link
+                      to="/customer-dashboard"
+                      className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors w-full justify-center"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       logout(navigate)

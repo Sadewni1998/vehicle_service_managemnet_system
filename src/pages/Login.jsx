@@ -17,7 +17,24 @@ const Login = () => {
     setIsLoading(true)
     const result = await login(data)
     if (result.success) {
-      navigate('/customer-dashboard')
+      // Redirect based on user type and role
+      if (result.userType === 'customer') {
+        navigate('/customer-dashboard')
+      } else if (result.userType === 'staff') {
+        // Redirect based on staff role
+        if (result.role === 'receptionist') {
+          navigate('/receptionist-dashboard')
+        } else if (result.role === 'mechanic') {
+          navigate('/mechanic-dashboard')
+        } else if (result.role === 'service_advisor') {
+          navigate('/service-advisor-dashboard')
+        } else if (result.role === 'management') {
+          navigate('/management-dashboard')
+        } else {
+          // Default staff dashboard or admin
+          navigate('/admin')
+        }
+      }
     }
     setIsLoading(false)
   }

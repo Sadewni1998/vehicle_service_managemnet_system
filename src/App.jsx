@@ -14,6 +14,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Admin from './pages/Admin'
 import CustomerDashboard from './pages/CustomerDashboard'
+import ReceptionistDashboard from './pages/ReceptionistDashboard'
 function App() {
   return (
     <AuthProvider>
@@ -24,6 +25,7 @@ function App() {
             <Routes>
               <Route path="/admin" element={<Admin/>}/>
               <Route path="/customer-dashboard" element={<CustomerDashboard />} />
+              <Route path="/receptionist-dashboard" element={<ReceptionistDashboard />} />
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
               <Route path="/services" element={<Services />} />

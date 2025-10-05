@@ -8,6 +8,7 @@ const authRoutes = require("./routes/authRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const breakdownRoutes = require("./routes/breakdownRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const staffRoutes = require("./routes/staffRoutes");
 // Initialize the Express app
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api/auth", authRoutes);
 
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/breakdown", breakdownRoutes);
+app.use("/api/staff", staffRoutes);
 
 // Placeholder routes for frontend compatibility
 app.get("/api/users/services", (req, res) => {

@@ -23,4 +23,23 @@ const ensureAuthenticated = (req, res, next) => {
   }
 };
 
-module.exports = { ensureAuthenticated };
+/**
+ * Middleware to check if the user has one of the required roles.
+ * This MUST run *after* the 'protect' middleware.
+ */
+const checkRole = (roles) => (req, res, next) => {
+  // The 'protect' middleware should have already attached the user/staff object to req
+  const user = req.user || req.staff; // Check for customer or staff
+
+  if (!user) {
+    return res.status(401).json({ message: 'Not authorized' });
+  }
+
+  if (!roles.includes(user.role)) {
+    return res.status(403).json({ message: 'Forbidden: You do not have permission for this action.' });
+  }
+  
+  next(); // If role is allowed, proceed
+};
+
+module.exports = { ensureAuthenticated, checkRole };

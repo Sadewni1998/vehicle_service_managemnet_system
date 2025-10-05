@@ -4,7 +4,7 @@ const express = require("express");
 const router = express.Router();
 const bookingController = require("../controllers/bookingController");
 const { ensureAuthenticated } = require("../middleware/authMiddleware");
-
+const { protect, checkRole } = require('../middleware/authMiddleware');
 // Public routes (no authentication required)
 // Route to get available time slots for a specific date
 // GET /api/bookings/time-slots?date=2024-01-15
@@ -48,5 +48,36 @@ router.delete("/:bookingId", bookingController.deleteBooking);
 // Route to get booking statistics
 // GET /api/bookings/stats
 router.get("/stats", bookingController.getBookingStats);
+
+// Route to get today's bookings for receptionist dashboard
+// GET /api/bookings/today
+router.get("/today", bookingController.getTodayBookings);
+
+// === Public Route ===
+router.post('/', bookingController.createBooking);
+
+// === Customer-Only Route ===
+router.get('/mybookings', ensureAuthenticated, bookingController.getUserBookings);
+
+// === Staff-Only Routes (Receptionist, Manager, etc.) ===
+
+// Get all bookings (for the dashboard)
+router.get(
+  '/', // This now becomes a protected route
+  ensureAuthenticated,
+  checkRole(['receptionist', 'manager']),
+  bookingController.getAllBookings
+);
+
+// Accept or Reject a booking
+router.patch( // Using PATCH is conventional for updating a single field
+  '/:bookingId/status',
+  ensureAuthenticated,
+  checkRole(['receptionist', 'manager']),
+  bookingController.updateBookingStatus
+);
+
+// Get a single booking by ID (can be for staff too)
+router.get('/:bookingId', ensureAuthenticated, bookingController.getBookingById);
 
 module.exports = router;

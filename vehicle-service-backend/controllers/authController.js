@@ -96,7 +96,7 @@ const register = async (req, res) => {
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "24h",
     });
 
     res.status(201).json({
@@ -165,8 +165,8 @@ const login = async (req, res) => {
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    }); // Token expires in 1 hour
+      expiresIn: "24h",
+    }); // Token expires in 24 hours
 
     // Send the token and user data back to the client
     res.status(200).json({
@@ -364,7 +364,7 @@ const googleSignIn = async (req, res) => {
       };
 
       const appToken = jwt.sign(appTokenPayload, process.env.JWT_SECRET, {
-        expiresIn: "1h",
+        expiresIn: "24h",
       });
 
       // 7. SEND OUR TOKEN BACK TO THE FRONTEND

@@ -208,29 +208,6 @@ const getUserBookings = async (req, res) => {
   }
 };
 
-/**
- * Update booking status
- */
-const updateBookingStatus = async (req, res) => {
-  const { bookingId } = req.params;
-  const { status } = req.body;
-
-  try {
-    const [result] = await db.query(
-      "UPDATE booking SET status = ? WHERE bookingId = ?",
-      [status, bookingId]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-
-    res.json({ message: "Booking status updated successfully" });
-  } catch (error) {
-    console.error("Error updating booking status:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
 
 /**
  * Delete a booking
@@ -356,6 +333,70 @@ const getAvailableTimeSlots = async (req, res) => {
   }
 };
 
+/**
+ * Updates the status of a booking (e.g., to 'Confirmed' or 'Rejected').
+ * This is a protected action for staff like receptionists.
+ */
+const updateBookingStatus = async (req, res) => {
+  const { bookingId } = req.params;
+  const { status } = req.body;
+
+  // Validate the status
+  const allowedStatuses = ['pending', 'arrived', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+  if (!status || !allowedStatuses.includes(status)) {
+    return res.status(400).json({ message: 'A valid status is required.' });
+  }
+
+  try {
+    const sql = 'UPDATE booking SET status = ? WHERE bookingId = ?';
+    const [result] = await db.query(sql, [status, bookingId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Booking not found.' });
+    }
+
+    res.status(200).json({ message: `Booking status updated to ${status}` });
+
+  } catch (error) {
+    console.error('Booking status update error:', error);
+    res.status(500).json({ message: 'Server error during booking status update.' });
+  }
+};
+
+/**
+ * Get today's bookings for receptionist dashboard
+ */
+const getTodayBookings = async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    
+    const [bookings] = await db.query(
+      "SELECT * FROM booking WHERE DATE(bookingDate) = ? ORDER BY timeSlot ASC",
+      [today]
+    );
+
+    // Transform the data to match the frontend format
+    const transformedBookings = bookings.map(booking => ({
+      id: booking.bookingId,
+      timeSlot: booking.timeSlot,
+      vehicleNumber: booking.vehicleNumber,
+      customer: booking.name,
+      status: booking.status,
+      arrivedTime: booking.arrivedTime || null,
+      phone: booking.phone,
+      vehicleType: booking.vehicleType,
+      serviceTypes: booking.serviceTypes ? JSON.parse(booking.serviceTypes) : [],
+      specialRequests: booking.specialRequests
+    }));
+
+    res.status(200).json(transformedBookings);
+  } catch (error) {
+    console.error("Error fetching today's bookings:", error);
+    res.status(500).json({ message: "Server error while fetching today's bookings." });
+  }
+};
+
+
 module.exports = {
   createBooking,
   updateBooking,
@@ -367,4 +408,5 @@ module.exports = {
   getBookingStats,
   checkBookingAvailability,
   getAvailableTimeSlots,
+  getTodayBookings,
 };
