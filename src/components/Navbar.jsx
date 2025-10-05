@@ -52,7 +52,7 @@ const Navbar = () => {
           </div>
 
           {/* Login/User Menu - Desktop */}
-          <div className="hidden lg:flex items-center">
+          <div className="hidden lg:flex items-center gap-4">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <span className="text-gray-700">Welcome, {user?.username}</span>
@@ -67,11 +67,17 @@ const Navbar = () => {
             ) : (
               <Link
                 to="/login"
-                className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-black hover:bg-blue-900 text-white transition-colors"
               >
                 <span>Login</span>
               </Link>
             )}
+              <Link
+                to="/request"
+                className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
+              >
+                <span>Breakdown Requests</span>
+              </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -102,23 +108,6 @@ const Navbar = () => {
                 </Link>
               ))}
 
-              <div className="border-t border-gray-200 pt-4">
-                <p className="text-sm font-medium text-gray-500 mb-2">Pages</p>
-                {dropdownItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`block py-2 text-sm transition-colors ${
-                      isActive(item.path)
-                        ? 'text-primary-600'
-                        : 'text-gray-700 hover:text-primary-600'
-                    }`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
 
               {/* Mobile Login/User Menu */}
               {isAuthenticated ? (
@@ -140,7 +129,7 @@ const Navbar = () => {
               ) : (
                 <Link
                   to="/login"
-                  className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-blue-900 hover:bg-blue-800 text-white transition-colors text-center w-full justify-center"
+                  className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-black hover:bg-blue-900 text-white transition-colors text-center w-full justify-center"
                   onClick={() => setIsOpen(false)}
                 >
                   Login
@@ -149,9 +138,12 @@ const Navbar = () => {
 
               {/* Breakdown requests */}
               <div>
-                <button className="w-full flex items-center justify-center space-x-2 px-6 py-3 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-colors">
-                  <span>View Breakdown Requests</span>
-                </button>
+                <Link
+                  to="/request"
+                  className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-center w-full justify-center"
+                >
+                  <span>Breakdown Requests</span>
+                </Link>
               </div>
             </div>
           </div>

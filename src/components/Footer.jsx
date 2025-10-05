@@ -75,7 +75,7 @@ const Footer = () => {
             <h4 className="text-lg font-semibold mb-4 text-white">Newsletter</h4>
             <p className="text-gray-300 mb-4">
               "Hybrid Lanka Summer Special: Beat the heat with our Summer Service Special! 
-              A/C check, coolant inspection, tire rotation, fluid top-off. Mention promo code "SUMMERGGAC."
+              A/C check, coolant inspection, tire rotation, fluid top-off."
             </p>
             <div className="flex max-w-md">
               <input

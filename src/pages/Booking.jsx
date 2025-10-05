@@ -5,6 +5,14 @@ import { Car, Wrench, CheckCircle, AlertCircle } from 'lucide-react'
 import { bookingsAPI, authAPI } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 
+const today = new Date();
+const yyyy = today.getFullYear();
+const mm = String(today.getMonth() + 1).padStart(2, "0");
+const dd = String(today.getDate()).padStart(2, "0");
+const minDate = `${yyyy}-${mm}-${dd}`;
+
+const timeSlots = ['07:30 AM - 09:00 AM', '09:00 AM - 10:30 AM', '10:30 AM - 12:00 PM', '12:30 PM - 02:00 PM', '02:00 PM - 03:30 PM', '03:30 PM - 05:00 PM', '05:00 PM - 06:30 PM', '06:30 PM - 07:30 PM']
+
 const Booking = () => {
   const { user, isAuthenticated } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -90,13 +98,6 @@ const Booking = () => {
       setIsSubmitting(false)
     }
   }
-
-  const vehicleTypes = ['Wagon', 'Sedan', 'SUV', 'Hatchback', 'Pickup/ Double Cab', 'Jeep/ Crossover', 'Mini Car/ Kei car', 'Van']
-  const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid']
-  const vehicleBrands = ['Toyota', 'Honda', 'Suzuki', 'Ford', 'Mazda', 'Isuzu', 'Subaru']
-  const transmissionTypes = ['Automatic', 'Manual']
-  const oilTypes = ['Synthetic', 'Semi-Synthetic', 'Conventional']
-  const oilFilterTypes = ['Toyota', 'Honda', 'Nissan', 'Subaru', 'Mazda', 'Suzuki', 'Mitsubishi']
 
   return (
     <div>
@@ -209,106 +210,45 @@ const Booking = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      defaultValue=""
-                      {...register('vehicle_type', { required: 'Vehicle type is required' })}
-                    >
-                      <option value="" disabled hidden>Vehicle Type</option>
-                      {vehicleTypes.map(type => (
-                        <option key={type} value={type.toLowerCase()}>{type}</option>
-                      ))}
-                    </select>
-                    {errors.vehicle_type && <p className="text-red-200 text-sm mt-1">{errors.vehicle_type.message}</p>}
-                  </div>
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      defaultValue=""
-                      {...register('fuel_type', { required: 'Fuel type is required' })}
-                    >
-                      <option value="" disabled hidden>Fuel Type</option>
-                      {fuelTypes.map(type => (
-                        <option key={type} value={type.toLowerCase()}>{type}</option>
-                      ))}
-                    </select>
-                    {errors.fuel_type && <p className="text-red-200 text-sm mt-1">{errors.fuel_type.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      defaultValue=""
-                      {...register('vehicle_brand', { required: 'Vehicle brand is required' })}
-                    >
-                      <option value="" disabled hidden>Vehicle Brand</option>
-                      {vehicleBrands.map(brand => (
-                        <option key={brand} value={brand.toLowerCase()}>{brand}</option>
-                      ))}
-                    </select>
-                    {errors.vehicle_brand && <p className="text-red-200 text-sm mt-1">{errors.vehicle_brand.message}</p>}
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      placeholder="Vehicle Brand Model"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('vehicle_brand_model', { required: 'Vehicle model is required' })}
-                    />
-                    {errors.vehicle_brand_model && <p className="text-red-200 text-sm mt-1">{errors.vehicle_brand_model.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="Manufactured Year"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('manufactured_year', { required: 'Manufactured year is required' })}
-                    />
-                    {errors.manufactured_year && <p className="text-red-200 text-sm mt-1">{errors.manufactured_year.message}</p>}
-                  </div>
-                  <div>
-                    <select
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      defaultValue=""
-                      {...register('transmission_type', { required: 'Transmission type is required' })}
-                    >
-                      <option value="" disabled hidden>Transmission Type</option>
-                      {transmissionTypes.map(type => (
-                        <option key={type} value={type.toLowerCase()}>{type}</option>
-                      ))}
-                    </select>
-                    {errors.transmission_type && <p className="text-red-200 text-sm mt-1">{errors.transmission_type.message}</p>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
-                  <div>
-                    <input
-                      type="number"
-                      placeholder="Kilometers Run"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register('kilometers_run', { required: 'Kilometers run is required' })}
-                    />
-                    {errors.kilometers_run && <p className="text-red-200 text-sm mt-1">{errors.kilometers_run.message}</p>}
-                  </div>
+                  {/* Date input */}
                   <div>
                     <input
                       type="date"
                       placeholder="Service Date"
-                      className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      className="block w-full h-[48px] px-4 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-white appearance-none"
+                      min={minDate}  
                       {...register('service_date', { required: 'Service date is required' })}
                     />
-                    {errors.service_date && <p className="text-red-200 text-sm mt-1">{errors.service_date.message}</p>}
+                    {errors.service_date && (
+                      <p className="text-red-200 text-sm mt-1">
+                        {errors.service_date.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <select
+                      className="block w-full h-[48px] px-4 rounded-lg border border-gray-300 bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-white appearance-none"
+                      defaultValue=""
+                      {...register('time_slots', { required: 'Time slot is required' })}
+                    >
+                      <option value="" disabled hidden>
+                        Select Time Slot
+                      </option>
+                      {timeSlots.map((slot) => (
+                        <option key={slot} value={slot.toLowerCase()}>
+                          {slot}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.time_slots && (
+                      <p className="text-red-200 text-sm mt-1">
+                        {errors.time_slots.message}
+                      </p>
+                    )}
                   </div>
                 </div>
-                
+
+                                
                 {/*Services Checkboxes */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white">
                   <div className="grid grid-cols-1 gap-3">
@@ -341,7 +281,7 @@ const Booking = () => {
                     </label>
                     <label className="flex items-center gap-2">
                       <input type="checkbox" value="tire" {...register("services")} />
-                      <span>Tire Replacement</span>
+                      <span>Wheel Alignment</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input type="checkbox" value="vacuum" {...register("services")} />

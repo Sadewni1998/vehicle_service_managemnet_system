@@ -372,6 +372,79 @@ const Home = () => {
         </div>
       </section>
 
+            {/* Services Tabs Section */}
+      <section className="section-padding bg-white">
+        <div className="container-custom">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold font-barlow">Explore Our Services</h1>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            {/* Service Tabs */}
+            <div className="lg:col-span-1">
+              <div className="space-y-4">
+                {serviceTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center p-6 rounded-lg transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="mr-4">
+                      {tab.icon}
+                    </div>
+                    <h4 className="text-lg font-semibold">{tab.title}</h4>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Service Content */}
+            <div className="lg:col-span-3">
+              {serviceTabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  className={`transition-all duration-300 ${
+                    activeTab === tab.id ? 'opacity-100 block' : 'opacity-0 hidden'
+                  }`}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="h-80">
+                      <img
+                        src={tab.image}
+                        alt={tab.title}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold mb-4">15 Years Of Experience In Auto Servicing</h3>
+                      <p className="text-gray-600 mb-6 text-lg leading-relaxed">
+                        {tab.description}
+                      </p>
+                      <div className="space-y-3 mb-6">
+                        {['Quality Servicing', 'Expert Workers', 'Modern Equipment'].map((item) => (
+                          <div key={item} className="flex items-center">
+                            <Check className="w-5 h-5 text-green-500 mr-3" />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <Link to="/services" className="btn-primary inline-flex items-center space-x-3">
+                        <span>Read More</span>
+                        <span>→</span>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Photo Gallery Section */}
       <section className="section-padding bg-gray-50">
         <div className="container-custom">
@@ -454,79 +527,6 @@ const Home = () => {
             </div>
           </section>
 
-        </div>
-      </section>
-
-      {/* Services Tabs Section */}
-      <section className="section-padding bg-white">
-        <div className="container-custom">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold font-barlow">Explore Our Services</h1>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Service Tabs */}
-            <div className="lg:col-span-1">
-              <div className="space-y-4">
-                {serviceTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center p-6 rounded-lg transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div className="mr-4">
-                      {tab.icon}
-                    </div>
-                    <h4 className="text-lg font-semibold">{tab.title}</h4>
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Service Content */}
-            <div className="lg:col-span-3">
-              {serviceTabs.map((tab) => (
-                <div
-                  key={tab.id}
-                  className={`transition-all duration-300 ${
-                    activeTab === tab.id ? 'opacity-100 block' : 'opacity-0 hidden'
-                  }`}
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="h-80">
-                      <img
-                        src={tab.image}
-                        alt={tab.title}
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold mb-4">15 Years Of Experience In Auto Servicing</h3>
-                      <p className="text-gray-600 mb-6 text-lg leading-relaxed">
-                        {tab.description}
-                      </p>
-                      <div className="space-y-3 mb-6">
-                        {['Quality Servicing', 'Expert Workers', 'Modern Equipment'].map((item) => (
-                          <div key={item} className="flex items-center">
-                            <Check className="w-5 h-5 text-green-500 mr-3" />
-                            <span>{item}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <Link to="/services" className="btn-primary inline-flex items-center space-x-3">
-                        <span>Read More</span>
-                        <span>→</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
