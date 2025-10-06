@@ -25,7 +25,7 @@ ALTER TABLE customer
 
     
 
--- *NEW* vehicle table to store vehicle information
+-- NEW vehicle table to store vehicle information
 -- This table is linked to the customer via the 'customerId' foreign key.
 CREATE TABLE IF NOT EXISTS vehicle (
     vehicleId INT AUTO_INCREMENT PRIMARY KEY,
@@ -155,16 +155,11 @@ INSERT INTO staff (name, email, password, role) VALUES
 
 -- Insert test data for manager (password: manager123)
 INSERT INTO staff (name, email, password, role) VALUES
-('Manager', 'manager@vehicleservice.com', '$2b$10$ZTzF/rTITvOq79Hk.i5U4e9xVMk13Q32IiX7Uo0JrP3L/MlYBx6X.yYC', 'manager');
+('Manager', 'manager@vehicleservice.com', '$2b$10$0emTWCs9TR36WJRnhgKtU.8bvB00iLhgYU373PcYx5S0WaRFUXye2', 'manager');
 
 -- Insert test data for mechanic (password: mechanic123)
 INSERT INTO staff (name, email, password, role) VALUES
-<<<<<<< Updated upstream
 ('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K', 'mechanic');
- 
-=======
-('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K
-', 'mechanic');
 
 -- Create mechanic table for specialized mechanic information
 CREATE TABLE IF NOT EXISTS mechanic (
@@ -244,4 +239,3 @@ CREATE TABLE IF NOT EXISTS jobcard (
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE RESTRICT,
     FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE CASCADE
 );
->>>>>>> Stashed changes
