@@ -15,26 +15,38 @@ const Login = () => {
 
   const onSubmit = async (data) => {
     setIsLoading(true)
+    console.log('Login attempt with data:', data)
     const result = await login(data)
+    console.log('Login result:', result)
+    
     if (result.success) {
       // Redirect based on user type and role
       if (result.userType === 'customer') {
+        console.log('Redirecting to customer dashboard')
         navigate('/customer-dashboard')
       } else if (result.userType === 'staff') {
+        console.log('Staff login successful, role:', result.role)
         // Redirect based on staff role
         if (result.role === 'receptionist') {
+          console.log('Redirecting to receptionist dashboard')
           navigate('/receptionist-dashboard')
         } else if (result.role === 'mechanic') {
+          console.log('Redirecting to mechanic dashboard')
           navigate('/mechanic-dashboard')
         } else if (result.role === 'service_advisor') {
+          console.log('Redirecting to service advisor dashboard')
           navigate('/service-advisor-dashboard')
         } else if (result.role === 'manager') {
+          console.log('Redirecting to management dashboard')
           navigate('/management-dashboard')
         } else {
+          console.log('Unknown role, redirecting to admin')
           // Default staff dashboard or admin
           navigate('/admin')
         }
       }
+    } else {
+      console.log('Login failed:', result.error)
     }
     setIsLoading(false)
   }

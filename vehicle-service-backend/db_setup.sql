@@ -144,7 +144,6 @@ CREATE TABLE staff (
 -- Add indexes for better performance
 CREATE INDEX idx_staff_email ON staff(email);
 CREATE INDEX idx_staff_role ON staff(role);
-CREATE INDEX idx_staff_active ON staff(isActive);
 
 -- Insert test data for service advisor (password: service_advisor123)
 INSERT INTO staff (name, email, password, role) VALUES
@@ -152,8 +151,7 @@ INSERT INTO staff (name, email, password, role) VALUES
 
 -- Insert test data for receptionist (password: receptionist123)
 INSERT INTO staff (name, email, password, role) VALUES
-('Receptionist', 'receptionist@vehicleservice.com', '$2b$10$MOOmKWRYOlT8w.bRO.4lq.MxVPT9wlpaTbLJBFnEORPj9MoA1v3zu
-', 'receptionist');
+('Receptionist', 'receptionist@vehicleservice.com', '$2b$10$MOOmKWRYOlT8w.bRO.4lq.MxVPT9wlpaTbLJBFnEORPj9MoA1v3zu', 'receptionist');
 
 -- Insert test data for manager (password: manager123)
 INSERT INTO staff (name, email, password, role) VALUES
@@ -161,6 +159,5 @@ INSERT INTO staff (name, email, password, role) VALUES
 
 -- Insert test data for mechanic (password: mechanic123)
 INSERT INTO staff (name, email, password, role) VALUES
-('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K
-', 'mechanic');
+('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K', 'mechanic');
  

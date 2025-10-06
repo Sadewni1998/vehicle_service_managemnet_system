@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Wrench, 
   ClipboardCheck, 
@@ -10,35 +10,11 @@ import {
 
 const MechanicDashboard = () => {
   const [activeTab, setActiveTab] = useState('my-jobs')
+  const [assignedJobs, setAssignedJobs] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const summaryCards = [
-    {
-      title: 'Assigned Jobs',
-      value: '5',
-      icon: <Wrench className="w-8 h-8 text-red-600" />,
-      color: 'bg-white'
-    },
-    {
-      title: 'Completed Today',
-      value: '3',
-      icon: <ClipboardCheck className="w-8 h-8 text-red-600" />,
-      color: 'bg-white'
-    },
-    {
-      title: 'Pending Updates',
-      value: '2',
-      icon: <Bell className="w-8 h-8 text-red-600" />,
-      color: 'bg-white'
-    }
-  ]
-
-  const tabs = [
-    { id: 'my-jobs', label: 'My Jobs' },
-    { id: 'job-cards', label: 'Job Cards' },
-    { id: 'schedule', label: "Today's Schedule" }
-  ]
-
-  const assignedJobs = [
+  // Mock data for when API is not available
+  const mockJobs = [
     {
       id: 1,
       service: 'Oil Change',
@@ -62,8 +38,67 @@ const MechanicDashboard = () => {
       statusColor: 'bg-blue-100 text-blue-800',
       actionButton: 'View Details',
       actionButtonColor: 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
+    },
+    {
+      id: 3,
+      service: 'Engine Diagnostic',
+      vehicle: 'DEF5555',
+      vehicleModel: 'Nissan Altima 2021',
+      customer: 'Bob Johnson',
+      scheduledTime: '3:30 PM',
+      status: 'Completed',
+      statusColor: 'bg-green-100 text-green-800',
+      actionButton: 'View Report',
+      actionButtonColor: 'bg-green-600 hover:bg-green-700 text-white'
     }
   ]
+
+  // Load jobs data
+  useEffect(() => {
+    const loadJobs = async () => {
+      setLoading(true)
+      try {
+        // Try to fetch from API first (when database is available)
+        // For now, use mock data
+        setAssignedJobs(mockJobs)
+      } catch (error) {
+        console.warn('Using mock data for mechanic jobs:', error.message)
+        setAssignedJobs(mockJobs)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadJobs()
+  }, [])
+
+  const summaryCards = [
+    {
+      title: 'Assigned Jobs',
+      value: assignedJobs.length.toString(),
+      icon: <Wrench className="w-8 h-8 text-red-600" />,
+      color: 'bg-white'
+    },
+    {
+      title: 'Completed Today',
+      value: assignedJobs.filter(job => job.status === 'Completed').length.toString(),
+      icon: <ClipboardCheck className="w-8 h-8 text-red-600" />,
+      color: 'bg-white'
+    },
+    {
+      title: 'In Progress',
+      value: assignedJobs.filter(job => job.status === 'In Progress').length.toString(),
+      icon: <Bell className="w-8 h-8 text-red-600" />,
+      color: 'bg-white'
+    }
+  ]
+
+  const tabs = [
+    { id: 'my-jobs', label: 'My Jobs' },
+    { id: 'job-cards', label: 'Job Cards' },
+    { id: 'schedule', label: "Today's Schedule" }
+  ]
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -119,32 +154,39 @@ const MechanicDashboard = () => {
               <div>
                 <h3 className="text-xl font-bold text-gray-900 mb-6">Assigned Jobs</h3>
                 
-                <div className="space-y-4">
-                  {assignedJobs.map((job) => (
-                    <div key={job.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h4 className="font-bold text-gray-900 mb-1">
-                            {job.service} - {job.vehicle}
-                          </h4>
-                          <div className="space-y-1 text-sm text-gray-600">
-                            <p>{job.vehicleModel}</p>
-                            <p>Customer: {job.customer}</p>
-                            <p>Scheduled: {job.scheduledTime}</p>
+                {loading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading assigned jobs...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {assignedJobs.map((job) => (
+                      <div key={job.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-bold text-gray-900 mb-1">
+                              {job.service} - {job.vehicle}
+                            </h4>
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <p>{job.vehicleModel}</p>
+                              <p>Customer: {job.customer}</p>
+                              <p>Scheduled: {job.scheduledTime}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${job.statusColor}`}>
+                              {job.status}
+                            </span>
+                            <button className={`px-4 py-2 rounded-full text-xs font-medium transition-colors ${job.actionButtonColor}`}>
+                              {job.actionButton}
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${job.statusColor}`}>
-                            {job.status}
-                          </span>
-                          <button className={`px-4 py-2 rounded-full text-xs font-medium transition-colors ${job.actionButtonColor}`}>
-                            {job.actionButton}
-                          </button>
-                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

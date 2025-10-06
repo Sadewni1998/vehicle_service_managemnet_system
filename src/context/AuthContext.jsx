@@ -88,6 +88,8 @@ export const AuthProvider = ({ children }) => {
           role: payload.role
         }
         
+        console.log('Staff login successful:', staffData)
+        
         localStorage.setItem('token', authToken)
         localStorage.setItem('user', JSON.stringify(staffData))
         localStorage.setItem('userType', 'staff')

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   ClipboardCheck, 
   Wrench,
@@ -8,6 +8,13 @@ import {
 
 const ServiceAdvisorDashboard = () => {
   const [activeTab, setActiveTab] = useState('job-cards')
+  const [loading, setLoading] = useState(true)
+
+  // Add loading effect to ensure component mounts properly
+  useEffect(() => {
+    console.log('ServiceAdvisor Dashboard loaded successfully')
+    setLoading(false)
+  }, [])
 
   const summaryCards = [
     {
@@ -50,6 +57,17 @@ const ServiceAdvisorDashboard = () => {
       approveButton: 'Approve'
     }
   ]
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading ServiceAdvisor Dashboard...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

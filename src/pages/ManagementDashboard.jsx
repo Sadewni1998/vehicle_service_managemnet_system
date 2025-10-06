@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Users, 
@@ -12,29 +12,68 @@ import {
 
 const ManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview')
+  const [dashboardData, setDashboardData] = useState({
+    totalCustomers: 1234,
+    todayRevenue: 125000,
+    staffMembers: 25,
+    activeBookings: 48,
+    dailyBookingLimit: 35,
+    maxDailyBookings: 50,
+    pendingBreakdowns: 3,
+    inProgressBreakdowns: 5
+  })
+  const [loading, setLoading] = useState(true)
+
+  // Load dashboard data
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoading(true)
+      try {
+        // Try to fetch from API first (when database is available)
+        // For now, use mock data
+        setDashboardData({
+          totalCustomers: 1234,
+          todayRevenue: 125000,
+          staffMembers: 25,
+          activeBookings: 48,
+          dailyBookingLimit: 35,
+          maxDailyBookings: 50,
+          pendingBreakdowns: 3,
+          inProgressBreakdowns: 5
+        })
+      } catch (error) {
+        console.warn('Using mock data for management dashboard:', error.message)
+        // Keep the default mock data
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
+  }, [])
 
   const kpiCards = [
     {
       title: 'Total Customers',
-      value: '1,234',
+      value: dashboardData.totalCustomers.toLocaleString(),
       icon: <Users className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
       title: "Today's Revenue",
-      value: 'LKR 125K',
+      value: `LKR ${dashboardData.todayRevenue.toLocaleString()}`,
       icon: <DollarSign className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
       title: 'Staff Members',
-      value: '25',
+      value: dashboardData.staffMembers.toString(),
       icon: <User className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     },
     {
       title: 'Active Bookings',
-      value: '48',
+      value: dashboardData.activeBookings.toString(),
       icon: <Calendar className="w-8 h-8 text-red-600" />,
       color: 'bg-white'
     }
@@ -102,13 +141,15 @@ const ManagementDashboard = () => {
                   <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                     <h3 className="text-sm font-medium text-gray-600 mb-2">Daily booking limit</h3>
                     <div className="mb-4">
-                      <p className="text-2xl font-bold text-gray-900">35/50</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {dashboardData.dailyBookingLimit}/{dashboardData.maxDailyBookings}
+                      </p>
                       <p className="text-sm text-gray-600">bookings today</p>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div 
                         className="bg-red-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: '70%' }}
+                        style={{ width: `${(dashboardData.dailyBookingLimit / dashboardData.maxDailyBookings) * 100}%` }}
                       ></div>
                     </div>
                   </div>
@@ -122,14 +163,14 @@ const ManagementDashboard = () => {
                           <AlertCircle className="w-4 h-4 text-yellow-500" />
                           <span className="text-sm text-gray-600">Pending Approvals</span>
                         </div>
-                        <span className="text-sm font-medium text-gray-900">3</span>
+                        <span className="text-sm font-medium text-gray-900">{dashboardData.pendingBreakdowns}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <CheckCircle className="w-4 h-4 text-green-500" />
                           <span className="text-sm text-gray-600">In Progress</span>
                         </div>
-                        <span className="text-sm font-medium text-gray-900">5</span>
+                        <span className="text-sm font-medium text-gray-900">{dashboardData.inProgressBreakdowns}</span>
                       </div>
                     </div>
                     <Link
