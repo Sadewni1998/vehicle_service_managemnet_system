@@ -5,7 +5,12 @@ import {
   CheckCircle, 
   XCircle,
   Search,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Calendar,
+  Phone,
+  Wrench,
+  FileText
 } from 'lucide-react'
 import { receptionistAPI } from '../utils/api'
 
@@ -15,6 +20,8 @@ const ReceptionistDashboard = () => {
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [showBookingDetails, setShowBookingDetails] = useState(false)
 
   // Get current date
   const currentDate = new Date().toLocaleDateString('en-US', {
@@ -24,7 +31,7 @@ const ReceptionistDashboard = () => {
     day: 'numeric'
   })
 
-  // Fetch today's bookings on component mount
+  // Fetch today's bookings
   useEffect(() => {
     const fetchTodayBookings = async () => {
       try {
@@ -51,10 +58,25 @@ const ReceptionistDashboard = () => {
 
   // Filter vehicles based on search term and status filter
   const filteredVehicles = vehicles.filter(vehicle => {
-    const matchesSearch = vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = 
+      vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (vehicle.phone && vehicle.phone.includes(searchTerm))
     const matchesFilter = filterStatus === 'all' || vehicle.status === filterStatus
     return matchesSearch && matchesFilter
   })
+
+  // View booking details
+  const viewBookingDetails = async (bookingId) => {
+    try {
+      const response = await receptionistAPI.getBookingById(bookingId)
+      setSelectedBooking(response.data)
+      setShowBookingDetails(true)
+    } catch (err) {
+      console.error('Error fetching booking details:', err)
+      setError('Failed to load booking details. Please try again.')
+    }
+  }
 
   // Mark vehicle as arrived
   const markAsArrived = async (vehicleId) => {
@@ -228,7 +250,7 @@ const ReceptionistDashboard = () => {
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Search by vehicle number"
+                placeholder="Search by vehicle number, customer name, or phone"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
@@ -270,10 +292,10 @@ const ReceptionistDashboard = () => {
           </div>
         )}
 
-        {/* Scheduled Vehicles Table */}
+        {/* Today's Bookings Table */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900">Scheduled Vehicles</h3>
+            <h3 className="text-xl font-bold text-gray-900">Today's Bookings</h3>
           </div>
           
           {loading ? (
@@ -304,6 +326,9 @@ const ReceptionistDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Details
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -329,6 +354,15 @@ const ReceptionistDashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {getActionButton(vehicle)}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => viewBookingDetails(vehicle.id)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                          View Details
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -344,6 +378,152 @@ const ReceptionistDashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Booking Details Modal */}
+      {showBookingDetails && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">Booking Details</h3>
+                <button
+                  onClick={() => setShowBookingDetails(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Customer Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Customer Information
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Name</label>
+                      <p className="text-gray-900">{selectedBooking.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+                        <Phone className="w-4 h-4" />
+                        Phone
+                      </label>
+                      <p className="text-gray-900">{selectedBooking.phone}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vehicle Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Car className="w-5 h-5" />
+                    Vehicle Information
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Vehicle Number</label>
+                      <p className="text-gray-900 font-mono">{selectedBooking.vehicleNumber}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Vehicle Type</label>
+                      <p className="text-gray-900">{selectedBooking.vehicleType}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Brand & Model</label>
+                      <p className="text-gray-900">{selectedBooking.vehicleBrand} {selectedBooking.vehicleBrandModel}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Year</label>
+                      <p className="text-gray-900">{selectedBooking.manufacturedYear}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Fuel Type</label>
+                      <p className="text-gray-900">{selectedBooking.fuelType}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Transmission</label>
+                      <p className="text-gray-900">{selectedBooking.transmissionType}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Kilometers Run</label>
+                      <p className="text-gray-900">{selectedBooking.kilometersRun?.toLocaleString()} km</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Booking Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Calendar className="w-5 h-5" />
+                    Booking Information
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Booking Date</label>
+                      <p className="text-gray-900">{new Date(selectedBooking.bookingDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Time Slot</label>
+                      <p className="text-gray-900">{selectedBooking.timeSlot}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Status</label>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(selectedBooking.status)}`}>
+                        {selectedBooking.status}
+                      </span>
+                    </div>
+                    {selectedBooking.arrivedTime && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Arrived Time</label>
+                        <p className="text-gray-900">{selectedBooking.arrivedTime}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Service Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Wrench className="w-5 h-5" />
+                    Service Information
+                  </h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Service Types</label>
+                      <div className="mt-1">
+                        {selectedBooking.serviceTypes && JSON.parse(selectedBooking.serviceTypes).length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {JSON.parse(selectedBooking.serviceTypes).map((service, index) => (
+                              <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                {service}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500 text-sm">No specific services selected</p>
+                        )}
+                      </div>
+                    </div>
+                    {selectedBooking.specialRequests && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Special Requests</label>
+                        <p className="text-gray-900 bg-gray-50 p-3 rounded-lg text-sm">
+                          {selectedBooking.specialRequests}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

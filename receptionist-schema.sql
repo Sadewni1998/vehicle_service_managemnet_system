@@ -33,3 +33,5 @@ DESCRIBE staff;
 
 -- Show sample data
 SELECT * FROM staff;
+
+

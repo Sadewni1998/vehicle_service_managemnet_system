@@ -97,3 +97,5 @@ INSERT INTO staff (name, email, password, role, phone, address) VALUES
 - Role-based access control
 - Email uniqueness constraint
 - Active/inactive staff status tracking
+
+
