@@ -59,56 +59,50 @@ export const AuthProvider = ({ children }) => {
   }, [token, userType])
 
   const login = async (credentials) => {
+    // First try customer login
     try {
-      // First try customer login
+      const response = await authAPI.login(credentials)
+      const { user: userData, token: authToken } = response.data
+      
+      localStorage.setItem('token', authToken)
+      localStorage.setItem('user', JSON.stringify(userData))
+      localStorage.setItem('userType', 'customer')
+      setToken(authToken)
+      setUser(userData)
+      setUserType('customer')
+      
+      toast.success('Customer login successful!')
+      return { success: true, userType: 'customer' }
+    } catch (customerError) {
+      // If customer login fails, try staff login
       try {
-        const response = await authAPI.login(credentials)
-        const { user: userData, token: authToken } = response.data
+        const staffResponse = await staffAPI.login(credentials)
+        const { token: authToken } = staffResponse.data
+        
+        // Decode token to get staff info
+        const payload = JSON.parse(atob(authToken.split('.')[1]))
+        const staffData = {
+          staffId: payload.staffId,
+          email: payload.email,
+          name: payload.name,
+          role: payload.role
+        }
         
         localStorage.setItem('token', authToken)
-        localStorage.setItem('user', JSON.stringify(userData))
-        localStorage.setItem('userType', 'customer')
+        localStorage.setItem('user', JSON.stringify(staffData))
+        localStorage.setItem('userType', 'staff')
         setToken(authToken)
-        setUser(userData)
-        setUserType('customer')
+        setUser(staffData)
+        setUserType('staff')
         
-        toast.success('Customer login successful!')
-        return { success: true, userType: 'customer' }
-      } catch (customerError) {
-        // If customer login fails, try staff login
-        try {
-          const staffResponse = await staffAPI.login(credentials)
-          const { token: authToken } = staffResponse.data
-          
-          // Decode token to get staff info
-          const payload = JSON.parse(atob(authToken.split('.')[1]))
-          const staffData = {
-            staffId: payload.staffId,
-            email: payload.email,
-            name: payload.name,
-            role: payload.role
-          }
-          
-          localStorage.setItem('token', authToken)
-          localStorage.setItem('user', JSON.stringify(staffData))
-          localStorage.setItem('userType', 'staff')
-          setToken(authToken)
-          setUser(staffData)
-          setUserType('staff')
-          
-          toast.success('Staff login successful!')
-          return { success: true, userType: 'staff', role: payload.role }
-        } catch (staffError) {
-          // Both logins failed
-          const message = 'Invalid credentials. Please check your email and password.'
-          toast.error(message)
-          return { success: false, error: message }
-        }
+        toast.success('Staff login successful!')
+        return { success: true, userType: 'staff', role: payload.role }
+      } catch (staffError) {
+        // Both logins failed
+        const message = 'Invalid credentials. Please check your email and password.'
+        toast.error(message)
+        return { success: false, error: message }
       }
-    } catch (error) {
-      const message = error.response?.data?.message || 'Login failed'
-      toast.error(message)
-      return { success: false, error: message }
     }
   }
 

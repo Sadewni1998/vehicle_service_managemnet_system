@@ -153,18 +153,14 @@ INSERT INTO staff (name, email, password, role) VALUES
 -- Insert test data for receptionist (password: receptionist123)
 INSERT INTO staff (name, email, password, role) VALUES
 ('Receptionist', 'receptionist@vehicleservice.com', '$2b$10$MOOmKWRYOlT8w.bRO.4lq.MxVPT9wlpaTbLJBFnEORPj9MoA1v3zu
-', 'service_advisor');
-
--- Insert test data for mechanic (password: mechanic123)
-INSERT INTO staff (name, email, password, role) VALUES
-('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$IDJ6.Z2NGjcCWo6tLJNkZObAapd.oHhhPfm50YEOoBJLkHVp.4cfG
-', 'mechanic');
+', 'receptionist');
 
 -- Insert test data for manager (password: manager123)
 INSERT INTO staff (name, email, password, role) VALUES
 ('Manager', 'manager@vehicleservice.com', '$2b$10$ZTzF/rTITvOq79Hk.i5U4e9xVMk13Q32IiX7Uo0JrP3L/MlYBx6X.yYC', 'manager');
 
-
-
-
+-- Insert test data for mechanic (password: mechanic123)
+INSERT INTO staff (name, email, password, role) VALUES
+('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$IDJ6.Z2NGjcCWo6tLJNkZObAapd.oHhhPfm50YEOoBJLkHVp.4cfG
+', 'mechanic');
 
