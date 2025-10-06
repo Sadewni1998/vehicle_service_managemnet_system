@@ -163,4 +163,4 @@ INSERT INTO staff (name, email, password, role) VALUES
 INSERT INTO staff (name, email, password, role) VALUES
 ('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K
 ', 'mechanic');
-
+ 
