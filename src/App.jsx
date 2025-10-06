@@ -15,9 +15,9 @@ import Register from './pages/Register'
 import Admin from './pages/Admin'
 import CustomerDashboard from './pages/CustomerDashboard'
 import ReceptionistDashboard from './pages/ReceptionistDashboard'
-import ReceptionistDashboard from './pages/ServiceAdvisorDashboard'
-import ReceptionistDashboard from './pages/MechanicDashboard'
-import ReceptionistDashboard from './pages/ManagementDashboard'
+import ServiceAdvisorDashboard from './pages/ServiceAdvisorDashboard'
+import MechanicDashboard from './pages/MechanicDashboard'
+import ManagementDashboard from './pages/ManagementDashboard'
 function App() {
   return (
     <AuthProvider>
