@@ -3,7 +3,10 @@
 const express = require("express");
 const router = express.Router();
 const bookingController = require("../controllers/bookingController");
-const { ensureAuthenticated, checkRole } = require("../middleware/authMiddleware");
+const {
+  ensureAuthenticated,
+  checkRole,
+} = require("../middleware/authMiddleware");
 
 // === Public Routes (no authentication required) ===
 // Route to get available time slots for a specific date
@@ -14,9 +17,9 @@ router.get("/time-slots", bookingController.getAvailableTimeSlots);
 // GET /api/bookings/availability
 router.get("/availability", bookingController.checkBookingAvailability);
 
-// Route to create a new booking (public)
+// Route to create a new booking (authenticated customers only)
 // POST /api/bookings
-router.post("/", bookingController.createBooking);
+router.post("/", ensureAuthenticated, bookingController.createBooking);
 
 // === Staff-Only Routes (Receptionist, Manager, etc.) ===
 // Get all bookings (for the dashboard)
@@ -24,7 +27,7 @@ router.post("/", bookingController.createBooking);
 router.get(
   "/",
   ensureAuthenticated,
-  checkRole(['receptionist', 'manager']),
+  checkRole(["receptionist", "manager"]),
   bookingController.getAllBookings
 );
 
@@ -33,7 +36,7 @@ router.get(
 router.get(
   "/today",
   ensureAuthenticated,
-  checkRole(['receptionist', 'manager']),
+  checkRole(["receptionist", "manager"]),
   bookingController.getTodayBookings
 );
 
@@ -42,7 +45,7 @@ router.get(
 router.get(
   "/stats",
   ensureAuthenticated,
-  checkRole(['receptionist', 'manager']),
+  checkRole(["receptionist", "manager"]),
   bookingController.getBookingStats
 );
 
@@ -53,7 +56,11 @@ router.get("/user", ensureAuthenticated, bookingController.getUserBookings);
 
 // Route to get a single booking by its ID (customer can view their own)
 // GET /api/bookings/12
-router.get("/:bookingId", ensureAuthenticated, bookingController.getBookingById);
+router.get(
+  "/:bookingId",
+  ensureAuthenticated,
+  bookingController.getBookingById
+);
 
 // Route to update an existing booking by its ID (customer can update their own)
 // PUT /api/bookings/12
@@ -61,14 +68,18 @@ router.put("/:bookingId", ensureAuthenticated, bookingController.updateBooking);
 
 // Route to delete a booking (customer can delete their own)
 // DELETE /api/bookings/12
-router.delete("/:bookingId", ensureAuthenticated, bookingController.deleteBooking);
+router.delete(
+  "/:bookingId",
+  ensureAuthenticated,
+  bookingController.deleteBooking
+);
 
 // Route to update booking status (staff only)
 // PUT /api/bookings/12/status
 router.put(
   "/:bookingId/status",
   ensureAuthenticated,
-  checkRole(['receptionist', 'manager']),
+  checkRole(["receptionist", "manager"]),
   bookingController.updateBookingStatus
 );
 

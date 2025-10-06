@@ -8,7 +8,7 @@ const db = require("../config/db");
 const createBooking = async (req, res) => {
   // Get customerId from authenticated user
   const customerId = req.user.customerId;
-  
+
   // Destructure all fields from the request body
   const {
     name,
@@ -30,7 +30,8 @@ const createBooking = async (req, res) => {
   // Basic validation
   if (!name || !phone || !vehicleNumber || !bookingDate || !timeSlot) {
     return res.status(400).json({
-      message: "Name, phone, vehicle number, booking date, and time slot are required.",
+      message:
+        "Name, phone, vehicle number, booking date, and time slot are required.",
     });
   }
 
@@ -40,23 +41,25 @@ const createBooking = async (req, res) => {
       "SELECT bookingId FROM booking WHERE bookingDate = ? AND timeSlot = ?",
       [bookingDate, timeSlot]
     );
-    
+
     if (timeSlotResult.length > 0) {
       return res.status(409).json({
         message: `The selected time slot "${timeSlot}" is already booked for ${bookingDate}. Please choose a different time slot.`,
         conflict: true,
         timeSlot: timeSlot,
-        bookingDate: bookingDate
+        bookingDate: bookingDate,
       });
     }
   } catch (error) {
     console.error("Time slot availability check error:", error);
-    return res.status(500).json({ message: "Server error checking time slot availability." });
+    return res
+      .status(500)
+      .json({ message: "Server error checking time slot availability." });
   }
 
   // Check daily booking limit (8 bookings per day)
   const DAILY_BOOKING_LIMIT = 8;
-  const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
 
   try {
     // Check how many bookings exist for today
@@ -64,15 +67,15 @@ const createBooking = async (req, res) => {
       "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ?",
       [today]
     );
-    
+
     const todayBookings = countResult[0].count;
-    
+
     if (todayBookings >= DAILY_BOOKING_LIMIT) {
       return res.status(429).json({
         message: `Sorry, we have reached our daily booking limit of ${DAILY_BOOKING_LIMIT} bookings. Please try again tomorrow.`,
         limitReached: true,
         currentCount: todayBookings,
-        limit: DAILY_BOOKING_LIMIT
+        limit: DAILY_BOOKING_LIMIT,
       });
     }
     const sql = `
@@ -101,7 +104,7 @@ const createBooking = async (req, res) => {
       JSON.stringify(serviceTypes || []),
       specialRequests,
       customerId,
-      'pending' // Default status
+      "pending", // Default status
     ];
 
     const [result] = await db.query(sql, values);
@@ -208,7 +211,6 @@ const getUserBookings = async (req, res) => {
   }
 };
 
-
 /**
  * Delete a booking
  */
@@ -238,16 +240,24 @@ const deleteBooking = async (req, res) => {
  */
 const getBookingStats = async (req, res) => {
   try {
-    const [totalBookings] = await db.query("SELECT COUNT(*) as total FROM booking");
-    const [pendingBookings] = await db.query("SELECT COUNT(*) as pending FROM booking WHERE status = 'pending'");
-    const [completedBookings] = await db.query("SELECT COUNT(*) as completed FROM booking WHERE status = 'completed'");
-    const [cancelledBookings] = await db.query("SELECT COUNT(*) as cancelled FROM booking WHERE status = 'cancelled'");
+    const [totalBookings] = await db.query(
+      "SELECT COUNT(*) as total FROM booking"
+    );
+    const [pendingBookings] = await db.query(
+      "SELECT COUNT(*) as pending FROM booking WHERE status = 'pending'"
+    );
+    const [completedBookings] = await db.query(
+      "SELECT COUNT(*) as completed FROM booking WHERE status = 'completed'"
+    );
+    const [cancelledBookings] = await db.query(
+      "SELECT COUNT(*) as cancelled FROM booking WHERE status = 'cancelled'"
+    );
 
     res.json({
       total: totalBookings[0].total,
       pending: pendingBookings[0].pending,
       completed: completedBookings[0].completed,
-      cancelled: cancelledBookings[0].cancelled
+      cancelled: cancelledBookings[0].cancelled,
     });
   } catch (error) {
     console.error("Error fetching booking stats:", error);
@@ -260,14 +270,14 @@ const getBookingStats = async (req, res) => {
  */
 const checkBookingAvailability = async (req, res) => {
   const DAILY_BOOKING_LIMIT = 8;
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   try {
     const [countResult] = await db.query(
       "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ?",
       [today]
     );
-    
+
     const todayBookings = countResult[0].count;
     const isAvailable = todayBookings < DAILY_BOOKING_LIMIT;
     const remainingSlots = Math.max(0, DAILY_BOOKING_LIMIT - todayBookings);
@@ -277,13 +287,15 @@ const checkBookingAvailability = async (req, res) => {
       currentCount: todayBookings,
       limit: DAILY_BOOKING_LIMIT,
       remainingSlots,
-      message: isAvailable 
+      message: isAvailable
         ? `${remainingSlots} booking slots remaining for today`
-        : `Daily booking limit of ${DAILY_BOOKING_LIMIT} reached. Please try again tomorrow.`
+        : `Daily booking limit of ${DAILY_BOOKING_LIMIT} reached. Please try again tomorrow.`,
     });
   } catch (error) {
     console.error("Error checking booking availability:", error);
-    res.status(500).json({ message: "Server error checking booking availability" });
+    res
+      .status(500)
+      .json({ message: "Server error checking booking availability" });
   }
 };
 
@@ -292,21 +304,21 @@ const checkBookingAvailability = async (req, res) => {
  */
 const getAvailableTimeSlots = async (req, res) => {
   const { date } = req.query;
-  
+
   if (!date) {
     return res.status(400).json({ message: "Date parameter is required" });
   }
 
   // Define all available time slots
   const allTimeSlots = [
-    '07:30 AM - 09:00 AM',
-    '09:00 AM - 10:30 AM', 
-    '10:30 AM - 12:00 PM',
-    '12:30 PM - 02:00 PM',
-    '02:00 PM - 03:30 PM',
-    '03:30 PM - 05:00 PM',
-    '05:00 PM - 06:30 PM',
-    '06:30 PM - 07:30 PM'
+    "07:30 AM - 09:00 AM",
+    "09:00 AM - 10:30 AM",
+    "10:30 AM - 12:00 PM",
+    "12:30 PM - 02:00 PM",
+    "02:00 PM - 03:30 PM",
+    "03:30 PM - 05:00 PM",
+    "05:00 PM - 06:30 PM",
+    "06:30 PM - 07:30 PM",
   ];
 
   try {
@@ -315,21 +327,25 @@ const getAvailableTimeSlots = async (req, res) => {
       "SELECT timeSlot FROM booking WHERE bookingDate = ?",
       [date]
     );
-    
-    const bookedTimeSlots = bookedSlots.map(slot => slot.timeSlot);
-    const availableTimeSlots = allTimeSlots.filter(slot => !bookedTimeSlots.includes(slot));
-    
+
+    const bookedTimeSlots = bookedSlots.map((slot) => slot.timeSlot);
+    const availableTimeSlots = allTimeSlots.filter(
+      (slot) => !bookedTimeSlots.includes(slot)
+    );
+
     res.json({
       date: date,
       availableTimeSlots: availableTimeSlots,
       bookedTimeSlots: bookedTimeSlots,
       totalSlots: allTimeSlots.length,
       availableCount: availableTimeSlots.length,
-      bookedCount: bookedTimeSlots.length
+      bookedCount: bookedTimeSlots.length,
     });
   } catch (error) {
     console.error("Error fetching available time slots:", error);
-    res.status(500).json({ message: "Server error fetching available time slots" });
+    res
+      .status(500)
+      .json({ message: "Server error fetching available time slots" });
   }
 };
 
@@ -342,24 +358,32 @@ const updateBookingStatus = async (req, res) => {
   const { status } = req.body;
 
   // Validate the status
-  const allowedStatuses = ['pending', 'arrived', 'confirmed', 'in_progress', 'completed', 'cancelled'];
+  const allowedStatuses = [
+    "pending",
+    "arrived",
+    "confirmed",
+    "in_progress",
+    "completed",
+    "cancelled",
+  ];
   if (!status || !allowedStatuses.includes(status)) {
-    return res.status(400).json({ message: 'A valid status is required.' });
+    return res.status(400).json({ message: "A valid status is required." });
   }
 
   try {
-    const sql = 'UPDATE booking SET status = ? WHERE bookingId = ?';
+    const sql = "UPDATE booking SET status = ? WHERE bookingId = ?";
     const [result] = await db.query(sql, [status, bookingId]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Booking not found.' });
+      return res.status(404).json({ message: "Booking not found." });
     }
 
     res.status(200).json({ message: `Booking status updated to ${status}` });
-
   } catch (error) {
-    console.error('Booking status update error:', error);
-    res.status(500).json({ message: 'Server error during booking status update.' });
+    console.error("Booking status update error:", error);
+    res
+      .status(500)
+      .json({ message: "Server error during booking status update." });
   }
 };
 
@@ -368,15 +392,15 @@ const updateBookingStatus = async (req, res) => {
  */
 const getTodayBookings = async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-    
+    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+
     const [bookings] = await db.query(
       "SELECT * FROM booking WHERE DATE(bookingDate) = ? ORDER BY timeSlot ASC",
       [today]
     );
 
     // Transform the data to match the frontend format
-    const transformedBookings = bookings.map(booking => ({
+    const transformedBookings = bookings.map((booking) => ({
       id: booking.bookingId,
       timeSlot: booking.timeSlot,
       vehicleNumber: booking.vehicleNumber,
@@ -385,17 +409,20 @@ const getTodayBookings = async (req, res) => {
       arrivedTime: booking.arrivedTime || null,
       phone: booking.phone,
       vehicleType: booking.vehicleType,
-      serviceTypes: booking.serviceTypes ? JSON.parse(booking.serviceTypes) : [],
-      specialRequests: booking.specialRequests
+      serviceTypes: booking.serviceTypes
+        ? JSON.parse(booking.serviceTypes)
+        : [],
+      specialRequests: booking.specialRequests,
     }));
 
     res.status(200).json(transformedBookings);
   } catch (error) {
     console.error("Error fetching today's bookings:", error);
-    res.status(500).json({ message: "Server error while fetching today's bookings." });
+    res
+      .status(500)
+      .json({ message: "Server error while fetching today's bookings." });
   }
 };
-
 
 module.exports = {
   createBooking,
