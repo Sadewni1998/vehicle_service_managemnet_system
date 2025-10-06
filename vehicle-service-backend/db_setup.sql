@@ -121,3 +121,27 @@ CREATE TABLE contact_submissions (
     
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Receptionist Staff Table Schema
+-- This table stores all staff members including receptionists
+
+USE vehicle_service_db;
+
+-- Staff table for all staff members (receptionist, manager, mechanic, etc.)
+CREATE TABLE IF NOT EXISTS staff (
+    staffId INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('receptionist', 'mechanic', 'manager', 'service_advisor') NOT NULL,
+    phone VARCHAR(20),
+    address TEXT,
+    isActive BOOLEAN DEFAULT TRUE,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Add indexes for better performance
+CREATE INDEX idx_staff_email ON staff(email);
+CREATE INDEX idx_staff_role ON staff(role);
+CREATE INDEX idx_staff_active ON staff(isActive);
