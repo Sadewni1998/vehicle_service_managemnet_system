@@ -161,6 +161,6 @@ INSERT INTO staff (name, email, password, role) VALUES
 
 -- Insert test data for mechanic (password: mechanic123)
 INSERT INTO staff (name, email, password, role) VALUES
-('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$IDJ6.Z2NGjcCWo6tLJNkZObAapd.oHhhPfm50YEOoBJLkHVp.4cfG
+('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K
 ', 'mechanic');
 
