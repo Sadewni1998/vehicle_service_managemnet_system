@@ -145,3 +145,7 @@ CREATE TABLE staff (
 CREATE INDEX idx_staff_email ON staff(email);
 CREATE INDEX idx_staff_role ON staff(role);
 CREATE INDEX idx_staff_active ON staff(isActive);
+
+-- Insert test data for service advisor
+INSERT INTO staff (name, email, password, role) VALUES
+('Service Advisor', 'service_advicer@vehicleservice.com', '$2b$10$6NkoMNcWBjifArTW5hfryuJPPLIwfZpaIPbhso7XuU2toEP17wWXe', 'service_advisor');
