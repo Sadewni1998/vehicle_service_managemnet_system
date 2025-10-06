@@ -9,6 +9,8 @@ const bookingRoutes = require("./routes/bookingRoutes");
 const breakdownRoutes = require("./routes/breakdownRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const staffRoutes = require("./routes/staffRoutes");
+const sparepartsRoutes = require("./routes/sparepartsRoutes");
+const mechanicRoutes = require("./routes/mechanicRoutes");
 // Initialize the Express app
 const app = express();
 
@@ -43,6 +45,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/breakdown", breakdownRoutes);
 app.use("/api/staff", staffRoutes);
+app.use("/api/spareparts", sparepartsRoutes);
+app.use("/api/mechanics", mechanicRoutes);
 
 // Placeholder routes for frontend compatibility
 app.get("/api/users/services", (req, res) => {
@@ -74,25 +78,9 @@ app.get("/api/users/services", (req, res) => {
   ]);
 });
 
+// Redirect old parts endpoint to new spareparts API
 app.get("/api/users/parts", (req, res) => {
-  res.json([
-    {
-      id: 1,
-      name: "Oil Filter",
-      category: "Engine",
-      brand: "Mobil",
-      price: 15,
-    },
-    {
-      id: 2,
-      name: "Brake Pads",
-      category: "Brakes",
-      brand: "Brembo",
-      price: 80,
-    },
-    { id: 3, name: "Air Filter", category: "Engine", brand: "K&N", price: 25 },
-    { id: 4, name: "Spark Plugs", category: "Engine", brand: "NGK", price: 40 },
-  ]);
+  res.redirect("/api/spareparts");
 });
 
 app.get("/api/users/team", (req, res) => {
