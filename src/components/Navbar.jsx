@@ -135,24 +135,6 @@ const Navbar = () => {
                   <div className="text-center">
                     <span className="text-gray-700">Welcome, {user?.name || user?.username}</span>
                   </div>
-                  {isStaff && (
-                    <Link
-                      to={user?.role === 'receptionist' ? '/receptionist-dashboard' : '/admin'}
-                      className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors w-full justify-center"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Dashboard
-                    </Link>
-                  )}
-                  {isCustomer && (
-                    <Link
-                      to="/customer-dashboard"
-                      className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors w-full justify-center"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Dashboard
-                    </Link>
-                  )}
                   <button
                     onClick={() => {
                       logout(navigate)
