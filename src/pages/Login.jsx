@@ -28,7 +28,7 @@ const Login = () => {
           navigate('/mechanic-dashboard')
         } else if (result.role === 'service_advisor') {
           navigate('/service-advisor-dashboard')
-        } else if (result.role === 'management') {
+        } else if (result.role === 'manager') {
           navigate('/management-dashboard')
         } else {
           // Default staff dashboard or admin
