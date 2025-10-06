@@ -29,10 +29,10 @@ const Navbar = () => {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 py-4">
-            <img src="/logo.png" alt="Hybrid Lanka" className="w-25 h-16" />
-            <h2 className="text-5xl font-bold text-primary-600 font-barlow">
+            <img src="/logo.png" alt="Hybrid Lanka" className="h-12 w-auto" />
+            <h3 className="text-4xl font-bold text-primary-600 font-barlow">
               Hybrid Lanka
-            </h2>
+            </h3>
           </Link>
 
           {/* Desktop Navigation */}
@@ -77,7 +77,7 @@ const Navbar = () => {
                   onClick={() => logout(navigate)}
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-4 h-8" />
                   <span>Logout</span>
                 </button>
               </div>
@@ -89,12 +89,16 @@ const Navbar = () => {
                 <span>Login</span>
               </Link>
             )}
+
+            {/* Breakdown requests */}
+            <div>
               <Link
                 to="/request"
                 className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors"
               >
                 <span>Breakdown Requests</span>
               </Link>
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -124,7 +128,6 @@ const Navbar = () => {
                   {item.label}
                 </Link>
               ))}
-
 
               {/* Mobile Login/User Menu */}
               {isAuthenticated ? (

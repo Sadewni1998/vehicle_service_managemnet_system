@@ -11,7 +11,7 @@ const mm = String(today.getMonth() + 1).padStart(2, "0");
 const dd = String(today.getDate()).padStart(2, "0");
 const minDate = `${yyyy}-${mm}-${dd}`;
 
-const timeSlots = ['07:30 AM - 09:00 AM', '09:00 AM - 10:30 AM', '10:30 AM - 12:00 PM', '12:30 PM - 02:00 PM', '02:00 PM - 03:30 PM', '03:30 PM - 05:00 PM', '05:00 PM - 06:30 PM', '06:30 PM - 07:30 PM']
+const timeSlots = ['07:30 AM - 09:30 AM', '09:30 AM - 11:30 AM', '12:00 PM - 02:00 PM', '02:00 PM - 04:00 PM', '04:00 PM - 06:00 PM', '06:00 PM - 07:30 PM']
 
 const Booking = () => {
   const { user, isAuthenticated } = useAuth()
