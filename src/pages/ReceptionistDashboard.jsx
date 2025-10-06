@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { 
   Car, 
   Clock, 
@@ -7,6 +8,7 @@ import {
   Search,
   AlertCircle,
   Eye,
+  Plus,
   Calendar,
   Phone,
   Wrench,
@@ -359,10 +361,17 @@ const ReceptionistDashboard = () => {
 
         {/* Today's Bookings Table */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-xl font-bold text-gray-900">Today's Bookings</h3>
+            <Link
+              to="/booking"
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Booking</span>
+            </Link>
           </div>
-          
+
           {loading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
@@ -409,7 +418,9 @@ const ReceptionistDashboard = () => {
                         {vehicle.customer}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(vehicle.status)}`}>
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(vehicle.status)}`}
+                        >
                           {vehicle.status}
                         </span>
                       </td>

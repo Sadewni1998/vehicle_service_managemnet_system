@@ -54,42 +54,6 @@ const Navbar = () => {
 
           {/* Login/User Menu - Desktop */}
           <div className="hidden lg:flex items-center gap-4">
-            {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700">Welcome, {user?.name || user?.username}</span>
-                {isStaff && (
-                  <Link
-                    to={user?.role === 'receptionist' ? '/receptionist-dashboard' : '/admin'}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                  >
-                    Dashboard
-                  </Link>
-                )}
-                {isCustomer && (
-                  <Link
-                    to="/customer-dashboard"
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                  >
-                    Dashboard
-                  </Link>
-                )}
-                <button
-                  onClick={() => logout(navigate)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
-                >
-                  <LogOut className="w-4 h-8" />
-                  <span>Logout</span>
-                </button>
-              </div>
-            ) : (
-              <Link
-                to="/login"
-                className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-black hover:bg-blue-900 text-white transition-colors"
-              >
-                <span>Login</span>
-              </Link>
-            )}
-
             {/* Breakdown requests */}
             <div>
               <Link
@@ -99,8 +63,86 @@ const Navbar = () => {
                 <span>Breakdown Requests</span>
               </Link>
             </div>
-          </div>
+            {isAuthenticated ? (
+              <div className="relative">
+                {/* Username Button */}
+                <button
+                  onClick={() => setIsOpen((prev) => !prev)}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium transition-colors"
+                >
+                  <span>{user?.name || user?.username}</span>
+                  <svg
+                    className={`w-4 h-4 transform transition-transform ${
+                      isOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
 
+                {/* Dropdown Menu */}
+                {isOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                    {isStaff && (
+                      <button
+                        onClick={() => {
+                          if (user?.role === 'receptionist') {
+                            navigate('/receptionist-dashboard')
+                          }
+                          else if (user?.role === 'mechanic') {
+                            navigate('/mechanic-dashboard')
+                          }
+                          else if (user?.role === 'service-advisor') {
+                            navigate('/service-advisor-dashboard')
+                          }
+                          else if (user?.role === 'manager') {
+                            navigate('/management-dashboard')
+                          }else {
+                            navigate('/admin')
+                          }
+                          setIsOpen(false)
+                        }}
+                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      >
+                        Dashboard
+                      </button>
+                    )}
+                    {isCustomer && (
+                      <Link
+                        to="/customer-dashboard"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Dashboard
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => {
+                        logout(navigate)
+                        setIsOpen(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-black hover:bg-blue-900 text-white transition-colors"
+              >
+                <span>Login</span>
+              </Link>
+            )}
+          </div>
+          
           {/* Mobile menu button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
@@ -129,18 +171,66 @@ const Navbar = () => {
                 </Link>
               ))}
 
+              
+              {/* Breakdown requests */}
+              <div>
+                <Link
+                  to="/request"
+                  className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-center w-full justify-center"
+                >
+                  <span>Breakdown Requests</span>
+                </Link>
+              </div>
+              
               {/* Mobile Login/User Menu */}
               {isAuthenticated ? (
                 <div className="space-y-4">
                   <div className="text-center">
                     <span className="text-gray-700">Welcome, {user?.name || user?.username}</span>
                   </div>
+
+                  {/* Dashboard Button */}
+                  {isStaff && (
+                    <button
+                      onClick={() => {
+                        if (user?.role === 'receptionist') {
+                          navigate('/receptionist-dashboard')
+                        } else if (user?.role === 'mechanic') {
+                          navigate('/mechanic-dashboard')
+                        } else if (user?.role === 'service-advisor') {
+                          navigate('/service-advisor-dashboard')
+                        } else if (user?.role === 'manager') {
+                          navigate('/management-dashboard')
+                        } else {
+                          navigate('/admin')
+                        }
+                        setIsOpen(false)
+                      }}
+                      className="w-full px-6 py-3 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium text-center transition-colors"
+                    >
+                      Dashboard
+                    </button>
+                  )}
+
+                  {isCustomer && (
+                    <button
+                      onClick={() => {
+                        navigate('/customer-dashboard')
+                        setIsOpen(false)
+                      }}
+                      className="w-full px-6 py-3 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium text-center transition-colors"
+                    >
+                      Dashboard
+                    </button>
+                  )}
+
+                  {/* Logout Button */}
                   <button
                     onClick={() => {
                       logout(navigate)
                       setIsOpen(false)
                     }}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors w-full justify-center"
+                    className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors w-full justify-center"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Logout</span>
@@ -155,16 +245,6 @@ const Navbar = () => {
                   Login
                 </Link>
               )}
-
-              {/* Breakdown requests */}
-              <div>
-                <Link
-                  to="/request"
-                  className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors text-center w-full justify-center"
-                >
-                  <span>Breakdown Requests</span>
-                </Link>
-              </div>
             </div>
           </div>
         )}
