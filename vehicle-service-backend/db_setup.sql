@@ -128,17 +128,17 @@ CREATE TABLE contact_submissions (
 USE vehicle_service_db;
 
 -- Staff table for all staff members (receptionist, manager, mechanic, etc.)
-CREATE TABLE IF NOT EXISTS staff (
-    staffId INT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE staff (
+    staffId INT(11) NOT NULL AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
     role ENUM('receptionist', 'mechanic', 'manager', 'service_advisor') NOT NULL,
-    phone VARCHAR(20),
-    address TEXT,
-    isActive BOOLEAN DEFAULT TRUE,
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (staffId),
+    UNIQUE KEY email (email)
 );
 
 -- Add indexes for better performance
