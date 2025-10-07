@@ -111,6 +111,13 @@ export const receptionistAPI = {
   getTodayBookings: () => api.get('/bookings/today'),
 }
 
+// Service Advisor API
+export const serviceAdvisorAPI = {
+  getArrivedBookings: () => api.get('/bookings/arrived'),
+  getBookingById: (id) => api.get(`/bookings/${id}`),
+  updateBookingStatus: (id, status) => api.put(`/bookings/${id}/status`, { status }),
+}
+
 // General API
 export const generalAPI = {
   getServices: () => api.get('/users/services'),

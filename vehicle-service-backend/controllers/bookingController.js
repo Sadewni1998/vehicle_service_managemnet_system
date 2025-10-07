@@ -439,6 +439,49 @@ const getTodayBookings = async (req, res) => {
   }
 };
 
+/**
+ * Get arrived bookings for service advisor dashboard
+ */
+const getArrivedBookings = async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+
+    const [bookings] = await db.query(
+      "SELECT * FROM booking WHERE DATE(bookingDate) = ? AND status = 'arrived' ORDER BY arrivedTime ASC",
+      [today]
+    );
+
+    // Transform the data to match the frontend format
+    const transformedBookings = bookings.map((booking) => ({
+      id: booking.bookingId,
+      timeSlot: booking.timeSlot,
+      vehicleNumber: booking.vehicleNumber,
+      customer: booking.name,
+      status: booking.status.toLowerCase(),
+      arrivedTime: booking.arrivedTime ? booking.arrivedTime.substring(0, 5) : null,
+      phone: booking.phone,
+      vehicleType: booking.vehicleType,
+      vehicleBrand: booking.vehicleBrand,
+      vehicleBrandModel: booking.vehicleBrandModel,
+      manufacturedYear: booking.manufacturedYear,
+      fuelType: booking.fuelType,
+      transmissionType: booking.transmissionType,
+      kilometersRun: booking.kilometersRun,
+      serviceTypes: booking.serviceTypes
+        ? JSON.parse(booking.serviceTypes)
+        : [],
+      specialRequests: booking.specialRequests,
+    }));
+
+    res.status(200).json(transformedBookings);
+  } catch (error) {
+    console.error("Error fetching arrived bookings:", error);
+    res
+      .status(500)
+      .json({ message: "Server error while fetching arrived bookings." });
+  }
+};
+
 module.exports = {
   createBooking,
   updateBooking,
@@ -451,4 +494,5 @@ module.exports = {
   checkBookingAvailability,
   getAvailableTimeSlots,
   getTodayBookings,
+  getArrivedBookings,
 };
