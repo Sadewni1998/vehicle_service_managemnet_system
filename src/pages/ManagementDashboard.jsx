@@ -84,6 +84,7 @@ const ManagementDashboard = () => {
     { id: 'customers', label: 'Customers' },
     { id: 'staff', label: 'Staff' },
     { id: 'bookings', label: 'Bookings' },
+    { id: 'breakdown-requests', label: 'Breakdown Requests'},
     { id: 'e-shop', label: 'E-shop' }
   ]
 
@@ -210,6 +211,16 @@ const ManagementDashboard = () => {
                 <div className="text-center py-12">
                   <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600">Booking management features coming soon</p>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'breakdown-requests' && (
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Breakdown Requests</h3>
+                <div className="text-center py-12">
+                  <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">Breakdown request features coming soon</p>
                 </div>
               </div>
             )}
