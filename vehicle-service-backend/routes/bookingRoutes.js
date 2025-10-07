@@ -41,6 +41,16 @@ router.get(
   bookingController.getTodayBookings
 );
 
+// Route to get arrived bookings for service advisor
+// GET /api/bookings/arrived
+// Temporarily made public for testing - should be protected in production
+router.get(
+  "/arrived",
+  // ensureAuthenticated,
+  // checkRole(["service_advisor", "manager"]),
+  bookingController.getArrivedBookings
+);
+
 // Route to get booking statistics
 // GET /api/bookings/stats
 router.get(

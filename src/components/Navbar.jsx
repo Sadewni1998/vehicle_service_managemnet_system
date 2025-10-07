@@ -96,7 +96,7 @@ const Navbar = () => {
                           else if (user?.role === 'mechanic') {
                             navigate('/mechanic-dashboard')
                           }
-                          else if (user?.role === 'service-advisor') {
+                          else if (user?.role === 'service-advisor' || user?.role === 'service_advisor') {
                             navigate('/service-advisor-dashboard')
                           }
                           else if (user?.role === 'manager') {
@@ -197,7 +197,7 @@ const Navbar = () => {
                           navigate('/receptionist-dashboard')
                         } else if (user?.role === 'mechanic') {
                           navigate('/mechanic-dashboard')
-                        } else if (user?.role === 'service-advisor') {
+                        } else if (user?.role === 'service-advisor' || user?.role === 'service_advisor') {
                           navigate('/service-advisor-dashboard')
                         } else if (user?.role === 'manager') {
                           navigate('/management-dashboard')
