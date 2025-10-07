@@ -174,6 +174,7 @@ INSERT INTO staff (name, email, password, role) VALUES
 CREATE TABLE IF NOT EXISTS mechanic (
     mechanicId INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
     staffId INT NOT NULL,
+    mechanicName VARCHAR(50) NOT NULL,
     mechanicCode VARCHAR(20) NOT NULL UNIQUE, -- Unique code like MEC001, MEC002, etc.
     specialization VARCHAR(255), -- What the mechanic specializes in
     experienceYears INT DEFAULT 0,
@@ -189,6 +190,12 @@ CREATE TABLE IF NOT EXISTS mechanic (
     -- Foreign key constraint to staff table
     FOREIGN KEY (staffId) REFERENCES staff(staffId) ON DELETE CASCADE
 );
+
+
+INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, hourlyRate)
+VALUES
+(4, 'MEC001', 'Sarah', 'Engine and Transmission', 5, '["ASE Certified","Engine Specialist"]', 2500.00),
+(4, 'MEC002', 'John', 'Electrical Systems', 3, '["Auto Electrician","Hybrid Systems"]', 2200.00);
 
 -- Create the spare parts table (after mechanic table is created)
 CREATE TABLE IF NOT EXISTS spareparts (
@@ -223,6 +230,35 @@ CREATE TABLE IF NOT EXISTS spareparts (
     -- Foreign key constraint to mechanic table (added directly in CREATE TABLE)
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE SET NULL
 );
+
+INSERT INTO spareparts (partCode, partName, description, category, unitPrice, stockQuantity, mechanicId, imageUrl)
+VALUES
+('ENG001', 'Engine Oil Filter', 'High-performance oil filter for Toyota models', 'Engine', 2500.00, 50, 1, 'images/parts/oil_filter.jpg'),
+('BRK002', 'Brake Pads', 'Front brake pad set for sedans', 'Brakes', 5600.00, 30, 1, 'images/parts/brake_pads.jpg'),
+('ELC003', 'Car Battery', '12V 60Ah maintenance-free battery', 'Electrical', 18000.00, 15, 2, 'images/parts/battery.jpg'),
+('COO004', 'Radiator Coolant', 'Long-life coolant 1L bottle', 'Cooling', 1500.00, 80, 2, 'images/parts/coolant.jpg'),
+('TRM005', 'Transmission Belt', 'Automatic transmission drive belt', 'Transmission', 7500.00, 10, 1, 'images/parts/transmission_belt.jpg');
+
+-- Create a view that joins mechanic and staff tables for easy access to mechanic details
+CREATE OR REPLACE VIEW mechanic_details AS
+SELECT 
+    m.mechanicId,
+    m.staffId,
+    m.mechanicCode,
+    m.mechanicName,
+    s.name as staffName,
+    s.email,
+    m.specialization,
+    m.experienceYears as experience,
+    m.certifications,
+    m.availability,
+    m.hourlyRate,
+    m.isActive,
+    m.createdAt,
+    m.updatedAt
+FROM mechanic m
+INNER JOIN staff s ON m.staffId = s.staffId
+WHERE m.isActive = true;
 
 -- Create jobcard table for tracking service work assignments
 CREATE TABLE IF NOT EXISTS jobcard (
