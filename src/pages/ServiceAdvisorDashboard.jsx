@@ -11,7 +11,7 @@ import {
   Clock,
   User
 } from 'lucide-react'
-import { serviceAdvisorAPI } from '../utils/api'
+import { serviceAdvisorAPI, mechanicsAPI, sparePartsAPI } from '../utils/api'
 
 const ServiceAdvisorDashboard = () => {
   const [activeTab, setActiveTab] = useState('assign-jobs')
@@ -19,6 +19,13 @@ const ServiceAdvisorDashboard = () => {
   const [arrivedBookings, setArrivedBookings] = useState([])
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [showBookingDetails, setShowBookingDetails] = useState(false)
+  const [showAssignMechanics, setShowAssignMechanics] = useState(false)
+  const [showAssignSpareParts, setShowAssignSpareParts] = useState(false)
+  const [availableMechanics, setAvailableMechanics] = useState([])
+  const [availableSpareParts, setAvailableSpareParts] = useState([])
+  const [selectedMechanics, setSelectedMechanics] = useState([])
+  const [selectedSpareParts, setSelectedSpareParts] = useState([])
+  const [submittedBookings, setSubmittedBookings] = useState([])
 
   // Fetch arrived bookings when component mounts or when assign-jobs tab is active
   useEffect(() => {
@@ -63,6 +70,114 @@ const ServiceAdvisorDashboard = () => {
   const viewBookingDetails = (booking) => {
     setSelectedBooking(booking)
     setShowBookingDetails(true)
+  }
+
+  const openAssignMechanics = async (booking) => {
+    setSelectedBooking(booking)
+    try {
+      const response = await mechanicsAPI.getAvailableMechanics()
+      setAvailableMechanics(response.data.data || [])
+      setSelectedMechanics([])
+      setShowAssignMechanics(true)
+    } catch (error) {
+      console.error('Error fetching mechanics:', error)
+      setAvailableMechanics([])
+      setShowAssignMechanics(true)
+    }
+  }
+
+  const openAssignSpareParts = async (booking) => {
+    setSelectedBooking(booking)
+    try {
+      const response = await sparePartsAPI.getAllSpareParts()
+      setAvailableSpareParts(response.data.data || [])
+      setSelectedSpareParts([])
+      setShowAssignSpareParts(true)
+    } catch (error) {
+      console.error('Error fetching spare parts:', error)
+      setAvailableSpareParts([])
+      setShowAssignSpareParts(true)
+    }
+  }
+
+  const handleAssignMechanics = async () => {
+    if (selectedMechanics.length === 0) {
+      alert('Please select at least one mechanic')
+      return
+    }
+
+    try {
+      const mechanicIds = selectedMechanics.map(m => m.mechanicId)
+      await serviceAdvisorAPI.assignMechanicsToBooking(selectedBooking.id, mechanicIds)
+      
+      // Update local state to show assigned mechanics
+      setArrivedBookings(prev => prev.map(booking => 
+        booking.id === selectedBooking.id 
+          ? { ...booking, assignedMechanics: mechanicIds }
+          : booking
+      ))
+      
+      alert('Mechanics assigned successfully!')
+      setShowAssignMechanics(false)
+    } catch (error) {
+      console.error('Error assigning mechanics:', error)
+      alert('Failed to assign mechanics: ' + (error.response?.data?.message || error.message))
+    }
+  }
+
+  const handleAssignSpareParts = async () => {
+    if (selectedSpareParts.length === 0) {
+      alert('Please select at least one spare part')
+      return
+    }
+
+    try {
+      const spareParts = selectedSpareParts.map(sp => ({
+        partId: sp.partId,
+        quantity: sp.quantity || 1
+      }))
+      await serviceAdvisorAPI.assignSparePartsToBooking(selectedBooking.id, spareParts)
+      
+      // Update local state to show assigned spare parts
+      setArrivedBookings(prev => prev.map(booking => 
+        booking.id === selectedBooking.id 
+          ? { ...booking, assignedSpareParts: spareParts }
+          : booking
+      ))
+      
+      alert('Spare parts assigned successfully!')
+      setShowAssignSpareParts(false)
+    } catch (error) {
+      console.error('Error assigning spare parts:', error)
+      alert('Failed to assign spare parts: ' + (error.response?.data?.message || error.message))
+    }
+  }
+
+  const handleSubmitJob = async (booking) => {
+    try {
+      // Check if mechanics and spare parts are assigned
+      if (!booking.assignedMechanics || booking.assignedMechanics.length === 0) {
+        alert('Please assign mechanics before submitting the job')
+        return
+      }
+
+      if (!booking.assignedSpareParts || booking.assignedSpareParts.length === 0) {
+        alert('Please assign spare parts before submitting the job')
+        return
+      }
+
+      // Update jobcard status to 'in_progress' in the database
+      await serviceAdvisorAPI.updateBookingStatus(booking.id, 'in_progress')
+      
+      // Add to submitted bookings list
+      setSubmittedBookings(prev => [...prev, booking.id])
+      
+      alert('Job submitted successfully! The jobcard has been updated in the database.')
+      
+    } catch (error) {
+      console.error('Error submitting job:', error)
+      alert('Failed to submit job: ' + (error.response?.data?.message || error.message))
+    }
   }
 
   const summaryCards = [
@@ -200,8 +315,10 @@ const ServiceAdvisorDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {arrivedBookings.map((booking) => (
-                      <div key={booking.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                    {arrivedBookings.map((booking) => {
+                      const isSubmitted = submittedBookings.includes(booking.id)
+                      return (
+                      <div key={booking.id} className={`bg-white border rounded-lg p-6 shadow-sm ${isSubmitted ? 'border-green-200 bg-green-50' : 'border-gray-200'}`}>
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-3">
@@ -253,6 +370,41 @@ const ServiceAdvisorDashboard = () => {
                                 <p className="text-gray-700 bg-gray-50 p-2 rounded text-sm">{booking.specialRequests}</p>
                               </div>
                             )}
+                            
+                            {/* Assignment Status */}
+                            <div className="mb-4">
+                              <div className="flex flex-wrap gap-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-600">Mechanics:</span>
+                                  {booking.assignedMechanics && booking.assignedMechanics.length > 0 ? (
+                                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                                      {booking.assignedMechanics.length} assigned
+                                    </span>
+                                  ) : (
+                                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
+                                      Not assigned
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-600">Spare Parts:</span>
+                                  {booking.assignedSpareParts && booking.assignedSpareParts.length > 0 ? (
+                                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                                      {booking.assignedSpareParts.length} assigned
+                                    </span>
+                                  ) : (
+                                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
+                                      Not assigned
+                                    </span>
+                                  )}
+                                </div>
+                                {isSubmitted && (
+                                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                    Job Submitted
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                           
                           <div className="flex flex-col gap-2 ml-4">
@@ -263,13 +415,39 @@ const ServiceAdvisorDashboard = () => {
                               <Eye className="w-4 h-4" />
                               View Details
                             </button>
-                            <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <button 
+                              onClick={() => openAssignMechanics(booking)}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
                               Assign Mechanics
                             </button>
+                            <button 
+                              onClick={() => openAssignSpareParts(booking)}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              Assign Spare-parts
+                            </button>
+                            {!isSubmitted && (
+                              <button 
+                                onClick={() => handleSubmitJob(booking)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                              >
+                                Submit Job
+                              </button>
+                            )}
+                            {isSubmitted && (
+                              <button 
+                                disabled
+                                className="bg-gray-400 text-white px-4 py-2 rounded-lg text-sm font-medium cursor-not-allowed"
+                              >
+                                Job Submitted
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -435,6 +613,37 @@ const ServiceAdvisorDashboard = () => {
                   <p className="text-gray-700 bg-gray-50 p-3 rounded">{selectedBooking.specialRequests}</p>
                 </div>
               )}
+
+              {/* Assignment Status */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">Assignment Status</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Mechanics Assigned</p>
+                    {selectedBooking.assignedMechanics && selectedBooking.assignedMechanics.length > 0 ? (
+                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                        {selectedBooking.assignedMechanics.length} mechanics assigned
+                      </span>
+                    ) : (
+                      <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
+                        No mechanics assigned
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2">Spare Parts Assigned</p>
+                    {selectedBooking.assignedSpareParts && selectedBooking.assignedSpareParts.length > 0 ? (
+                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                        {selectedBooking.assignedSpareParts.length} parts assigned
+                      </span>
+                    ) : (
+                      <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
+                        No spare parts assigned
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
@@ -444,8 +653,195 @@ const ServiceAdvisorDashboard = () => {
               >
                 Close
               </button>
-              <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+              <button 
+                onClick={() => {
+                  setShowBookingDetails(false)
+                  openAssignMechanics(selectedBooking)
+                }}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
                 Assign Mechanics
+              </button>
+              <button 
+                onClick={() => {
+                  setShowBookingDetails(false)
+                  openAssignSpareParts(selectedBooking)
+                }}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                Assign Spare-parts
+              </button>
+              <button 
+                onClick={() => {
+                  setShowBookingDetails(false)
+                  handleSubmitJob(selectedBooking)
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+              >
+                Submit Job
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Mechanics Modal */}
+      {showAssignMechanics && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Assign Mechanics to {selectedBooking.vehicleNumber}</h3>
+              <button
+                onClick={() => setShowAssignMechanics(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-gray-600">Select mechanics to assign to this booking:</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                {availableMechanics.map((mechanic) => (
+                  <div key={mechanic.mechanicId} className="border rounded-lg p-4">
+                    <label className="flex items-start space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedMechanics.some(m => m.mechanicId === mechanic.mechanicId)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedMechanics([...selectedMechanics, mechanic])
+                          } else {
+                            setSelectedMechanics(selectedMechanics.filter(m => m.mechanicId !== mechanic.mechanicId))
+                          }
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{mechanic.name}</div>
+                        <div className="text-sm text-gray-600">Code: {mechanic.mechanicCode}</div>
+                        <div className="text-sm text-gray-600">Specialization: {mechanic.specialization}</div>
+                        <div className="text-sm text-gray-600">Experience: {mechanic.experience} years</div>
+                        <div className="text-sm text-green-600">Status: {mechanic.availability}</div>
+                      </div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              {availableMechanics.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No available mechanics found
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAssignMechanics(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignMechanics}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              >
+                Assign Selected Mechanics
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Spare Parts Modal */}
+      {showAssignSpareParts && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Assign Spare Parts to {selectedBooking.vehicleNumber}</h3>
+              <button
+                onClick={() => setShowAssignSpareParts(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-gray-600">Select spare parts to assign to this booking:</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                {availableSpareParts.map((part) => (
+                  <div key={part.partId} className="border rounded-lg p-4">
+                    <label className="flex items-start space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedSpareParts.some(sp => sp.partId === part.partId)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSpareParts([...selectedSpareParts, { ...part, quantity: 1 }])
+                          } else {
+                            setSelectedSpareParts(selectedSpareParts.filter(sp => sp.partId !== part.partId))
+                          }
+                        }}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{part.partName}</div>
+                        <div className="text-sm text-gray-600">Code: {part.partCode}</div>
+                        <div className="text-sm text-gray-600">Category: {part.category}</div>
+                        <div className="text-sm text-gray-600">Price: ${part.unitPrice}</div>
+                        <div className="text-sm text-gray-600">Stock: {part.stockQuantity}</div>
+                        
+                        {selectedSpareParts.some(sp => sp.partId === part.partId) && (
+                          <div className="mt-2">
+                            <label className="text-sm text-gray-600">Quantity:</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max={part.stockQuantity}
+                              value={selectedSpareParts.find(sp => sp.partId === part.partId)?.quantity || 1}
+                              onChange={(e) => {
+                                const quantity = parseInt(e.target.value) || 1
+                                setSelectedSpareParts(selectedSpareParts.map(sp => 
+                                  sp.partId === part.partId ? { ...sp, quantity } : sp
+                                ))
+                              }}
+                              className="ml-2 w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              {availableSpareParts.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No spare parts found
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowAssignSpareParts(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAssignSpareParts}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Assign Selected Parts
               </button>
             </div>
           </div>

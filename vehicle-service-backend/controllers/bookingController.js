@@ -482,6 +482,195 @@ const getArrivedBookings = async (req, res) => {
   }
 };
 
+/**
+ * Assign mechanics to a booking
+ */
+const assignMechanicsToBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { mechanicIds } = req.body;
+
+    if (!mechanicIds || !Array.isArray(mechanicIds) || mechanicIds.length === 0) {
+      return res.status(400).json({
+        message: "Mechanic IDs array is required and cannot be empty.",
+      });
+    }
+
+    // Check if booking exists
+    const [booking] = await db.query(
+      "SELECT * FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+
+    if (booking.length === 0) {
+      return res.status(404).json({
+        message: "Booking not found.",
+      });
+    }
+
+    // Validate that all mechanics exist and are available
+    const placeholders = mechanicIds.map(() => "?").join(",");
+    const [mechanics] = await db.query(
+      `SELECT mechanicId, availability FROM mechanic WHERE mechanicId IN (${placeholders}) AND isActive = true`,
+      mechanicIds
+    );
+
+    if (mechanics.length !== mechanicIds.length) {
+      return res.status(400).json({
+        message: "One or more mechanics not found or inactive.",
+      });
+    }
+
+    // Check if all mechanics are available
+    const unavailableMechanics = mechanics.filter(m => m.availability !== 'Available');
+    if (unavailableMechanics.length > 0) {
+      return res.status(400).json({
+        message: "One or more mechanics are not available.",
+        unavailableMechanics: unavailableMechanics.map(m => m.mechanicId)
+      });
+    }
+
+    // Update booking with assigned mechanics
+    const mechanicsJson = JSON.stringify(mechanicIds);
+    await db.query(
+      "UPDATE booking SET assignedMechanics = ?, status = 'in_progress' WHERE bookingId = ?",
+      [mechanicsJson, bookingId]
+    );
+
+    // Update mechanics availability to 'Not Available'
+    await db.query(
+      `UPDATE mechanic SET availability = 'Not Available' WHERE mechanicId IN (${placeholders})`,
+      mechanicIds
+    );
+
+    // Create a single jobcard for the booking
+    const [bookingDetails] = await db.query(
+      "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+    
+    const serviceTypes = bookingDetails[0]?.serviceTypes || '[]';
+    
+    // Create jobcard entry (using first mechanic as primary, but we'll assign all mechanics to it)
+    const [jobcardResult] = await db.query(
+      `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
+       VALUES (?, ?, ?, 'open', ?)`,
+      [mechanicIds[0], bookingId, 'GENERAL_SERVICE', serviceTypes]
+    );
+    
+    const jobcardId = jobcardResult.insertId;
+    
+    // Assign all mechanics to the jobcard using jobcardMechanic table
+    for (const mechanicId of mechanicIds) {
+      await db.query(
+        `INSERT INTO jobcardMechanic (jobcardId, mechanicId) 
+         VALUES (?, ?)`,
+        [jobcardId, mechanicId]
+      );
+    }
+
+    res.status(200).json({
+      message: "Mechanics assigned successfully.",
+      assignedMechanics: mechanicIds,
+      bookingId: bookingId
+    });
+  } catch (error) {
+    console.error("Error assigning mechanics to booking:", error);
+    res.status(500).json({
+      message: "Server error during mechanic assignment.",
+    });
+  }
+};
+
+/**
+ * Assign spare parts to a booking
+ */
+const assignSparePartsToBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { spareParts } = req.body;
+
+    if (!spareParts || !Array.isArray(spareParts) || spareParts.length === 0) {
+      return res.status(400).json({
+        message: "Spare parts array is required and cannot be empty.",
+      });
+    }
+
+    // Check if booking exists
+    const [booking] = await db.query(
+      "SELECT * FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+
+    if (booking.length === 0) {
+      return res.status(404).json({
+        message: "Booking not found.",
+      });
+    }
+
+    // Validate spare parts
+    const sparePartIds = spareParts.map(sp => sp.partId);
+    const placeholders = sparePartIds.map(() => "?").join(",");
+    const [existingParts] = await db.query(
+      `SELECT partId, partName, stockQuantity FROM spareparts WHERE partId IN (${placeholders}) AND isActive = true`,
+      sparePartIds
+    );
+
+    if (existingParts.length !== sparePartIds.length) {
+      return res.status(400).json({
+        message: "One or more spare parts not found or inactive.",
+      });
+    }
+
+    // Check stock availability
+    const insufficientStock = [];
+    for (const sparePart of spareParts) {
+      const existingPart = existingParts.find(ep => ep.partId === sparePart.partId);
+      if (existingPart && existingPart.stockQuantity < sparePart.quantity) {
+        insufficientStock.push({
+          partId: sparePart.partId,
+          partName: existingPart.partName,
+          requested: sparePart.quantity,
+          available: existingPart.stockQuantity
+        });
+      }
+    }
+
+    if (insufficientStock.length > 0) {
+      return res.status(400).json({
+        message: "Insufficient stock for one or more spare parts.",
+        insufficientStock
+      });
+    }
+
+    // Update booking with assigned spare parts
+    const sparePartsJson = JSON.stringify(spareParts);
+    await db.query(
+      "UPDATE booking SET assignedSpareParts = ? WHERE bookingId = ?",
+      [sparePartsJson, bookingId]
+    );
+
+    // Update stock quantities
+    for (const sparePart of spareParts) {
+      await db.query(
+        "UPDATE spareparts SET stockQuantity = stockQuantity - ? WHERE partId = ?",
+        [sparePart.quantity, sparePart.partId]
+      );
+    }
+
+    res.status(200).json({
+      message: "Spare parts assigned successfully.",
+      assignedSpareParts: spareParts,
+      bookingId: bookingId
+    });
+  } catch (error) {
+    console.error("Error assigning spare parts to booking:", error);
+    res.status(500).json({
+      message: "Server error during spare parts assignment.",
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   updateBooking,
@@ -495,4 +684,6 @@ module.exports = {
   getAvailableTimeSlots,
   getTodayBookings,
   getArrivedBookings,
+  assignMechanicsToBooking,
+  assignSparePartsToBooking,
 };
