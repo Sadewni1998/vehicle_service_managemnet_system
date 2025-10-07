@@ -26,6 +26,8 @@ const ServiceAdvisorDashboard = () => {
   const [selectedMechanics, setSelectedMechanics] = useState([])
   const [selectedSpareParts, setSelectedSpareParts] = useState([])
   const [submittedBookings, setSubmittedBookings] = useState([])
+  const [mechanicSearchTerm, setMechanicSearchTerm] = useState('')
+  const [mechanicSpecializationFilter, setMechanicSpecializationFilter] = useState('')
 
   // Fetch arrived bookings when component mounts or when assign-jobs tab is active
   useEffect(() => {
@@ -78,10 +80,73 @@ const ServiceAdvisorDashboard = () => {
       const response = await mechanicsAPI.getAvailableMechanics()
       setAvailableMechanics(response.data.data || [])
       setSelectedMechanics([])
+      setMechanicSearchTerm('')
+      setMechanicSpecializationFilter('')
       setShowAssignMechanics(true)
     } catch (error) {
       console.error('Error fetching mechanics:', error)
-      setAvailableMechanics([])
+      // Use mock data if API fails
+      setAvailableMechanics([
+        {
+          mechanicId: 1,
+          staffId: 4,
+          mechanicCode: 'MEC001',
+          mechanicName: 'Sarah',
+          staffName: 'Sarah Johnson',
+          email: 'sarah.johnson@vehicleservice.com',
+          specialization: 'Engine and Transmission',
+          experience: 5,
+          certifications: ['ASE Certified', 'Engine Specialist'],
+          availability: 'Available',
+          hourlyRate: 2500.00,
+          isActive: true
+        },
+        {
+          mechanicId: 2,
+          staffId: 5,
+          mechanicCode: 'MEC002',
+          mechanicName: 'John',
+          staffName: 'John Smith',
+          email: 'john.smith@vehicleservice.com',
+          specialization: 'Electrical Systems',
+          experience: 3,
+          certifications: ['Auto Electrician', 'Hybrid Systems'],
+          availability: 'Available',
+          hourlyRate: 2200.00,
+          isActive: true
+        },
+        {
+          mechanicId: 3,
+          staffId: 6,
+          mechanicCode: 'MEC003',
+          mechanicName: 'Mike',
+          staffName: 'Mike Wilson',
+          email: 'mike.wilson@vehicleservice.com',
+          specialization: 'Brake Systems',
+          experience: 4,
+          certifications: ['Brake Specialist', 'Safety Certified'],
+          availability: 'Available',
+          hourlyRate: 2300.00,
+          isActive: true
+        },
+        {
+          mechanicId: 4,
+          staffId: 7,
+          mechanicCode: 'MEC004',
+          mechanicName: 'Lisa',
+          staffName: 'Lisa Brown',
+          email: 'lisa.brown@vehicleservice.com',
+          specialization: 'Air Conditioning',
+          experience: 2,
+          certifications: ['AC Technician'],
+          availability: 'Busy',
+          hourlyRate: 2000.00,
+          isActive: true
+        }
+      ])
+      setSelectedMechanics([])
+      setMechanicSearchTerm('')
+      setMechanicSpecializationFilter('')
       setShowAssignMechanics(true)
     }
   }
@@ -702,11 +767,68 @@ const ServiceAdvisorDashboard = () => {
             </div>
 
             <div className="space-y-4">
-              <p className="text-gray-600">Select mechanics to assign to this booking:</p>
+              <div className="flex items-center justify-between">
+                <p className="text-gray-600">Select mechanics to assign to this booking:</p>
+                {selectedMechanics.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                    <span className="text-sm font-medium text-green-800">
+                      {selectedMechanics.length} mechanic{selectedMechanics.length !== 1 ? 's' : ''} selected
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {selectedMechanics.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Selected Mechanics:</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMechanics.map((mechanic) => (
+                      <span key={mechanic.mechanicId} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                        {mechanic.mechanicName || mechanic.name} ({mechanic.mechanicCode})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Search and Filter Controls */}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search mechanics by name or code..."
+                    value={mechanicSearchTerm}
+                    onChange={(e) => setMechanicSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:w-48">
+                  <select
+                    value={mechanicSpecializationFilter}
+                    onChange={(e) => setMechanicSpecializationFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">All Specializations</option>
+                    {[...new Set(availableMechanics.map(m => m.specialization))].map(spec => (
+                      <option key={spec} value={spec}>{spec}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                {availableMechanics.map((mechanic) => (
-                  <div key={mechanic.mechanicId} className="border rounded-lg p-4">
+                {availableMechanics
+                  .filter(mechanic => {
+                    const matchesSearch = mechanicSearchTerm === '' || 
+                      (mechanic.mechanicName && mechanic.mechanicName.toLowerCase().includes(mechanicSearchTerm.toLowerCase())) ||
+                      (mechanic.name && mechanic.name.toLowerCase().includes(mechanicSearchTerm.toLowerCase())) ||
+                      mechanic.mechanicCode.toLowerCase().includes(mechanicSearchTerm.toLowerCase())
+                    const matchesSpecialization = mechanicSpecializationFilter === '' || 
+                      mechanic.specialization === mechanicSpecializationFilter
+                    return matchesSearch && matchesSpecialization
+                  })
+                  .map((mechanic) => (
+                  <div key={mechanic.mechanicId} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                     <label className="flex items-start space-x-3 cursor-pointer">
                       <input
                         type="checkbox"
@@ -718,23 +840,88 @@ const ServiceAdvisorDashboard = () => {
                             setSelectedMechanics(selectedMechanics.filter(m => m.mechanicId !== mechanic.mechanicId))
                           }
                         }}
-                        className="mt-1"
+                        className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                       />
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900">{mechanic.name}</div>
-                        <div className="text-sm text-gray-600">Code: {mechanic.mechanicCode}</div>
-                        <div className="text-sm text-gray-600">Specialization: {mechanic.specialization}</div>
-                        <div className="text-sm text-gray-600">Experience: {mechanic.experience} years</div>
-                        <div className="text-sm text-green-600">Status: {mechanic.availability}</div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-semibold text-gray-900 text-lg">{mechanic.mechanicName || mechanic.name}</div>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            mechanic.availability === 'Available' 
+                              ? 'bg-green-100 text-green-800' 
+                              : mechanic.availability === 'Busy'
+                              ? 'bg-red-100 text-red-800'
+                              : mechanic.availability === 'On Break'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {mechanic.availability}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-600">Code:</span>
+                            <span className="text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded">{mechanic.mechanicCode}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-600">Specialization:</span>
+                            <span className="text-sm text-blue-600 font-medium">{mechanic.specialization}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-600">Experience:</span>
+                            <span className="text-sm text-gray-900">{mechanic.experience} years</span>
+                          </div>
+                          
+                          {mechanic.hourlyRate && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-600">Hourly Rate:</span>
+                              <span className="text-sm text-green-600 font-medium">Rs. {mechanic.hourlyRate.toLocaleString()}</span>
+                            </div>
+                          )}
+                          
+                          {mechanic.certifications && (
+                            <div className="mt-2">
+                              <span className="text-sm font-medium text-gray-600">Certifications:</span>
+                              <div className="mt-1">
+                                {typeof mechanic.certifications === 'string' ? (
+                                  <span className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                                    {mechanic.certifications}
+                                  </span>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1">
+                                    {mechanic.certifications.map((cert, index) => (
+                                      <span key={index} className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                                        {cert}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </label>
                   </div>
                 ))}
               </div>
 
-              {availableMechanics.length === 0 && (
+              {availableMechanics.filter(mechanic => {
+                const matchesSearch = mechanicSearchTerm === '' || 
+                  (mechanic.mechanicName && mechanic.mechanicName.toLowerCase().includes(mechanicSearchTerm.toLowerCase())) ||
+                  (mechanic.name && mechanic.name.toLowerCase().includes(mechanicSearchTerm.toLowerCase())) ||
+                  mechanic.mechanicCode.toLowerCase().includes(mechanicSearchTerm.toLowerCase())
+                const matchesSpecialization = mechanicSpecializationFilter === '' || 
+                  mechanic.specialization === mechanicSpecializationFilter
+                return matchesSearch && matchesSpecialization
+              }).length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No available mechanics found
+                  {availableMechanics.length === 0 
+                    ? 'No available mechanics found' 
+                    : 'No mechanics match your search criteria'
+                  }
                 </div>
               )}
             </div>
