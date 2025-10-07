@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Test Dashboard</title>
+  </head>
+  <body>
+    <h1>Test Dashboard Navigation</h1>
+    <p>Click to test the vehicle booking system:</p>
+    <div style="margin: 20px 0">
+      <a
+        href="http://localhost:5174/customer-dashboard"
+        target="_blank"
+        style="
+          display: inline-block;
+          margin: 10px;
+          padding: 10px 20px;
+          background: #3b82f6;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+        "
+        >Go to Customer Dashboard</a
+      >
+      <a
+        href="http://localhost:5174/booking"
+        target="_blank"
+        style="
+          display: inline-block;
+          margin: 10px;
+          padding: 10px 20px;
+          background: #ef4444;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+        "
+        >Go to Booking Page</a
+      >
+    </div>
+
+    <script>
+      // Set real test data in localStorage for testing
+      const testUser = {
+        customerId: 3,
+        id: 3,
+        name: "Test User",
+        email: "test1759854061150@example.com",
+        phone: "0771234567",
+        address: "Test Address",
+      };
+
+      const testToken =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjdXN0b21lcklkIjozLCJlbWFpbCI6InRlc3QxNzU5ODU0MDYxMTUwQGV4YW1wbGUuY29tIiwibmFtZSI6IlRlc3QgVXNlciIsImlhdCI6MTc1OTg1NjEwMSwiZXhwIjoxNzU5OTQyNTAxfQ.IfC62EFGwu7jj05K6Qv-gb_oOfWWpfuMFhmzUZJiC7k";
+
+      localStorage.setItem("user", JSON.stringify(testUser));
+      localStorage.setItem("token", testToken);
+
+      console.log("Real test data set in localStorage");
+      console.log("User:", testUser);
+      console.log("Token length:", testToken.length);
+    </script>
+  </body>
+</html>

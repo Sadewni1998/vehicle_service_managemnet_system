@@ -1,33 +1,39 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Plus, Trash2, Car } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Plus, Trash2, Car } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
 
 const Register = () => {
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [vehicles, setVehicles] = useState([{ id: 1 }])
-  const { register, handleSubmit, formState: { errors }, watch } = useForm()
-  const { register: registerUser } = useAuth()
-  const navigate = useNavigate()
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [vehicles, setVehicles] = useState([{ id: 1 }]);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+  } = useForm();
+  const { register: registerUser } = useAuth();
+  const navigate = useNavigate();
 
-  const password = watch('password')
+  const password = watch("password");
 
   const addVehicle = () => {
-    setVehicles([...vehicles, { id: Date.now() }])
-  }
+    setVehicles([...vehicles, { id: Date.now() }]);
+  };
 
   const removeVehicle = (id) => {
     if (vehicles.length > 1) {
-      setVehicles(vehicles.filter(vehicle => vehicle.id !== id))
+      setVehicles(vehicles.filter((vehicle) => vehicle.id !== id));
     }
-  }
+  };
 
   const onSubmit = async (data) => {
-    setIsLoading(true)
-    
+    setIsLoading(true);
+
     try {
       // Transform form data to match backend expectations
       const registrationData = {
@@ -36,36 +42,52 @@ const Register = () => {
         password: data.password,
         phone: data.contact_number,
         address: data.address,
-        vehicles: []
-      }
+        vehicles: [],
+      };
 
-      // Process vehicle data if provided
+      // Process vehicle data - now required
       if (data.vehicle_number && Array.isArray(data.vehicle_number)) {
         data.vehicle_number.forEach((vehicleNumber, index) => {
-          if (vehicleNumber) { // Only add if vehicle number is provided
+          // Only add complete vehicle entries
+          if (
+            vehicleNumber &&
+            data.vehicle_brand?.[index] &&
+            data.vehicle_model?.[index] &&
+            data.vehicle_type?.[index] &&
+            data.manufacture_year?.[index] &&
+            data.fuel_type?.[index] &&
+            data.transmission?.[index]
+          ) {
             registrationData.vehicles.push({
               vehicleNumber: vehicleNumber,
-              brand: data.vehicle_brand?.[index] || '',
-              model: data.vehicle_model?.[index] || '',
-              type: data.vehicle_type?.[index] || '',
-              manufactureYear: data.manufacture_year?.[index] || null,
-              fuelType: data.fuel_type?.[index] || '',
-              transmission: data.transmission?.[index] || ''
-            })
+              brand: data.vehicle_brand[index],
+              model: data.vehicle_model[index],
+              type: data.vehicle_type[index],
+              manufactureYear: data.manufacture_year[index],
+              fuelType: data.fuel_type[index],
+              transmission: data.transmission[index],
+            });
           }
-        })
+        });
       }
 
-      const result = await registerUser(registrationData)
+      // Validate that at least one complete vehicle is provided
+      if (registrationData.vehicles.length === 0) {
+        toast.error("Please provide at least one complete vehicle information");
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await registerUser(registrationData);
       if (result.success) {
-        navigate('/login')
+        navigate("/login");
       }
     } catch (error) {
-      console.error('Registration error:', error)
+      console.error("Registration error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -73,19 +95,24 @@ const Register = () => {
         <div className="text-center mb-8">
           <div className="flex justify-center items-center space-x-3 mb-4">
             <img src="/logo.png" alt="Hybrid Lanka" className="w-24.5 h-12" />
-            <h1 className="text-3xl font-bold text-primary-600">Hybrid Lanka Auto Care</h1>
+            <h1 className="text-3xl font-bold text-primary-600">
+              Hybrid Lanka Auto Care
+            </h1>
           </div>
         </div>
 
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
           <div className="flex justify-center items-center flex-col mt-10">
             <h2 className="text-2xl font-bold text-gray-900">Sign Up</h2>
-              <p className="mt-2 text-gray-600">
-                Already have an account?{' '}
-                <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-                  Sign in
-                </Link>
-              </p>
+            <p className="mt-2 text-gray-600">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-medium text-primary-600 hover:text-primary-500"
+              >
+                Sign in
+              </Link>
+            </p>
           </div>
           <form onSubmit={handleSubmit(onSubmit)} className="p-8">
             {/* Personal Information */}
@@ -96,74 +123,98 @@ const Register = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="username"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Name with Initials
                   </label>
                   <input
                     type="text"
                     id="username"
                     className="input-field mt-1"
-                    {...register('username', { required: 'name with initials is required' })}
+                    {...register("username", {
+                      required: "name with initials is required",
+                    })}
                   />
                   {errors.username && (
-                    <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.username.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Email Address
                   </label>
                   <input
                     type="email"
                     id="email"
                     className="input-field mt-1"
-                    {...register('email', {
-                      required: 'Email is required',
+                    {...register("email", {
+                      required: "Email is required",
                       pattern: {
                         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                        message: 'Invalid email address'
-                      }
+                        message: "Invalid email address",
+                      },
                     })}
                   />
                   {errors.email && (
-                    <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.email.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="contact_number" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="contact_number"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Contact Number
                   </label>
                   <input
                     type="tel"
                     id="contact_number"
                     className="input-field mt-1"
-                    {...register('contact_number', {
-                      required: 'Contact number is required',
+                    {...register("contact_number", {
+                      required: "Contact number is required",
                       pattern: {
                         value: /^[0-9+\-\s()]+$/,
-                        message: 'Invalid contact number'
-                      }
+                        message: "Invalid contact number",
+                      },
                     })}
                   />
                   {errors.contact_number && (
-                    <p className="mt-1 text-sm text-red-600">{errors.contact_number.message}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.contact_number.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="address"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Address
                   </label>
                   <textarea
                     id="address"
                     rows={3}
                     className="input-field mt-1"
-                    {...register('address', { required: 'Address is required' })}
+                    {...register("address", {
+                      required: "Address is required",
+                    })}
                   />
                   {errors.address && (
-                    <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.address.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -171,23 +222,28 @@ const Register = () => {
 
             {/* Password Section */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Create Password</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Create Password
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Password
                   </label>
                   <div className="mt-1 relative">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       id="password"
                       className="input-field pr-10"
-                      {...register('password', {
-                        required: 'Password is required',
+                      {...register("password", {
+                        required: "Password is required",
                         minLength: {
                           value: 6,
-                          message: 'Password must be at least 6 characters'
-                        }
+                          message: "Password must be at least 6 characters",
+                        },
                       })}
                     />
                     <button
@@ -203,28 +259,36 @@ const Register = () => {
                     </button>
                   </div>
                   {errors.password && (
-                    <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.password.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
+                  <label
+                    htmlFor="confirm_password"
+                    className="block text-sm font-medium text-gray-700"
+                  >
                     Confirm Password
                   </label>
                   <div className="mt-1 relative">
                     <input
-                      type={showConfirmPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? "text" : "password"}
                       id="confirm_password"
                       className="input-field pr-10"
-                      {...register('confirm_password', {
-                        required: 'Please confirm your password',
-                        validate: value => value === password || 'Passwords do not match'
+                      {...register("confirm_password", {
+                        required: "Please confirm your password",
+                        validate: (value) =>
+                          value === password || "Passwords do not match",
                       })}
                     />
                     <button
                       type="button"
                       className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="h-5 w-5 text-gray-400" />
@@ -234,7 +298,9 @@ const Register = () => {
                     </button>
                   </div>
                   {errors.confirm_password && (
-                    <p className="mt-1 text-sm text-red-600">{errors.confirm_password.message}</p>
+                    <p className="mt-1 text-sm text-red-600">
+                      {errors.confirm_password.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -245,7 +311,8 @@ const Register = () => {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <Car className="w-5 h-5 mr-2 text-primary-600" />
-                  Vehicle Information
+                  Vehicle Information{" "}
+                  <span className="text-red-500 ml-1">*</span>
                 </h3>
                 <button
                   type="button"
@@ -256,11 +323,20 @@ const Register = () => {
                   <span>Add Vehicle</span>
                 </button>
               </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide at least one vehicle with complete information.
+                This is required for service bookings.
+              </p>
 
               {vehicles.map((vehicle, index) => (
-                <div key={vehicle.id} className="border border-gray-200 rounded-lg p-6 mb-4">
+                <div
+                  key={vehicle.id}
+                  className="border border-gray-200 rounded-lg p-6 mb-4"
+                >
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-medium text-gray-900">Vehicle {index + 1}</h4>
+                    <h4 className="font-medium text-gray-900">
+                      Vehicle {index + 1}
+                    </h4>
                     {vehicles.length > 1 && (
                       <button
                         type="button"
@@ -274,23 +350,41 @@ const Register = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="col-span-full">
-                      <label className="block text-sm font-medium text-gray-700">Vehicle Number</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Vehicle Number <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
                         className="input-field mt-1"
-                        {...register(`vehicle_number.${index}`)}
+                        style={{ textTransform: "uppercase" }}
+                        {...register(`vehicle_number.${index}`, {
+                          required: "Vehicle number is required",
+                        })}
+                        onInput={(e) => {
+                          e.target.value = e.target.value.toUpperCase();
+                        }}
                       />
+                      {errors.vehicle_number?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.vehicle_number[index].message}
+                        </p>
+                      )}
                     </div>
 
-                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Brand</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Brand <span className="text-red-500">*</span>
+                      </label>
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`vehicle_brand.${index}`)}
+                        {...register(`vehicle_brand.${index}`, {
+                          required: "Vehicle brand is required",
+                        })}
                       >
-                        <option value="" disabled hidden>Select Brand</option>
+                        <option value="" disabled hidden>
+                          Select Brand
+                        </option>
                         <option value="toyota">Toyota</option>
                         <option value="honda">Honda</option>
                         <option value="suzuki">Suzuki</option>
@@ -299,25 +393,45 @@ const Register = () => {
                         <option value="isuzu">Isuzu</option>
                         <option value="subaru">Subaru</option>
                       </select>
+                      {errors.vehicle_brand?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.vehicle_brand[index].message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Model</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Model <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
                         className="input-field mt-2"
-                        {...register(`vehicle_model.${index}`)}
+                        {...register(`vehicle_model.${index}`, {
+                          required: "Vehicle model is required",
+                        })}
                       />
+                      {errors.vehicle_model?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.vehicle_model[index].message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Type</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Type <span className="text-red-500">*</span>
+                      </label>
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`vehicle_type.${index}`)}
+                        {...register(`vehicle_type.${index}`, {
+                          required: "Vehicle type is required",
+                        })}
                       >
-                        <option value="" disabled hidden>Select Type</option>
+                        <option value="" disabled hidden>
+                          Select Type
+                        </option>
                         <option value="wagon">Wagon</option>
                         <option value="sedan">Sedan</option>
                         <option value="suv">SUV</option>
@@ -327,45 +441,89 @@ const Register = () => {
                         <option value="minicar">Mini Car/ Kei Car</option>
                         <option value="van">Van</option>
                       </select>
+                      {errors.vehicle_type?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.vehicle_type[index].message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Manufacture Year</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Manufacture Year <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="number"
                         min="1990"
                         max="2024"
                         className="input-field mt-2"
-                        {...register(`manufacture_year.${index}`)}
+                        {...register(`manufacture_year.${index}`, {
+                          required: "Manufacture year is required",
+                          min: {
+                            value: 1990,
+                            message: "Year must be 1990 or later",
+                          },
+                          max: {
+                            value: 2024,
+                            message: "Year cannot be in the future",
+                          },
+                        })}
                       />
+                      {errors.manufacture_year?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.manufacture_year[index].message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Fuel Type</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Fuel Type <span className="text-red-500">*</span>
+                      </label>
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`fuel_type.${index}`)}
+                        {...register(`fuel_type.${index}`, {
+                          required: "Fuel type is required",
+                        })}
                       >
-                        <option value="" disabled hidden>Select Fuel Type</option>
+                        <option value="" disabled hidden>
+                          Select Fuel Type
+                        </option>
                         <option value="petrol">Petrol</option>
                         <option value="diesel">Diesel</option>
                         <option value="electric">Electric</option>
                         <option value="hybrid">Hybrid</option>
                       </select>
+                      {errors.fuel_type?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.fuel_type[index].message}
+                        </p>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Transmission</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Transmission <span className="text-red-500">*</span>
+                      </label>
                       <select
                         className="input-field mt-2"
                         defaultValue=""
-                        {...register(`transmission.${index}`)}
+                        {...register(`transmission.${index}`, {
+                          required: "Transmission type is required",
+                        })}
                       >
-                        <option value="" disabled hidden>Select Transmission</option>
+                        <option value="" disabled hidden>
+                          Select Transmission
+                        </option>
                         <option value="auto">Automatic</option>
                         <option value="manual">Manual</option>
                       </select>
+                      {errors.transmission?.[index] && (
+                        <p className="mt-1 text-sm text-red-600">
+                          {errors.transmission[index].message}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -379,14 +537,14 @@ const Register = () => {
                 disabled={isLoading}
                 className="btn-primary px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {isLoading ? "Creating Account..." : "Create Account"}
               </button>
             </div>
           </form>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Register
+export default Register;

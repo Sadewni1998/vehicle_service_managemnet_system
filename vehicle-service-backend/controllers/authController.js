@@ -7,12 +7,12 @@ const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
- * Handles new customer registration with optional vehicle details.
+ * Handles new customer registration with mandatory vehicle details.
  * Uses a database transaction to ensure data integrity.
  */
 const register = async (req, res) => {
   // Destructure all possible fields from the request body
-  // 'vehicles' is expected to be an array of vehicle objects, but it's optional.
+  // 'vehicles' is now required and must contain at least one complete vehicle.
   const { name, email, password, phone, address, vehicles } = req.body;
 
   // Basic validation for required customer fields
@@ -20,6 +20,53 @@ const register = async (req, res) => {
     return res
       .status(400)
       .json({ message: "Name, email, and password are required." });
+  }
+
+  // Validate that vehicle information is provided
+  if (!vehicles || !Array.isArray(vehicles) || vehicles.length === 0) {
+    return res.status(400).json({
+      message: "At least one vehicle information is required for registration.",
+    });
+  }
+
+  // Validate each vehicle has all required fields
+  for (let i = 0; i < vehicles.length; i++) {
+    const vehicle = vehicles[i];
+    const requiredFields = [
+      "vehicleNumber",
+      "brand",
+      "model",
+      "type",
+      "manufactureYear",
+      "fuelType",
+      "transmission",
+    ];
+
+    for (const field of requiredFields) {
+      if (!vehicle[field] || vehicle[field] === "") {
+        return res
+          .status(400)
+          .json({ message: `Vehicle ${i + 1}: ${field} is required.` });
+      }
+    }
+
+    // Validate vehicle number format (basic validation)
+    if (!/^[A-Z0-9\-]+$/i.test(vehicle.vehicleNumber)) {
+      return res
+        .status(400)
+        .json({ message: `Vehicle ${i + 1}: Invalid vehicle number format.` });
+    }
+
+    // Validate manufacture year
+    const currentYear = new Date().getFullYear();
+    const year = parseInt(vehicle.manufactureYear);
+    if (year < 1990 || year > currentYear) {
+      return res.status(400).json({
+        message: `Vehicle ${
+          i + 1
+        }: Manufacture year must be between 1990 and ${currentYear}.`,
+      });
+    }
   }
 
   // Get a connection from the pool to manage the transaction
@@ -55,34 +102,49 @@ const register = async (req, res) => {
     ]);
     const newCustomerId = customerResult.insertId; // Get the ID of the new customer
 
-    // 4. Check if vehicle data was provided and is a non-empty array
-    if (vehicles && Array.isArray(vehicles) && vehicles.length > 0) {
-      // Loop through each vehicle object sent from the frontend
-      for (const vehicle of vehicles) {
-        const {
-          vehicleNumber,
-          brand,
-          model,
-          type,
-          manufactureYear,
-          fuelType,
-          transmission,
-        } = vehicle;
+    // 4. Insert vehicle data (now required)
+    // Loop through each vehicle object sent from the frontend
+    for (const vehicle of vehicles) {
+      const {
+        vehicleNumber,
+        brand,
+        model,
+        type,
+        manufactureYear,
+        fuelType,
+        transmission,
+      } = vehicle;
 
-        // Insert each vehicle into the 'vehicle' table, linking it to the new customer
-        const vehicleSql =
-          "INSERT INTO vehicle (customerId, vehicleNumber, brand, model, type, manufactureYear, fuelType, transmission) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        await connection.query(vehicleSql, [
-          newCustomerId,
-          vehicleNumber,
-          brand,
-          model,
-          type,
-          manufactureYear,
-          fuelType,
-          transmission,
-        ]);
+      // Convert vehicle number to uppercase
+      const upperCaseVehicleNumber = vehicleNumber?.toUpperCase();
+
+      // Check if vehicle number already exists
+      const [existingVehicle] = await connection.query(
+        "SELECT vehicleNumber FROM vehicle WHERE vehicleNumber = ?",
+        [upperCaseVehicleNumber]
+      );
+
+      if (existingVehicle.length > 0) {
+        await connection.rollback();
+        connection.release();
+        return res.status(409).json({
+          message: `Vehicle number ${upperCaseVehicleNumber} is already registered.`,
+        });
       }
+
+      // Insert each vehicle into the 'vehicle' table, linking it to the new customer
+      const vehicleSql =
+        "INSERT INTO vehicle (customerId, vehicleNumber, brand, model, type, manufactureYear, fuelType, transmission) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+      await connection.query(vehicleSql, [
+        newCustomerId,
+        upperCaseVehicleNumber,
+        brand,
+        model,
+        type,
+        manufactureYear,
+        fuelType,
+        transmission,
+      ]);
     }
 
     // If everything was successful, commit the transaction to save all changes
@@ -292,8 +354,8 @@ const googleSignIn = async (req, res) => {
   const { token } = req.body; // This is the user info from the frontend
 
   // Debug: Check if Google Client ID is loaded
-  console.log('Google Client ID from env:', process.env.GOOGLE_CLIENT_ID);
-  console.log('Received token:', token ? 'Token received' : 'No token');
+  console.log("Google Client ID from env:", process.env.GOOGLE_CLIENT_ID);
+  console.log("Received token:", token ? "Token received" : "No token");
 
   if (!token) {
     return res.status(400).json({ message: "Google token is required." });
@@ -312,17 +374,23 @@ const googleSignIn = async (req, res) => {
 
     // Verify the access token with Google
     if (!access_token) {
-      return res.status(400).json({ message: "Access token is required for verification." });
+      return res
+        .status(400)
+        .json({ message: "Access token is required for verification." });
     }
 
     try {
-      const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${access_token}`);
+      const response = await fetch(
+        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${access_token}`
+      );
       const verifiedUserInfo = await response.json();
-      
+
       if (verifiedUserInfo.error) {
-        return res.status(400).json({ message: "Invalid Google access token." });
+        return res
+          .status(400)
+          .json({ message: "Invalid Google access token." });
       }
-      
+
       // Use verified data from Google
       const verifiedGoogleId = verifiedUserInfo.id;
       const verifiedName = verifiedUserInfo.name;
@@ -340,7 +408,11 @@ const googleSignIn = async (req, res) => {
           INSERT INTO customer (name, email, googleId, provider) 
           VALUES (?, ?, ?, 'google')
         `;
-        const [result] = await db.query(newUserSql, [verifiedName, verifiedEmail, verifiedGoogleId]);
+        const [result] = await db.query(newUserSql, [
+          verifiedName,
+          verifiedEmail,
+          verifiedGoogleId,
+        ]);
 
         // Fetch the newly created customer to get their customerId
         const [newRows] = await db.query(
@@ -381,25 +453,30 @@ const googleSignIn = async (req, res) => {
       });
     } catch (fetchError) {
       console.error("Error verifying with Google:", fetchError);
-      res.status(400).json({ message: "Failed to verify Google access token." });
+      res
+        .status(400)
+        .json({ message: "Failed to verify Google access token." });
     }
   } catch (error) {
     console.error("Google Sign-In error:", error);
     console.error("Error details:", {
       message: error.message,
       code: error.code,
-      stack: error.stack
+      stack: error.stack,
     });
-    
+
     // Return more specific error message
-    if (error.message.includes('Invalid token')) {
+    if (error.message.includes("Invalid token")) {
       res.status(400).json({ message: "Invalid Google token provided." });
-    } else if (error.message.includes('Client ID')) {
-      res.status(500).json({ message: "Google OAuth configuration error. Please check Google Client ID." });
+    } else if (error.message.includes("Client ID")) {
+      res.status(500).json({
+        message:
+          "Google OAuth configuration error. Please check Google Client ID.",
+      });
     } else {
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Server error during Google Sign-In.",
-        error: error.message 
+        error: error.message,
       });
     }
   }
