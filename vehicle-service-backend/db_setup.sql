@@ -86,8 +86,8 @@ CREATE TABLE booking (
 -- New table to store breakdown service requests
 CREATE TABLE breakdown_request (
     requestId INT AUTO_INCREMENT PRIMARY KEY,
-    customerId INT NOT NULL,
-    vehicleId INT NOT NULL,
+    customerId INT NULL,  -- Made nullable for guest requests
+    vehicleId INT NULL,   -- Made nullable for guest requests
     
     -- Fields from your form
     emergencyType VARCHAR(255) NOT NULL,
@@ -96,6 +96,12 @@ CREATE TABLE breakdown_request (
     problemDescription TEXT,
     additionalInfo TEXT,
     
+    -- Contact information for breakdown requests
+    contactName VARCHAR(255) NOT NULL,
+    contactPhone VARCHAR(20) NOT NULL,
+    vehicleNumber VARCHAR(100) NOT NULL,
+    vehicleType VARCHAR(100),
+    
     -- Status to track the request progress
     status ENUM('Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
     
@@ -103,9 +109,9 @@ CREATE TABLE breakdown_request (
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
-    -- Foreign keys to link with other tables
-    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE CASCADE,
-    FOREIGN KEY (vehicleId) REFERENCES vehicle(vehicleId) ON DELETE CASCADE
+    -- Foreign keys to link with other tables (made nullable for guest requests)
+    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL,
+    FOREIGN KEY (vehicleId) REFERENCES vehicle(vehicleId) ON DELETE SET NULL
 );
 
 -- Use your existing database
