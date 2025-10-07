@@ -116,6 +116,20 @@ export const serviceAdvisorAPI = {
   getArrivedBookings: () => api.get('/bookings/arrived'),
   getBookingById: (id) => api.get(`/bookings/${id}`),
   updateBookingStatus: (id, status) => api.put(`/bookings/${id}/status`, { status }),
+  assignMechanicsToBooking: (bookingId, mechanicIds) => api.put(`/bookings/${bookingId}/assign-mechanics`, { mechanicIds }),
+  assignSparePartsToBooking: (bookingId, spareParts) => api.put(`/bookings/${bookingId}/assign-spare-parts`, { spareParts }),
+}
+
+// Mechanics API
+export const mechanicsAPI = {
+  getAvailableMechanics: () => api.get('/mechanics/available'),
+  getAllMechanics: (params) => api.get('/mechanics', { params }),
+}
+
+// Spare Parts API
+export const sparePartsAPI = {
+  getAllSpareParts: (params) => api.get('/spareparts', { params }),
+  getSparePartsCategories: () => api.get('/spareparts/categories'),
 }
 
 // General API
