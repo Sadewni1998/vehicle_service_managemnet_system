@@ -107,6 +107,36 @@ const ReceptionistDashboard = () => {
   // View booking details
   const viewBookingDetails = async (bookingId) => {
     try {
+      // First, try to get the current vehicle data from the state
+      const currentVehicle = vehicles.find(v => v.id === bookingId)
+      
+      if (currentVehicle) {
+        // Use current vehicle data to ensure status and arrivedTime are up-to-date
+        const bookingDetails = {
+          id: currentVehicle.id,
+          name: currentVehicle.customer,
+          phone: currentVehicle.phone,
+          vehicleNumber: currentVehicle.vehicleNumber,
+          vehicleType: currentVehicle.vehicleType || 'Sedan',
+          vehicleBrand: currentVehicle.vehicleBrand || 'Toyota',
+          vehicleBrandModel: currentVehicle.vehicleBrandModel || 'Camry',
+          manufacturedYear: currentVehicle.manufacturedYear || 2020,
+          fuelType: currentVehicle.fuelType || 'Petrol',
+          transmissionType: currentVehicle.transmissionType || 'Automatic',
+          kilometersRun: currentVehicle.kilometersRun || 45000,
+          bookingDate: new Date().toISOString().split('T')[0],
+          timeSlot: currentVehicle.timeSlot,
+          status: currentVehicle.status,
+          arrivedTime: currentVehicle.arrivedTime,
+          serviceTypes: JSON.stringify(currentVehicle.serviceTypes || ['Oil Change', 'Brake Inspection']),
+          specialRequests: currentVehicle.specialRequests || 'No special requests'
+        }
+        setSelectedBooking(bookingDetails)
+        setShowBookingDetails(true)
+        return
+      }
+
+      // Fallback to API call if vehicle not found in state
       try {
         const response = await receptionistAPI.getBookingById(bookingId)
         setSelectedBooking(response.data)

@@ -67,7 +67,10 @@ CREATE TABLE booking (
     specialRequests TEXT,
     
     -- It's good practice to have a status for the booking
-    status ENUM('Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
+    status ENUM('Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled', 'arrived') DEFAULT 'Pending',
+    
+    -- Track when the vehicle arrived
+    arrivedTime TIME NULL,
     
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -238,4 +241,43 @@ CREATE TABLE IF NOT EXISTS jobcard (
     -- Foreign key constraints
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE RESTRICT,
     FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE CASCADE
+);
+
+-- Insert test bookings for today's date
+-- Note: Replace CURDATE() with actual date if needed for testing
+INSERT INTO booking (
+    name, phone, vehicleNumber, vehicleType, fuelType,
+    vehicleBrand, vehicleBrandModel, manufacturedYear, transmissionType,
+    kilometersRun, bookingDate, timeSlot, serviceTypes,
+    specialRequests, customerId, status, arrivedTime
+) VALUES 
+(
+    'John Smith', '0771234567', 'ABC-123', 'Sedan', 'Petrol',
+    'Toyota', 'Camry', 2020, 'Automatic',
+    45000, CURDATE(), '07:30-09:30', '["Oil Change", "Brake Inspection"]',
+    'Please check the air conditioning system', NULL, 'pending', NULL
+),
+(
+    'Sarah Johnson', '0777654321', 'XYZ-789', 'SUV', 'Petrol',
+    'Honda', 'CR-V', 2019, 'Automatic',
+    52000, CURDATE(), '09:30-11:30', '["Engine Service", "Tire Rotation"]',
+    'Check for any unusual noises', NULL, 'pending', NULL
+),
+(
+    'Michael Chen', '0775555555', 'DEF-456', 'Hatchback', 'Petrol',
+    'Nissan', 'Micra', 2021, 'Manual',
+    28000, CURDATE(), '12:00-14:00', '["Regular Service", "Battery Check"]',
+    'Replace air filter', NULL, 'arrived', '07:45'
+),
+(
+    'Emily Davis', '0778888888', 'GHI-321', 'Sedan', 'Petrol',
+    'BMW', '3 Series', 2018, 'Automatic',
+    65000, CURDATE(), '14:00-16:00', '["Premium Service", "Transmission Check"]',
+    'Full diagnostic check', NULL, 'pending', NULL
+),
+(
+    'Robert Wilson', '0779999999', 'JKL-654', 'Pickup', 'Diesel',
+    'Ford', 'Ranger', 2017, 'Manual',
+    78000, CURDATE(), '16:00-18:00', '["Engine Overhaul", "Clutch Replacement"]',
+    'Customer cancelled due to emergency', NULL, 'cancelled', NULL
 );
