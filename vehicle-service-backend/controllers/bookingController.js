@@ -371,8 +371,23 @@ const updateBookingStatus = async (req, res) => {
   }
 
   try {
-    const sql = "UPDATE booking SET status = ? WHERE bookingId = ?";
-    const [result] = await db.query(sql, [status, bookingId]);
+    let sql, values;
+    
+    // If status is 'arrived', also set the arrivedTime
+    if (status === 'arrived') {
+      const currentTime = new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      sql = "UPDATE booking SET status = ?, arrivedTime = ? WHERE bookingId = ?";
+      values = [status, currentTime, bookingId];
+    } else {
+      sql = "UPDATE booking SET status = ? WHERE bookingId = ?";
+      values = [status, bookingId];
+    }
+    
+    const [result] = await db.query(sql, values);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Booking not found." });
@@ -405,8 +420,8 @@ const getTodayBookings = async (req, res) => {
       timeSlot: booking.timeSlot,
       vehicleNumber: booking.vehicleNumber,
       customer: booking.name,
-      status: booking.status,
-      arrivedTime: booking.arrivedTime || null,
+      status: booking.status.toLowerCase(), // Convert to lowercase for consistency
+      arrivedTime: booking.arrivedTime ? booking.arrivedTime.substring(0, 5) : null, // Format as HH:MM
       phone: booking.phone,
       vehicleType: booking.vehicleType,
       serviceTypes: booking.serviceTypes
