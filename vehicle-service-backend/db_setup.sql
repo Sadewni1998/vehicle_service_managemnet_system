@@ -258,7 +258,7 @@ CREATE TABLE IF NOT EXISTS jobcardMechanic (
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE CASCADE
 );
 
--- Insert test bookings for today's date
+-- Insert test bookings for today's dat
 -- Note: Replace CURDATE() with actual date if needed for testing
 INSERT INTO booking (
     name, phone, vehicleNumber, vehicleType, fuelType,
