@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS jobcard (
     FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE CASCADE
 );
 
--- Create jobcardMechanic table for track completed jobs
+-- Create jobcardMechanic table for track completed job
 CREATE TABLE IF NOT EXISTS jobcardMechanic (
     jobcardMechanicId INT NOT NULL AUTO_INCREMENT,
     jobcardId INT NOT NULL,
