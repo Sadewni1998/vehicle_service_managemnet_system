@@ -66,8 +66,8 @@ CREATE TABLE booking (
     
     specialRequests TEXT,
     
-    -- It's good practice to have a status for the booking
-    status ENUM('Pending', 'Confirmed', 'In Progress', 'Completed', 'Cancelled', 'arrived') DEFAULT 'Pending',
+    -- It's good practice to have a status for the booking (use lowercase values)
+    status ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'arrived') DEFAULT 'pending',
     
     -- Track when the vehicle arrived
     arrivedTime TIME NULL,
@@ -172,7 +172,7 @@ INSERT INTO staff (name, email, password, role) VALUES
 
 -- Create mechanic table for specialized mechanic information
 CREATE TABLE IF NOT EXISTS mechanic (
-    mechanicId INT AUTO_INCREMENT PRIMARY KEY,
+    mechanicId INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
     staffId INT NOT NULL,
     mechanicCode VARCHAR(20) NOT NULL UNIQUE, -- Unique code like MEC001, MEC002, etc.
     specialization VARCHAR(255), -- What the mechanic specializes in
@@ -226,30 +226,39 @@ CREATE TABLE IF NOT EXISTS spareparts (
 
 -- Create jobcard table for tracking service work assignments
 CREATE TABLE IF NOT EXISTS jobcard (
-    jobcardId INT AUTO_INCREMENT PRIMARY KEY,
+    jobcardId INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
     mechanicId INT NOT NULL,
     bookingId INT NOT NULL,
+    partCode VARCHAR(100) NOT NULL,
     
     -- Job card status with all requested statuses
-    status ENUM('Open', 'In Progress', 'Ready for Review', 'Completed', 'Canceled') DEFAULT 'Open',
+    status ENUM('open', 'in_progress', 'ready_for_review', 'completed', 'canceled') DEFAULT 'open',
     
     -- Service details from booking.serviceTypes field
     serviceDetails JSON NOT NULL, -- Stores the services to be performed from booking.serviceTypes
     
     -- Additional job card fields
-    assignedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    startedAt TIMESTAMP NULL,
+    assignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completedAt TIMESTAMP NULL,
-    -- Timestamps for tracking
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     -- Foreign key constraints
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE RESTRICT,
     FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE CASCADE
 );
 
--- Insert test bookings for today's date
+-- Create jobcardMechanic table for track completed job
+CREATE TABLE IF NOT EXISTS jobcardMechanic (
+    jobcardMechanicId INT NOT NULL AUTO_INCREMENT,
+    jobcardId INT NOT NULL,
+    mechanicId INT NOT NULL,
+    assignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completedAt TIMESTAMP NULL,
+    PRIMARY KEY (jobcardMechanicId),
+    FOREIGN KEY (jobcardId) REFERENCES jobcard(jobcardId) ON DELETE CASCADE,
+    FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE CASCADE
+);
+
+-- Insert test bookings for today's dat
 -- Note: Replace CURDATE() with actual date if needed for testing
 INSERT INTO booking (
     name, phone, vehicleNumber, vehicleType, fuelType,

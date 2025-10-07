@@ -51,6 +51,26 @@ router.get(
   bookingController.getArrivedBookings
 );
 
+// Route to assign mechanics to a booking
+// PUT /api/bookings/:bookingId/assign-mechanics
+// Temporarily made public for testing - should be protected in production
+router.put(
+  "/:bookingId/assign-mechanics",
+  // ensureAuthenticated,
+  // checkRole(["service_advisor", "manager"]),
+  bookingController.assignMechanicsToBooking
+);
+
+// Route to assign spare parts to a booking
+// PUT /api/bookings/:bookingId/assign-spare-parts
+// Temporarily made public for testing - should be protected in production
+router.put(
+  "/:bookingId/assign-spare-parts",
+  // ensureAuthenticated,
+  // checkRole(["service_advisor", "manager"]),
+  bookingController.assignSparePartsToBooking
+);
+
 // Route to get booking statistics
 // GET /api/bookings/stats
 router.get(
