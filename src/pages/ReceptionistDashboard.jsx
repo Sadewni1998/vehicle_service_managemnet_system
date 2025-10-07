@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import {
-  Car,
-  Clock,
-  CheckCircle,
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { 
+  Car, 
+  Clock, 
+  CheckCircle, 
   XCircle,
   Search,
   AlertCircle,
@@ -12,107 +12,104 @@ import {
   Calendar,
   Phone,
   Wrench,
-  FileText,
-} from "lucide-react";
-import { receptionistAPI } from "../utils/api";
+  FileText
+} from 'lucide-react'
+import { receptionistAPI } from '../utils/api'
 
 const ReceptionistDashboard = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-  const [vehicles, setVehicles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [vehicles, setVehicles] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [selectedBooking, setSelectedBooking] = useState(null)
+  const [showBookingDetails, setShowBookingDetails] = useState(false)
 
   // Get current date
-  const currentDate = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
 
   // Fetch today's bookings
   useEffect(() => {
     const fetchTodayBookings = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
+        setLoading(true)
+        setError(null)
+        
         // Try to fetch from API first
         try {
-          const response = await receptionistAPI.getTodayBookings();
-          setVehicles(response.data);
+          const response = await receptionistAPI.getTodayBookings()
+          setVehicles(response.data)
         } catch (apiError) {
-          console.warn("API call failed, using mock data:", apiError.message);
+          console.warn('API call failed, using mock data:', apiError.message)
           // Use mock data if API fails (database not available)
           setVehicles([
             {
               id: 1,
-              timeSlot: "9:00 AM - 10:00 AM",
-              vehicleNumber: "ABC-1234",
-              customer: "John Doe",
-              phone: "0771234567",
-              status: "pending",
-              arrivedTime: null,
+              timeSlot: '9:00 AM - 10:00 AM',
+              vehicleNumber: 'ABC-1234',
+              customer: 'John Doe',
+              phone: '0771234567',
+              status: 'pending',
+              arrivedTime: null
             },
             {
               id: 2,
-              timeSlot: "10:00 AM - 11:00 AM",
-              vehicleNumber: "XYZ-9876",
-              customer: "Jane Smith",
-              phone: "0777654321",
-              status: "arrived",
-              arrivedTime: "10:15 AM",
+              timeSlot: '10:00 AM - 11:00 AM',
+              vehicleNumber: 'XYZ-9876',
+              customer: 'Jane Smith',
+              phone: '0777654321',
+              status: 'arrived',
+              arrivedTime: '10:15 AM'
             },
             {
               id: 3,
-              timeSlot: "11:00 AM - 12:00 PM",
-              vehicleNumber: "DEF-5555",
-              customer: "Bob Johnson",
-              phone: "0775555555",
-              status: "pending",
-              arrivedTime: null,
-            },
-          ]);
+              timeSlot: '11:00 AM - 12:00 PM',
+              vehicleNumber: 'DEF-5555',
+              customer: 'Bob Johnson',
+              phone: '0775555555',
+              status: 'pending',
+              arrivedTime: null
+            }
+          ])
         }
       } catch (err) {
-        console.error("Error fetching today's bookings:", err);
-        setError("Failed to load today's bookings. Please try again.");
+        console.error('Error fetching today\'s bookings:', err)
+        setError('Failed to load today\'s bookings. Please try again.')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
-    };
+    }
 
-    fetchTodayBookings();
-  }, []);
+    fetchTodayBookings()
+  }, [])
 
   // Calculate summary statistics
-  const totalScheduled = vehicles.length;
-  const pendingCount = vehicles.filter((v) => v.status === "pending").length;
-  const arrivedCount = vehicles.filter((v) => v.status === "arrived").length;
-  const cancelledCount = vehicles.filter(
-    (v) => v.status === "cancelled"
-  ).length;
+  const totalScheduled = vehicles.length
+  const pendingCount = vehicles.filter(v => v.status === 'pending').length
+  const arrivedCount = vehicles.filter(v => v.status === 'arrived').length
+  const cancelledCount = vehicles.filter(v => v.status === 'cancelled').length
 
   // Filter vehicles based on search term and status filter
-  const filteredVehicles = vehicles.filter((vehicle) => {
-    const matchesSearch =
+  const filteredVehicles = vehicles.filter(vehicle => {
+    const matchesSearch = 
       vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       vehicle.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (vehicle.phone && vehicle.phone.includes(searchTerm));
-    const matchesFilter =
-      filterStatus === "all" || vehicle.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+      (vehicle.phone && vehicle.phone.includes(searchTerm))
+    const matchesFilter = filterStatus === 'all' || vehicle.status === filterStatus
+    return matchesSearch && matchesFilter
+  })
 
   // View booking details
   const viewBookingDetails = async (bookingId) => {
     try {
       // First, try to get the current vehicle data from the state
-      const currentVehicle = vehicles.find((v) => v.id === bookingId);
-
+      const currentVehicle = vehicles.find(v => v.id === bookingId)
+      
       if (currentVehicle) {
         // Use current vehicle data to ensure status and arrivedTime are up-to-date
         const bookingDetails = {
@@ -120,117 +117,113 @@ const ReceptionistDashboard = () => {
           name: currentVehicle.customer,
           phone: currentVehicle.phone,
           vehicleNumber: currentVehicle.vehicleNumber,
-          vehicleType: currentVehicle.vehicleType || "Sedan",
-          vehicleBrand: currentVehicle.vehicleBrand || "Toyota",
-          vehicleBrandModel: currentVehicle.vehicleBrandModel || "Camry",
+          vehicleType: currentVehicle.vehicleType || 'Sedan',
+          vehicleBrand: currentVehicle.vehicleBrand || 'Toyota',
+          vehicleBrandModel: currentVehicle.vehicleBrandModel || 'Camry',
           manufacturedYear: currentVehicle.manufacturedYear || 2020,
-          fuelType: currentVehicle.fuelType || "Petrol",
-          transmissionType: currentVehicle.transmissionType || "Automatic",
-          bookingDate: new Date().toISOString().split("T")[0],
+          fuelType: currentVehicle.fuelType || 'Petrol',
+          transmissionType: currentVehicle.transmissionType || 'Automatic',
+          kilometersRun: currentVehicle.kilometersRun || 45000,
+          bookingDate: new Date().toISOString().split('T')[0],
           timeSlot: currentVehicle.timeSlot,
           status: currentVehicle.status,
           arrivedTime: currentVehicle.arrivedTime,
-          serviceTypes: JSON.stringify(
-            currentVehicle.serviceTypes || ["Oil Change", "Brake Inspection"]
-          ),
-          specialRequests:
-            currentVehicle.specialRequests || "No special requests",
-        };
-        setSelectedBooking(bookingDetails);
-        setShowBookingDetails(true);
-        return;
+          serviceTypes: JSON.stringify(currentVehicle.serviceTypes || ['Oil Change', 'Brake Inspection']),
+          specialRequests: currentVehicle.specialRequests || 'No special requests'
+        }
+        setSelectedBooking(bookingDetails)
+        setShowBookingDetails(true)
+        return
       }
 
       // Fallback to API call if vehicle not found in state
       try {
-        const response = await receptionistAPI.getBookingById(bookingId);
-        setSelectedBooking(response.data);
-        setShowBookingDetails(true);
+        const response = await receptionistAPI.getBookingById(bookingId)
+        setSelectedBooking(response.data)
+        setShowBookingDetails(true)
       } catch (apiError) {
-        console.warn("API call failed, using mock data:", apiError.message);
+        console.warn('API call failed, using mock data:', apiError.message)
         // Use mock data if API fails
         const mockBooking = {
           id: bookingId,
-          name: "John Doe",
-          phone: "0771234567",
-          vehicleNumber: "ABC-1234",
-          vehicleType: "Sedan",
-          vehicleBrand: "Toyota",
-          vehicleBrandModel: "Camry",
+          name: 'John Doe',
+          phone: '0771234567',
+          vehicleNumber: 'ABC-1234',
+          vehicleType: 'Sedan',
+          vehicleBrand: 'Toyota',
+          vehicleBrandModel: 'Camry',
           manufacturedYear: 2020,
-          fuelType: "Petrol",
-          transmissionType: "Automatic",
-          bookingDate: new Date().toISOString().split("T")[0],
-          timeSlot: "9:00 AM - 10:00 AM",
-          status: "pending",
-          serviceTypes: JSON.stringify(["Oil Change", "Brake Inspection"]),
-          specialRequests: "Please check the air conditioning system",
-        };
-        setSelectedBooking(mockBooking);
-        setShowBookingDetails(true);
+          fuelType: 'Petrol',
+          transmissionType: 'Automatic',
+          kilometersRun: 45000,
+          bookingDate: new Date().toISOString().split('T')[0],
+          timeSlot: '9:00 AM - 10:00 AM',
+          status: 'pending',
+          serviceTypes: JSON.stringify(['Oil Change', 'Brake Inspection']),
+          specialRequests: 'Please check the air conditioning system'
+        }
+        setSelectedBooking(mockBooking)
+        setShowBookingDetails(true)
       }
     } catch (err) {
-      console.error("Error fetching booking details:", err);
-      setError("Failed to load booking details. Please try again.");
+      console.error('Error fetching booking details:', err)
+      setError('Failed to load booking details. Please try again.')
     }
-  };
+  }
 
   // Mark vehicle as arrived
   const markAsArrived = async (vehicleId) => {
     try {
-      const currentTime = new Date().toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: false,
-      });
-
+      const currentTime = new Date().toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: false
+      })
+      
       // Try to update status in backend
       try {
-        await receptionistAPI.updateBookingStatus(vehicleId, "arrived");
+        await receptionistAPI.updateBookingStatus(vehicleId, 'arrived')
       } catch (apiError) {
-        console.warn(
-          "API call failed, updating local state only:",
-          apiError.message
-        );
+        console.warn('API call failed, updating local state only:', apiError.message)
       }
-
+      
       // Update local state
-      setVehicles((prevVehicles) =>
-        prevVehicles.map((vehicle) =>
+      setVehicles(prevVehicles =>
+        prevVehicles.map(vehicle =>
           vehicle.id === vehicleId
-            ? { ...vehicle, status: "arrived", arrivedTime: currentTime }
+            ? { ...vehicle, status: 'arrived', arrivedTime: currentTime }
             : vehicle
         )
-      );
+      )
     } catch (err) {
-      console.error("Error updating booking status:", err);
-      setError("Failed to update booking status. Please try again.");
+      console.error('Error updating booking status:', err)
+      setError('Failed to update booking status. Please try again.')
     }
-  };
+  }
 
   // Get status badge styling
   const getStatusBadge = (status) => {
     switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "arrived":
-        return "bg-green-100 text-green-800";
-      case "confirmed":
-        return "bg-blue-100 text-blue-800";
-      case "in_progress":
-        return "bg-purple-100 text-purple-800";
-      case "completed":
-        return "bg-green-100 text-green-800";
-      case "cancelled":
-        return "bg-red-100 text-red-800";
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'arrived':
+        return 'bg-green-100 text-green-800'
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800'
+      case 'in_progress':
+        return 'bg-purple-100 text-purple-800'
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
       default:
-        return "bg-gray-100 text-gray-800";
+        return 'bg-gray-100 text-gray-800'
     }
-  };
+  }
 
   // Get action button
   const getActionButton = (vehicle) => {
-    if (vehicle.status === "pending") {
+    if (vehicle.status === 'pending') {
       return (
         <button
           onClick={() => markAsArrived(vehicle.id)}
@@ -238,8 +231,8 @@ const ReceptionistDashboard = () => {
         >
           Mark Arrived
         </button>
-      );
-    } else if (vehicle.status === "arrived") {
+      )
+    } else if (vehicle.status === 'arrived') {
       return (
         <button
           disabled
@@ -247,8 +240,8 @@ const ReceptionistDashboard = () => {
         >
           Checked In
         </button>
-      );
-    } else if (vehicle.status === "cancelled") {
+      )
+    } else if (vehicle.status === 'cancelled') {
       return (
         <button
           disabled
@@ -256,8 +249,8 @@ const ReceptionistDashboard = () => {
         >
           Cancelled
         </button>
-      );
-    } else if (vehicle.status === "completed") {
+      )
+    } else if (vehicle.status === 'completed') {
       return (
         <button
           disabled
@@ -265,8 +258,8 @@ const ReceptionistDashboard = () => {
         >
           Completed
         </button>
-      );
-    } else if (vehicle.status === "in_progress") {
+      )
+    } else if (vehicle.status === 'in_progress') {
       return (
         <button
           disabled
@@ -274,9 +267,9 @@ const ReceptionistDashboard = () => {
         >
           In Progress
         </button>
-      );
+      )
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -284,9 +277,7 @@ const ReceptionistDashboard = () => {
       <div className="container-custom py-8">
         {/* Dashboard Title */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Receptionist Dashboard
-          </h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Receptionist Dashboard</h1>
           <p className="text-gray-600 text-lg">{currentDate}</p>
         </div>
 
@@ -295,12 +286,8 @@ const ReceptionistDashboard = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Total Scheduled
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {totalScheduled}
-                </p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Scheduled</p>
+                <p className="text-2xl font-bold text-gray-900">{totalScheduled}</p>
               </div>
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -313,12 +300,8 @@ const ReceptionistDashboard = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Pending
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {pendingCount}
-                </p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Pending</p>
+                <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
               </div>
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -331,12 +314,8 @@ const ReceptionistDashboard = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Arrived
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {arrivedCount}
-                </p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Arrived</p>
+                <p className="text-2xl font-bold text-gray-900">{arrivedCount}</p>
               </div>
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -349,12 +328,8 @@ const ReceptionistDashboard = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">
-                  Cancelled
-                </p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {cancelledCount}
-                </p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Cancelled</p>
+                <p className="text-2xl font-bold text-gray-900">{cancelledCount}</p>
               </div>
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center">
@@ -383,18 +358,18 @@ const ReceptionistDashboard = () => {
             {/* Filter Buttons */}
             <div className="flex space-x-2">
               {[
-                { id: "all", label: "All" },
-                { id: "pending", label: "Pending" },
-                { id: "arrived", label: "Arrived" },
-                { id: "cancelled", label: "Cancelled" },
+                { id: 'all', label: 'All' },
+                { id: 'pending', label: 'Pending' },
+                { id: 'arrived', label: 'Arrived' },
+                { id: 'cancelled', label: 'Cancelled' }
               ].map((filter) => (
                 <button
                   key={filter.id}
                   onClick={() => setFilterStatus(filter.id)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                     filterStatus === filter.id
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
                   {filter.label}
@@ -417,9 +392,7 @@ const ReceptionistDashboard = () => {
         {/* Today's Bookings Table */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-xl font-bold text-gray-900">
-              Today's Bookings
-            </h3>
+            <h3 className="text-xl font-bold text-gray-900">Today's Bookings</h3>
             <Link
               to="/booking"
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
@@ -476,15 +449,13 @@ const ReceptionistDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(
-                            vehicle.status
-                          )}`}
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(vehicle.status)}`}
                         >
                           {vehicle.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {vehicle.arrivedTime || "-"}
+                        {vehicle.arrivedTime || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         {getActionButton(vehicle)}
@@ -508,9 +479,7 @@ const ReceptionistDashboard = () => {
           {!loading && filteredVehicles.length === 0 && (
             <div className="text-center py-12">
               <Car className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">
-                No vehicles found matching your criteria
-              </p>
+              <p className="text-gray-600">No vehicles found matching your criteria</p>
             </div>
           )}
         </div>
@@ -522,9 +491,7 @@ const ReceptionistDashboard = () => {
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Booking Details
-                </h3>
+                <h3 className="text-2xl font-bold text-gray-900">Booking Details</h3>
                 <button
                   onClick={() => setShowBookingDetails(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -533,7 +500,7 @@ const ReceptionistDashboard = () => {
                 </button>
               </div>
             </div>
-
+            
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Customer Information */}
@@ -544,9 +511,7 @@ const ReceptionistDashboard = () => {
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Name
-                      </label>
+                      <label className="text-sm font-medium text-gray-600">Name</label>
                       <p className="text-gray-900">{selectedBooking.name}</p>
                     </div>
                     <div>
@@ -567,53 +532,32 @@ const ReceptionistDashboard = () => {
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Vehicle Number
-                      </label>
-                      <p className="text-gray-900 font-mono">
-                        {selectedBooking.vehicleNumber}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Vehicle Number</label>
+                      <p className="text-gray-900 font-mono">{selectedBooking.vehicleNumber}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Vehicle Type
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.vehicleType}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Vehicle Type</label>
+                      <p className="text-gray-900">{selectedBooking.vehicleType}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Brand & Model
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.vehicleBrand}{" "}
-                        {selectedBooking.vehicleBrandModel}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Brand & Model</label>
+                      <p className="text-gray-900">{selectedBooking.vehicleBrand} {selectedBooking.vehicleBrandModel}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Year
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.manufacturedYear}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Year</label>
+                      <p className="text-gray-900">{selectedBooking.manufacturedYear}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Fuel Type
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.fuelType}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Fuel Type</label>
+                      <p className="text-gray-900">{selectedBooking.fuelType}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Transmission
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.transmissionType}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Transmission</label>
+                      <p className="text-gray-900">{selectedBooking.transmissionType}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Kilometers Run</label>
+                      <p className="text-gray-900">{selectedBooking.kilometersRun?.toLocaleString()} km</p>
                     </div>
                   </div>
                 </div>
@@ -626,43 +570,23 @@ const ReceptionistDashboard = () => {
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Booking Date
-                      </label>
-                      <p className="text-gray-900">
-                        {new Date(
-                          selectedBooking.bookingDate
-                        ).toLocaleDateString()}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Booking Date</label>
+                      <p className="text-gray-900">{new Date(selectedBooking.bookingDate).toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Time Slot
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.timeSlot}
-                      </p>
+                      <label className="text-sm font-medium text-gray-600">Time Slot</label>
+                      <p className="text-gray-900">{selectedBooking.timeSlot}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Status
-                      </label>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(
-                          selectedBooking.status
-                        )}`}
-                      >
+                      <label className="text-sm font-medium text-gray-600">Status</label>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(selectedBooking.status)}`}>
                         {selectedBooking.status}
                       </span>
                     </div>
                     {selectedBooking.arrivedTime && (
                       <div>
-                        <label className="text-sm font-medium text-gray-600">
-                          Arrived Time
-                        </label>
-                        <p className="text-gray-900">
-                          {selectedBooking.arrivedTime}
-                        </p>
+                        <label className="text-sm font-medium text-gray-600">Arrived Time</label>
+                        <p className="text-gray-900">{selectedBooking.arrivedTime}</p>
                       </div>
                     )}
                   </div>
@@ -676,36 +600,24 @@ const ReceptionistDashboard = () => {
                   </h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Service Types
-                      </label>
+                      <label className="text-sm font-medium text-gray-600">Service Types</label>
                       <div className="mt-1">
-                        {selectedBooking.serviceTypes &&
-                        JSON.parse(selectedBooking.serviceTypes).length > 0 ? (
+                        {selectedBooking.serviceTypes && JSON.parse(selectedBooking.serviceTypes).length > 0 ? (
                           <div className="flex flex-wrap gap-2">
-                            {JSON.parse(selectedBooking.serviceTypes).map(
-                              (service, index) => (
-                                <span
-                                  key={index}
-                                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-                                >
-                                  {service}
-                                </span>
-                              )
-                            )}
+                            {JSON.parse(selectedBooking.serviceTypes).map((service, index) => (
+                              <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                {service}
+                              </span>
+                            ))}
                           </div>
                         ) : (
-                          <p className="text-gray-500 text-sm">
-                            No specific services selected
-                          </p>
+                          <p className="text-gray-500 text-sm">No specific services selected</p>
                         )}
                       </div>
                     </div>
                     {selectedBooking.specialRequests && (
                       <div>
-                        <label className="text-sm font-medium text-gray-600">
-                          Special Requests
-                        </label>
+                        <label className="text-sm font-medium text-gray-600">Special Requests</label>
                         <p className="text-gray-900 bg-gray-50 p-3 rounded-lg text-sm">
                           {selectedBooking.specialRequests}
                         </p>
@@ -719,7 +631,7 @@ const ReceptionistDashboard = () => {
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default ReceptionistDashboard;
+export default ReceptionistDashboard

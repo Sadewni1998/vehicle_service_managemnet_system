@@ -20,6 +20,7 @@ const createBooking = async (req, res) => {
     vehicleBrandModel,
     manufacturedYear,
     transmissionType,
+    kilometersRun,
     bookingDate,
     timeSlot,
     serviceTypes,
@@ -77,61 +78,27 @@ const createBooking = async (req, res) => {
         limit: DAILY_BOOKING_LIMIT,
       });
     }
-
-    // ENFORCE VEHICLE REGISTRATION REQUIREMENT
-    // Check if vehicle exists for this customer - DO NOT create automatically
-    let vehicleId;
-    let vehicleData;
-    try {
-      // Check if vehicle exists and belongs to this customer
-      const [vehicleResult] = await db.query(
-        "SELECT vehicleId, brand, model, type, manufactureYear, fuelType, transmission FROM vehicle WHERE vehicleNumber = ? AND customerId = ?",
-        [vehicleNumber?.toUpperCase(), customerId]
-      );
-
-      if (vehicleResult.length === 0) {
-        // Vehicle doesn't exist - require user to register it first
-        return res.status(400).json({
-          message:
-            "Vehicle not found. Please register your vehicle first before making a booking.",
-          requireVehicleRegistration: true,
-          vehicleNumber: vehicleNumber,
-        });
-      }
-
-      vehicleId = vehicleResult[0].vehicleId;
-      vehicleData = vehicleResult[0];
-      console.log(
-        `Using existing vehicle with ID: ${vehicleId} for vehicle number: ${vehicleNumber}`
-      );
-    } catch (error) {
-      console.error("Vehicle lookup error:", error);
-      return res
-        .status(500)
-        .json({ message: "Server error checking vehicle registration." });
-    }
-
     const sql = `
       INSERT INTO booking (
-        name, phone, vehicleId, vehicleNumber, vehicleType, fuelType,
+        name, phone, vehicleNumber, vehicleType, fuelType,
         vehicleBrand, vehicleBrandModel, manufacturedYear, transmissionType,
-        bookingDate, timeSlot, serviceTypes,
+        kilometersRun, bookingDate, timeSlot, serviceTypes,
         specialRequests, customerId, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    // Use vehicle data from registered vehicle instead of form data
+    // The 'serviceTypes' array from the frontend is converted to a JSON string for storage.
     const values = [
       name,
       phone,
-      vehicleId,
       vehicleNumber,
-      vehicleData.type,
-      vehicleData.fuelType,
-      vehicleData.brand,
-      vehicleData.model,
-      vehicleData.manufactureYear,
-      vehicleData.transmission,
+      vehicleType,
+      fuelType,
+      vehicleBrand,
+      vehicleBrandModel,
+      manufacturedYear,
+      transmissionType,
+      kilometersRun,
       bookingDate,
       timeSlot,
       JSON.stringify(serviceTypes || []),
@@ -189,13 +156,9 @@ const updateBooking = async (req, res) => {
  */
 const getAllBookings = async (req, res) => {
   try {
-    const [bookings] = await db.query(`
-      SELECT b.*, v.brand as vehicleBrand, v.model as vehicleModel, v.type as vehicleType,
-             v.manufactureYear, v.fuelType, v.transmission
-      FROM booking b 
-      INNER JOIN vehicle v ON b.vehicleId = v.vehicleId 
-      ORDER BY b.bookingDate DESC
-    `);
+    const [bookings] = await db.query(
+      "SELECT * FROM booking ORDER BY bookingDate DESC"
+    );
     res.status(200).json(bookings);
   } catch (error) {
     console.error("Error fetching bookings:", error);
@@ -209,16 +172,9 @@ const getAllBookings = async (req, res) => {
 const getBookingById = async (req, res) => {
   const { bookingId } = req.params;
   try {
-    const [rows] = await db.query(
-      `
-      SELECT b.*, v.brand as vehicleBrand, v.model as vehicleModel, v.type as vehicleType,
-             v.manufactureYear, v.fuelType, v.transmission
-      FROM booking b 
-      INNER JOIN vehicle v ON b.vehicleId = v.vehicleId 
-      WHERE b.bookingId = ?
-    `,
-      [bookingId]
-    );
+    const [rows] = await db.query("SELECT * FROM booking WHERE bookingId = ?", [
+      bookingId,
+    ]);
     const booking = rows[0];
 
     if (!booking) {
@@ -240,14 +196,8 @@ const getUserBookings = async (req, res) => {
 
   try {
     // Fetch the bookings from the database
-    const sql = `
-      SELECT b.*, v.brand as vehicleBrand, v.model as vehicleModel, v.type as vehicleType,
-             v.manufactureYear, v.fuelType, v.transmission
-      FROM booking b 
-      INNER JOIN vehicle v ON b.vehicleId = v.vehicleId 
-      WHERE b.customerId = ? 
-      ORDER BY b.bookingDate DESC
-    `;
+    const sql =
+      "SELECT * FROM booking WHERE customerId = ? ORDER BY bookingDate DESC";
     const [bookings] = await db.query(sql, [customerId]);
 
     // Send a structured, user-friendly response
@@ -422,22 +372,21 @@ const updateBookingStatus = async (req, res) => {
 
   try {
     let sql, values;
-
+    
     // If status is 'arrived', also set the arrivedTime
-    if (status === "arrived") {
-      const currentTime = new Date().toLocaleTimeString("en-US", {
+    if (status === 'arrived') {
+      const currentTime = new Date().toLocaleTimeString('en-US', {
         hour12: false,
-        hour: "2-digit",
-        minute: "2-digit",
+        hour: '2-digit',
+        minute: '2-digit'
       });
-      sql =
-        "UPDATE booking SET status = ?, arrivedTime = ? WHERE bookingId = ?";
+      sql = "UPDATE booking SET status = ?, arrivedTime = ? WHERE bookingId = ?";
       values = [status, currentTime, bookingId];
     } else {
       sql = "UPDATE booking SET status = ? WHERE bookingId = ?";
       values = [status, bookingId];
     }
-
+    
     const [result] = await db.query(sql, values);
 
     if (result.affectedRows === 0) {
@@ -461,14 +410,7 @@ const getTodayBookings = async (req, res) => {
     const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
 
     const [bookings] = await db.query(
-      `
-      SELECT b.*, v.brand as vehicleBrand, v.model as vehicleModel, v.type as vehicleType,
-             v.manufactureYear, v.fuelType, v.transmission
-      FROM booking b 
-      INNER JOIN vehicle v ON b.vehicleId = v.vehicleId 
-      WHERE DATE(b.bookingDate) = ? 
-      ORDER BY b.timeSlot ASC
-    `,
+      "SELECT * FROM booking WHERE DATE(bookingDate) = ? ORDER BY timeSlot ASC",
       [today]
     );
 
@@ -479,9 +421,7 @@ const getTodayBookings = async (req, res) => {
       vehicleNumber: booking.vehicleNumber,
       customer: booking.name,
       status: booking.status.toLowerCase(), // Convert to lowercase for consistency
-      arrivedTime: booking.arrivedTime
-        ? booking.arrivedTime.substring(0, 5)
-        : null, // Format as HH:MM
+      arrivedTime: booking.arrivedTime ? booking.arrivedTime.substring(0, 5) : null, // Format as HH:MM
       phone: booking.phone,
       vehicleType: booking.vehicleType,
       serviceTypes: booking.serviceTypes
