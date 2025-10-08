@@ -26,6 +26,9 @@ const ServiceAdvisorDashboard = () => {
   const [selectedMechanics, setSelectedMechanics] = useState([]);
   const [selectedSpareParts, setSelectedSpareParts] = useState([]);
   const [submittedBookings, setSubmittedBookings] = useState([]);
+  const [mechanicSearchTerm, setMechanicSearchTerm] = useState("");
+  const [mechanicAvailabilityFilter, setMechanicAvailabilityFilter] =
+    useState("");
 
   // Fetch arrived bookings when component mounts or when assign-jobs tab is active
   useEffect(() => {
@@ -73,8 +76,11 @@ const ServiceAdvisorDashboard = () => {
 
   const openAssignMechanics = async (booking) => {
     setSelectedBooking(booking);
+    setMechanicSearchTerm("");
+    setMechanicAvailabilityFilter("");
     try {
-      const response = await mechanicsAPI.getAvailableMechanics();
+      // Fetch all mechanics (not just available ones) with a high limit to show all
+      const response = await mechanicsAPI.getAllMechanics({ limit: 100 });
       setAvailableMechanics(response.data.data || []);
       setSelectedMechanics([]);
       setShowAssignMechanics(true);
@@ -864,61 +870,259 @@ const ServiceAdvisorDashboard = () => {
                 Select mechanics to assign to this booking:
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                {availableMechanics.map((mechanic) => (
-                  <div
-                    key={mechanic.mechanicId}
-                    className="border rounded-lg p-4"
+              {/* Search and Filter Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search by Name or Code
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Search mechanics..."
+                    value={mechanicSearchTerm}
+                    onChange={(e) => setMechanicSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Filter by Availability
+                  </label>
+                  <select
+                    value={mechanicAvailabilityFilter}
+                    onChange={(e) =>
+                      setMechanicAvailabilityFilter(e.target.value)
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
-                    <label className="flex items-start space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedMechanics.some(
-                          (m) => m.mechanicId === mechanic.mechanicId
-                        )}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedMechanics([
-                              ...selectedMechanics,
-                              mechanic,
-                            ]);
-                          } else {
-                            setSelectedMechanics(
-                              selectedMechanics.filter(
-                                (m) => m.mechanicId !== mechanic.mechanicId
-                              )
-                            );
-                          }
-                        }}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">
-                          {mechanic.name}
+                    <option value="">All Status</option>
+                    <option value="Available">Available</option>
+                    <option value="Busy">Busy</option>
+                    <option value="On Break">On Break</option>
+                    <option value="Off Duty">Off Duty</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Mechanics Count Summary */}
+              <div className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded-lg">
+                <div className="text-sm text-gray-600">
+                  Showing{" "}
+                  <span className="font-semibold text-gray-900">
+                    {
+                      availableMechanics.filter((mechanic) => {
+                        const matchesSearch =
+                          mechanicSearchTerm === "" ||
+                          (mechanic.mechanicName &&
+                            mechanic.mechanicName
+                              .toLowerCase()
+                              .includes(mechanicSearchTerm.toLowerCase())) ||
+                          mechanic.mechanicCode
+                            .toLowerCase()
+                            .includes(mechanicSearchTerm.toLowerCase());
+                        const matchesAvailability =
+                          mechanicAvailabilityFilter === "" ||
+                          mechanic.availability === mechanicAvailabilityFilter;
+                        return matchesSearch && matchesAvailability;
+                      }).length
+                    }
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-gray-900">
+                    {availableMechanics.length}
+                  </span>{" "}
+                  mechanics
+                </div>
+                <div className="text-sm text-gray-600">
+                  Selected:{" "}
+                  <span className="font-semibold text-green-600">
+                    {selectedMechanics.length}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                {availableMechanics
+                  .filter((mechanic) => {
+                    const matchesSearch =
+                      mechanicSearchTerm === "" ||
+                      (mechanic.mechanicName &&
+                        mechanic.mechanicName
+                          .toLowerCase()
+                          .includes(mechanicSearchTerm.toLowerCase())) ||
+                      mechanic.mechanicCode
+                        .toLowerCase()
+                        .includes(mechanicSearchTerm.toLowerCase());
+                    const matchesAvailability =
+                      mechanicAvailabilityFilter === "" ||
+                      mechanic.availability === mechanicAvailabilityFilter;
+                    return matchesSearch && matchesAvailability;
+                  })
+                  .map((mechanic) => (
+                    <div
+                      key={mechanic.mechanicId}
+                      className="border rounded-lg p-4"
+                    >
+                      <label className="flex items-start space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedMechanics.some(
+                            (m) => m.mechanicId === mechanic.mechanicId
+                          )}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedMechanics([
+                                ...selectedMechanics,
+                                mechanic,
+                              ]);
+                            } else {
+                              setSelectedMechanics(
+                                selectedMechanics.filter(
+                                  (m) => m.mechanicId !== mechanic.mechanicId
+                                )
+                              );
+                            }
+                          }}
+                          className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="font-bold text-gray-900 text-base">
+                              {mechanic.mechanicName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              ID: {mechanic.mechanicId}
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Code:</span>{" "}
+                            {mechanic.mechanicCode}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Email:</span>{" "}
+                            {mechanic.email}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Staff ID:</span>{" "}
+                            {mechanic.staffId}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Specialization:</span>{" "}
+                            {mechanic.specialization}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Experience:</span>{" "}
+                            {mechanic.experience || mechanic.experienceYears}{" "}
+                            years
+                          </div>
+                          {mechanic.certifications && (
+                            <div className="text-sm text-gray-600">
+                              <span className="font-medium">
+                                Certifications:
+                              </span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(() => {
+                                  try {
+                                    const certs =
+                                      typeof mechanic.certifications ===
+                                      "string"
+                                        ? JSON.parse(mechanic.certifications)
+                                        : mechanic.certifications;
+                                    return Array.isArray(certs) ? (
+                                      certs.map((cert, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                                        >
+                                          {cert}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-xs italic">
+                                        None
+                                      </span>
+                                    );
+                                  } catch (e) {
+                                    return (
+                                      <span className="text-xs italic">
+                                        None
+                                      </span>
+                                    );
+                                  }
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                          <div className="text-sm text-gray-600">
+                            <span className="font-medium">Hourly Rate:</span>{" "}
+                            LKR {mechanic.hourlyRate?.toLocaleString() || "N/A"}
+                          </div>
+                          <div
+                            className={`text-sm font-medium ${
+                              mechanic.availability === "Available"
+                                ? "text-green-600"
+                                : mechanic.availability === "Busy"
+                                ? "text-orange-600"
+                                : mechanic.availability === "On Break"
+                                ? "text-blue-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            <span className="font-medium">Availability:</span>{" "}
+                            {mechanic.availability}
+                          </div>
+                          {(mechanic.createdAt || mechanic.updatedAt) && (
+                            <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                              {mechanic.createdAt && (
+                                <div>
+                                  Added:{" "}
+                                  {new Date(
+                                    mechanic.createdAt
+                                  ).toLocaleDateString()}
+                                </div>
+                              )}
+                              {mechanic.updatedAt && (
+                                <div>
+                                  Updated:{" "}
+                                  {new Date(
+                                    mechanic.updatedAt
+                                  ).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-sm text-gray-600">
-                          Code: {mechanic.mechanicCode}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Specialization: {mechanic.specialization}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Experience: {mechanic.experience} years
-                        </div>
-                        <div className="text-sm text-green-600">
-                          Status: {mechanic.availability}
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-                ))}
+                      </label>
+                    </div>
+                  ))}
               </div>
 
               {availableMechanics.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No available mechanics found
+                  No mechanics found in the system
                 </div>
               )}
+
+              {availableMechanics.length > 0 &&
+                availableMechanics.filter((mechanic) => {
+                  const matchesSearch =
+                    mechanicSearchTerm === "" ||
+                    (mechanic.mechanicName &&
+                      mechanic.mechanicName
+                        .toLowerCase()
+                        .includes(mechanicSearchTerm.toLowerCase())) ||
+                    mechanic.mechanicCode
+                      .toLowerCase()
+                      .includes(mechanicSearchTerm.toLowerCase());
+                  const matchesAvailability =
+                    mechanicAvailabilityFilter === "" ||
+                    mechanic.availability === mechanicAvailabilityFilter;
+                  return matchesSearch && matchesAvailability;
+                }).length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No mechanics match your search criteria
+                  </div>
+                )}
             </div>
 
             <div className="flex justify-end gap-3 mt-6">

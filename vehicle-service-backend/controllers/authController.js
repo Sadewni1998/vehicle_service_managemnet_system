@@ -482,6 +482,36 @@ const googleSignIn = async (req, res) => {
   }
 };
 
+/**
+ * Get customer statistics
+ * @route GET /api/auth/stats
+ * @access Public or Protected (based on requirements)
+ */
+const getCustomerStats = async (req, res) => {
+  try {
+    // Get total number of customers
+    const [countResult] = await db.query(
+      "SELECT COUNT(*) as totalCustomers FROM customer"
+    );
+
+    const totalCustomers = countResult[0].totalCustomers;
+
+    res.json({
+      success: true,
+      data: {
+        totalCustomers,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching customer stats:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching customer statistics",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -489,4 +519,5 @@ module.exports = {
   updateProfile,
   changePassword,
   googleSignIn,
+  getCustomerStats,
 };

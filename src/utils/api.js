@@ -71,9 +71,10 @@ export const authAPI = {
 // Bookings API
 export const bookingsAPI = {
   create: (bookingData) => api.post("/bookings", bookingData),
+  getAll: (params) => api.get("/bookings", { params }),
   getUserBookings: (params) => api.get("/bookings/user", { params }),
   getBookingById: (id) => api.get(`/bookings/${id}`),
-  updateStatus: (id, status) => api.put(`/bookings/${id}/status`, status),
+  updateStatus: (id, status) => api.put(`/bookings/${id}/status`, { status }),
   delete: (id) => api.delete(`/bookings/${id}`),
   getStats: () => api.get("/bookings/stats"),
 };
@@ -105,6 +106,12 @@ export const staffAPI = {
   login: (credentials) => api.post("/staff/login", credentials),
   getProfile: () => api.get("/staff/profile"),
   updateProfile: (staffData) => api.put("/staff/profile", staffData),
+  getStats: () => api.get("/staff/stats"),
+};
+
+// Customer API
+export const customerAPI = {
+  getStats: () => api.get("/auth/stats"),
 };
 
 // Receptionist API
@@ -133,6 +140,15 @@ export const serviceAdvisorAPI = {
 export const mechanicsAPI = {
   getAvailableMechanics: () => api.get("/mechanics/available"),
   getAllMechanics: (params) => api.get("/mechanics", { params }),
+};
+
+// Jobcard API
+export const jobcardAPI = {
+  getMechanicJobcards: (mechanicId) =>
+    api.get(`/jobcards/mechanic/${mechanicId}`),
+  getJobcardById: (jobcardId) => api.get(`/jobcards/${jobcardId}`),
+  updateJobcardStatus: (jobcardId, status) =>
+    api.put(`/jobcards/${jobcardId}/status`, { status }),
 };
 
 // Spare Parts API

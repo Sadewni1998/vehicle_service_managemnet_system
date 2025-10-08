@@ -186,8 +186,15 @@ CREATE TABLE IF NOT EXISTS mechanic (
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     -- Foreign key constraint to staff table
+    -- mechanicName is obtained from staff.name via the mechanic_details view
     FOREIGN KEY (staffId) REFERENCES staff(staffId) ON DELETE CASCADE
 );
+
+
+INSERT INTO mechanic (staffId, mechanicCode, specialization, experienceYears, certifications, hourlyRate)
+VALUES
+(4, 'MEC001', 'Engine and Transmission', 5, '["ASE Certified","Engine Specialist"]', 2500.00),
+(4, 'MEC002', 'Electrical Systems', 3, '["Auto Electrician","Hybrid Systems"]', 2200.00);
 
 -- Create the spare parts table (after mechanic table is created)
 CREATE TABLE IF NOT EXISTS spareparts (
@@ -223,6 +230,34 @@ CREATE TABLE IF NOT EXISTS spareparts (
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE SET NULL
 );
 
+INSERT INTO spareparts (partCode, partName, description, category, unitPrice, stockQuantity, mechanicId, imageUrl)
+VALUES
+('ENG001', 'Engine Oil Filter', 'High-performance oil filter for Toyota models', 'Engine', 2500.00, 50, 1, 'images/parts/oil_filter.jpg'),
+('BRK002', 'Brake Pads', 'Front brake pad set for sedans', 'Brakes', 5600.00, 30, 1, 'images/parts/brake_pads.jpg'),
+('ELC003', 'Car Battery', '12V 60Ah maintenance-free battery', 'Electrical', 18000.00, 15, 2, 'images/parts/battery.jpg'),
+('COO004', 'Radiator Coolant', 'Long-life coolant 1L bottle', 'Cooling', 1500.00, 80, 2, 'images/parts/coolant.jpg'),
+('TRM005', 'Transmission Belt', 'Automatic transmission drive belt', 'Transmission', 7500.00, 10, 1, 'images/parts/transmission_belt.jpg');
+
+-- Create a view that joins mechanic and staff tables for easy access to mechanic details
+CREATE OR REPLACE VIEW mechanic_details AS
+SELECT 
+    m.mechanicId,
+    m.staffId,
+    m.mechanicCode,
+    s.name as mechanicName,
+    s.email,
+    m.specialization,
+    m.experienceYears as experience,
+    m.certifications,
+    m.availability,
+    m.hourlyRate,
+    m.isActive,
+    m.createdAt,
+    m.updatedAt
+FROM mechanic m
+INNER JOIN staff s ON m.staffId = s.staffId
+WHERE m.isActive = true;
+
 -- Create jobcard table for tracking service work assignments
 CREATE TABLE IF NOT EXISTS jobcard (
     jobcardId INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
@@ -255,6 +290,23 @@ CREATE TABLE IF NOT EXISTS jobcardMechanic (
     PRIMARY KEY (jobcardMechanicId),
     FOREIGN KEY (jobcardId) REFERENCES jobcard(jobcardId) ON DELETE CASCADE,
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE CASCADE
+);
+
+-- Create jobcardSparePart table for tracking spare parts assigned to jobcards
+CREATE TABLE IF NOT EXISTS jobcardSparePart (
+    jobcardSparePartId INT NOT NULL AUTO_INCREMENT,
+    jobcardId INT NOT NULL,
+    partId INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unitPrice DECIMAL(10, 2) NOT NULL,
+    totalPrice DECIMAL(10, 2) NOT NULL,
+    assignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    usedAt TIMESTAMP NULL,
+    PRIMARY KEY (jobcardSparePartId),
+    FOREIGN KEY (jobcardId) REFERENCES jobcard(jobcardId) ON DELETE CASCADE,
+    FOREIGN KEY (partId) REFERENCES spareparts(partId) ON DELETE RESTRICT,
+    INDEX idx_jobcard_id (jobcardId),
+    INDEX idx_part_id (partId)
 );
 
 -- Insert test bookings for today's dat
@@ -296,4 +348,4 @@ INSERT INTO booking (
     'Customer cancelled due to emergency', NULL, 'cancelled', NULL
 );
 
-hi jaazil!
+hi jaazil!                                                                                                                        

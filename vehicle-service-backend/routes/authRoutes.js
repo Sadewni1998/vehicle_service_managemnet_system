@@ -1,4 +1,5 @@
 // routes/authRoutes.js
+// Updated to include customer stats endpoint
 
 const express = require("express");
 const router = express.Router();
@@ -27,4 +28,10 @@ router.put(
 // @desc    Authenticate user with Google
 // @access  Public
 router.post("/google", authController.googleSignIn);
+
+// @route   GET /api/auth/stats
+// @desc    Get customer statistics
+// @access  Public (or Protected if needed)
+router.get("/stats", authController.getCustomerStats);
+
 module.exports = router;

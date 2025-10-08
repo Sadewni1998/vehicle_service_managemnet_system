@@ -202,9 +202,78 @@ const ReceptionistDashboard = () => {
             : vehicle
         )
       );
+
+      // Reflect in modal if currently open for this booking
+      setSelectedBooking((prev) =>
+        prev && prev.id === vehicleId
+          ? { ...prev, status: "arrived", arrivedTime: currentTime }
+          : prev
+      );
     } catch (err) {
       console.error("Error updating booking status:", err);
       setError("Failed to update booking status. Please try again.");
+    }
+  };
+
+  // Approve booking (confirm)
+  const approveBooking = async (vehicleId) => {
+    try {
+      try {
+        await receptionistAPI.updateBookingStatus(vehicleId, "confirmed");
+      } catch (apiError) {
+        console.warn(
+          "API call failed, updating local state only:",
+          apiError.message
+        );
+      }
+
+      // Update local list state
+      setVehicles((prevVehicles) =>
+        prevVehicles.map((vehicle) =>
+          vehicle.id === vehicleId
+            ? { ...vehicle, status: "confirmed" }
+            : vehicle
+        )
+      );
+
+      // Update modal state if open
+      setSelectedBooking((prev) =>
+        prev && prev.id === vehicleId ? { ...prev, status: "confirmed" } : prev
+      );
+    } catch (err) {
+      console.error("Error approving booking:", err);
+      setError("Failed to approve booking. Please try again.");
+    }
+  };
+
+  // Reject booking (cancel)
+  const rejectBooking = async (vehicleId) => {
+    try {
+      try {
+        await receptionistAPI.updateBookingStatus(vehicleId, "cancelled");
+      } catch (apiError) {
+        console.warn(
+          "API call failed, updating local state only:",
+          apiError.message
+        );
+      }
+
+      // Update local list state
+      setVehicles((prevVehicles) =>
+        prevVehicles.map((vehicle) =>
+          vehicle.id === vehicleId
+            ? { ...vehicle, status: "cancelled" }
+            : vehicle
+        )
+      );
+
+      // Update modal state if open
+      setSelectedBooking((prev) =>
+        prev && prev.id === vehicleId ? { ...prev, status: "cancelled" } : prev
+      );
+    } catch (err) {
+      console.error("Error rejecting booking:", err);
+      setError("Failed to reject booking. Please try again.");
     }
   };
 
@@ -228,13 +297,30 @@ const ReceptionistDashboard = () => {
     }
   };
 
-  // Get action button
+  // Get action buttons per booking row
   const getActionButton = (vehicle) => {
     if (vehicle.status === "pending") {
       return (
+        <div className="flex gap-2">
+          <button
+            onClick={() => approveBooking(vehicle.id)}
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Approve
+          </button>
+          <button
+            onClick={() => rejectBooking(vehicle.id)}
+            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            Reject
+          </button>
+        </div>
+      );
+    } else if (vehicle.status === "confirmed") {
+      return (
         <button
           onClick={() => markAsArrived(vehicle.id)}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           Mark Arrived
         </button>
@@ -385,6 +471,7 @@ const ReceptionistDashboard = () => {
               {[
                 { id: "all", label: "All" },
                 { id: "pending", label: "Pending" },
+                { id: "confirmed", label: "Confirmed" },
                 { id: "arrived", label: "Arrived" },
                 { id: "cancelled", label: "Cancelled" },
               ].map((filter) => (
@@ -713,6 +800,45 @@ const ReceptionistDashboard = () => {
                     )}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Modal footer actions */}
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Booking ID: {selectedBooking.id}
+              </div>
+              <div className="flex gap-2">
+                {selectedBooking.status === "pending" && (
+                  <>
+                    <button
+                      onClick={() => approveBooking(selectedBooking.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => rejectBooking(selectedBooking.id)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+                {selectedBooking.status === "confirmed" && (
+                  <button
+                    onClick={() => markAsArrived(selectedBooking.id)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Mark Arrived
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowBookingDetails(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
