@@ -165,14 +165,89 @@ const updateBooking = async (req, res) => {
 // I'm also including these helper functions which you will find very useful
 
 /**
- * Get all bookings.
+ * Get all bookings with detailed assignment information.
  */
 const getAllBookings = async (req, res) => {
   try {
     const [bookings] = await db.query(
       "SELECT * FROM booking ORDER BY bookingDate DESC"
     );
-    res.status(200).json(bookings);
+
+    // Enhance each booking with detailed assignment information
+    const enhancedBookings = await Promise.all(
+      bookings.map(async (booking) => {
+        const enhancedBooking = { ...booking };
+
+        // Parse assigned mechanics and get detailed information
+        if (booking.assignedMechanics) {
+          try {
+            const mechanicIds = JSON.parse(booking.assignedMechanics);
+            if (Array.isArray(mechanicIds) && mechanicIds.length > 0) {
+              const placeholders = mechanicIds.map(() => "?").join(",");
+              const [mechanics] = await db.query(
+                `SELECT m.mechanicId, m.mechanicCode, s.name as mechanicName, m.specialization, m.experienceYears, m.hourlyRate, m.availability
+                 FROM mechanic m 
+                 JOIN staff s ON m.staffId = s.staffId 
+                 WHERE m.mechanicId IN (${placeholders})`,
+                mechanicIds
+              );
+              enhancedBooking.assignedMechanicsDetails = mechanics;
+            }
+          } catch (error) {
+            console.error("Error parsing assigned mechanics:", error);
+            enhancedBooking.assignedMechanicsDetails = [];
+          }
+        } else {
+          enhancedBooking.assignedMechanicsDetails = [];
+        }
+
+        // Parse assigned spare parts and get detailed information
+        if (booking.assignedSpareParts) {
+          try {
+            const spareParts = JSON.parse(booking.assignedSpareParts);
+            if (Array.isArray(spareParts) && spareParts.length > 0) {
+              const partIds = spareParts.map(sp => sp.partId);
+              const placeholders = partIds.map(() => "?").join(",");
+              const [parts] = await db.query(
+                `SELECT partId, partName, partCode, category, unitPrice 
+                 FROM spareparts 
+                 WHERE partId IN (${placeholders})`,
+                partIds
+              );
+              
+              // Combine with quantities from assignment
+              enhancedBooking.assignedSparePartsDetails = parts.map(part => {
+                const assignedPart = spareParts.find(sp => sp.partId === part.partId);
+                return {
+                  ...part,
+                  assignedQuantity: assignedPart ? assignedPart.quantity : 1,
+                  totalPrice: part.unitPrice * (assignedPart ? assignedPart.quantity : 1)
+                };
+              });
+            }
+          } catch (error) {
+            console.error("Error parsing assigned spare parts:", error);
+            enhancedBooking.assignedSparePartsDetails = [];
+          }
+        } else {
+          enhancedBooking.assignedSparePartsDetails = [];
+        }
+
+        // Parse service types if it's a JSON string
+        if (booking.serviceTypes && typeof booking.serviceTypes === 'string') {
+          try {
+            enhancedBooking.serviceTypes = JSON.parse(booking.serviceTypes);
+          } catch (error) {
+            // If parsing fails, treat as comma-separated string
+            enhancedBooking.serviceTypes = booking.serviceTypes.split(',').map(s => s.trim());
+          }
+        }
+
+        return enhancedBooking;
+      })
+    );
+
+    res.status(200).json(enhancedBookings);
   } catch (error) {
     console.error("Error fetching bookings:", error);
     res.status(500).json({ message: "Server error while fetching bookings." });
@@ -444,9 +519,9 @@ const updateBookingStatus = async (req, res) => {
 
             // Create jobcard with status 'open'
             await db.query(
-              `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
-               VALUES (?, ?, ?, 'open', ?)`,
-              [defaultMechanicId, bookingId, "PENDING_ASSIGNMENT", serviceTypes]
+              `INSERT INTO jobcard (bookingId, status, serviceDetails) 
+               VALUES (?, 'open', ?)`,
+              [bookingId, serviceTypes]
             );
 
             console.log(
@@ -476,7 +551,7 @@ const updateBookingStatus = async (req, res) => {
 
         if (existingJobcard.length > 0) {
           await db.query(
-            "UPDATE jobcard SET status = 'in_progress', partCode = 'ASSIGNED' WHERE bookingId = ?",
+            "UPDATE jobcard SET status = 'in_progress' WHERE bookingId = ?",
             [bookingId]
           );
           console.log(
@@ -506,9 +581,9 @@ const updateBookingStatus = async (req, res) => {
 
               // Create jobcard with status 'in_progress'
               await db.query(
-                `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
-                 VALUES (?, ?, ?, 'in_progress', ?)`,
-                [defaultMechanicId, bookingId, "ASSIGNED", serviceTypes]
+                `INSERT INTO jobcard (bookingId, status, serviceDetails) 
+                 VALUES (?, 'in_progress', ?)`,
+                [bookingId, serviceTypes]
               );
 
               console.log(
@@ -687,7 +762,7 @@ const assignMechanicsToBooking = async (req, res) => {
 
     // Check if jobcard already exists for this booking (created when booking arrived)
     const [existingJobcard] = await db.query(
-      "SELECT jobcardId, partCode FROM jobcard WHERE bookingId = ? LIMIT 1",
+      "SELECT jobcardId, status FROM jobcard WHERE bookingId = ? LIMIT 1",
       [bookingId]
     );
 
@@ -699,11 +774,10 @@ const assignMechanicsToBooking = async (req, res) => {
 
       await db.query(
         `UPDATE jobcard 
-         SET mechanicId = ?, 
-             partCode = 'ASSIGNED', 
+         SET assignedMechanicIds = ?, 
              status = 'in_progress' 
          WHERE jobcardId = ?`,
-        [mechanicIds[0], jobcardId]
+        [JSON.stringify(mechanicIds), jobcardId]
       );
 
       console.log(
@@ -719,9 +793,9 @@ const assignMechanicsToBooking = async (req, res) => {
       const serviceTypes = bookingDetails[0]?.serviceTypes || "[]";
 
       const [jobcardResult] = await db.query(
-        `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
-         VALUES (?, ?, ?, 'in_progress', ?)`,
-        [mechanicIds[0], bookingId, "ASSIGNED", serviceTypes]
+        `INSERT INTO jobcard (bookingId, status, serviceDetails, assignedMechanicIds) 
+         VALUES (?, 'in_progress', ?, ?)`,
+        [bookingId, serviceTypes, JSON.stringify(mechanicIds)]
       );
 
       jobcardId = jobcardResult.insertId;
@@ -731,14 +805,14 @@ const assignMechanicsToBooking = async (req, res) => {
     }
 
     // Clear existing mechanic assignments for this jobcard
-    await db.query("DELETE FROM jobcardMechanic WHERE jobcardId = ?", [
+    await db.query("DELETE FROM jobcardmechanic WHERE jobcardId = ?", [
       jobcardId,
     ]);
 
-    // Assign all selected mechanics to the jobcard using jobcardMechanic table
+    // Assign all selected mechanics to the jobcard using jobcardmechanic table
     for (const mechanicId of mechanicIds) {
       await db.query(
-        `INSERT INTO jobcardMechanic (jobcardId, mechanicId) 
+        `INSERT INTO jobcardmechanic (jobcardId, mechanicId) 
          VALUES (?, ?)`,
         [jobcardId, mechanicId]
       );
@@ -849,7 +923,7 @@ const assignSparePartsToBooking = async (req, res) => {
     }
 
     // Clear existing spare part assignments for this jobcard
-    await db.query("DELETE FROM jobcardSparePart WHERE jobcardId = ?", [
+    await db.query("DELETE FROM jobcardsparepart WHERE jobcardId = ?", [
       jobcardId,
     ]);
     console.log("🗑️ Cleared existing spare part assignments");
@@ -866,7 +940,7 @@ const assignSparePartsToBooking = async (req, res) => {
       totalSparePartsCost += totalPrice;
 
       await db.query(
-        `INSERT INTO jobcardSparePart (jobcardId, partId, quantity, unitPrice, totalPrice) 
+        `INSERT INTO jobcardsparepart (jobcardId, partId, quantity, unitPrice, totalPrice) 
          VALUES (?, ?, ?, ?, ?)`,
         [jobcardId, sparePart.partId, quantity, unitPrice, totalPrice]
       );

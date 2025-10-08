@@ -157,6 +157,14 @@ export const sparePartsAPI = {
   getSparePartsCategories: () => api.get("/spareparts/categories"),
 };
 
+// Invoice API
+export const invoiceAPI = {
+  generateInvoice: (bookingId) => 
+    api.get(`/invoices/${bookingId}/generate`, { 
+      responseType: 'blob' // Important for PDF download
+    }),
+};
+
 // Vehicle API
 export const vehicleAPI = {
   getUserVehicles: () => api.get("/vehicles"),

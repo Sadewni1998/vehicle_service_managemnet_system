@@ -12,7 +12,7 @@ import {
   RefreshCw,
   FileText,
 } from "lucide-react";
-import { bookingsAPI, staffAPI, customerAPI } from "../utils/api";
+import { bookingsAPI, staffAPI, customerAPI, invoiceAPI } from "../utils/api";
 
 const ManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -144,24 +144,57 @@ const ManagementDashboard = () => {
   };
 
   // Generate invoice for booking
-  const generateInvoice = (booking) => {
+  const generateInvoice = async (booking) => {
     try {
-      // You can implement the actual invoice generation logic here
-      // For now, this will show an alert and log the booking details
       console.log("Generating invoice for booking:", booking);
-      alert(
-        `Generating invoice for booking #${booking.bookingId}\nVehicle: ${booking.vehicleNumber}\nCustomer: ${booking.name}`
-      );
-
-      // TODO: Implement actual invoice generation
-      // This could involve:
-      // 1. Opening a new window/modal with invoice details
-      // 2. Making an API call to generate PDF
-      // 3. Downloading the invoice
-      // 4. Redirecting to an invoice page
+      console.log("Booking ID:", booking.bookingId);
+      
+      // Show loading state
+      setError(null);
+      
+      // Call the invoice API
+      console.log("Calling invoice API...");
+      const response = await invoiceAPI.generateInvoice(booking.bookingId);
+      console.log("API Response received");
+      
+      // Check if response is valid
+      if (!response.data) {
+        throw new Error("No data received from server");
+      }
+      
+      // Create blob from response data
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      console.log("Created blob, size:", blob.size);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${booking.bookingId}.pdf`;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      console.log("Triggering download...");
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+      
+      console.log("Invoice downloaded successfully");
+      
     } catch (error) {
       console.error("Error generating invoice:", error);
-      setError("Failed to generate invoice. Please try again.");
+      console.error("Error details:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      setError(`Failed to generate invoice: ${error.message}`);
     }
   };
 
@@ -453,6 +486,12 @@ const ManagementDashboard = () => {
                             STATUS
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ASSIGNED MECHANICS
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ASSIGNED PARTS
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
                             DETAILS
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
@@ -495,6 +534,40 @@ const ManagementDashboard = () => {
                               >
                                 {booking.status}
                               </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {booking.assignedMechanicsDetails && booking.assignedMechanicsDetails.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {booking.assignedMechanicsDetails.map((mechanic, index) => (
+                                    <span
+                                      key={mechanic.mechanicId}
+                                      className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium"
+                                      title={`${mechanic.mechanicName} (${mechanic.specialization})`}
+                                    >
+                                      {mechanic.mechanicCode}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 text-sm">Not assigned</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              {booking.assignedSparePartsDetails && booking.assignedSparePartsDetails.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {booking.assignedSparePartsDetails.map((part, index) => (
+                                    <span
+                                      key={part.partId}
+                                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
+                                      title={`${part.partName} (Qty: ${part.assignedQuantity})`}
+                                    >
+                                      {part.partCode}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 text-sm">Not assigned</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <button
@@ -749,16 +822,27 @@ const ManagementDashboard = () => {
                       <div className="mt-1">
                         {selectedBooking.serviceTypes ? (
                           <div className="flex flex-wrap gap-2">
-                            {selectedBooking.serviceTypes
-                              .split(",")
-                              .map((service, index) => (
+                            {Array.isArray(selectedBooking.serviceTypes) ? (
+                              selectedBooking.serviceTypes.map((service, index) => (
                                 <span
                                   key={index}
                                   className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
                                 >
-                                  {service.trim()}
+                                  {service}
                                 </span>
-                              ))}
+                              ))
+                            ) : (
+                              selectedBooking.serviceTypes
+                                .split(",")
+                                .map((service, index) => (
+                                  <span
+                                    key={index}
+                                    className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
+                                  >
+                                    {service.trim()}
+                                  </span>
+                                ))
+                            )}
                           </div>
                         ) : (
                           <p className="text-gray-500 text-sm">
@@ -776,6 +860,114 @@ const ManagementDashboard = () => {
                           {selectedBooking.specialRequests}
                         </p>
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assigned Mechanics */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Assigned Mechanics
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedBooking.assignedMechanicsDetails && selectedBooking.assignedMechanicsDetails.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedBooking.assignedMechanicsDetails.map((mechanic) => (
+                          <div key={mechanic.mechanicId} className="bg-gray-50 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <h5 className="font-medium text-gray-900">{mechanic.mechanicName}</h5>
+                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                                {mechanic.mechanicCode}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">Specialization:</span>
+                                <p className="font-medium">{mechanic.specialization}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Experience:</span>
+                                <p className="font-medium">{mechanic.experienceYears} years</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Hourly Rate:</span>
+                                <p className="font-medium">Rs. {mechanic.hourlyRate?.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Status:</span>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  mechanic.availability === 'Available' 
+                                    ? 'bg-green-100 text-green-800'
+                                    : mechanic.availability === 'Busy'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {mechanic.availability}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">
+                        No mechanics assigned to this booking
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assigned Spare Parts */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Assigned Spare Parts
+                  </h4>
+                  <div className="space-y-3">
+                    {selectedBooking.assignedSparePartsDetails && selectedBooking.assignedSparePartsDetails.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedBooking.assignedSparePartsDetails.map((part) => (
+                          <div key={part.partId} className="bg-gray-50 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <h5 className="font-medium text-gray-900">{part.partName}</h5>
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                {part.partCode}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">Category:</span>
+                                <p className="font-medium">{part.category}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Quantity:</span>
+                                <p className="font-medium">{part.assignedQuantity}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Unit Price:</span>
+                                <p className="font-medium">Rs. {part.unitPrice?.toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Total Price:</span>
+                                <p className="font-medium text-green-600">Rs. {part.totalPrice?.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="bg-green-50 p-3 rounded-lg">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-gray-900">Total Parts Cost:</span>
+                            <span className="font-bold text-green-600 text-lg">
+                              Rs. {selectedBooking.assignedSparePartsDetails.reduce((total, part) => total + (part.totalPrice || 0), 0).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">
+                        No spare parts assigned to this booking
+                      </p>
                     )}
                   </div>
                 </div>
