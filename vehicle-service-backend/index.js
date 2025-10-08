@@ -13,6 +13,7 @@ const sparepartsRoutes = require("./routes/sparepartsRoutes");
 const mechanicRoutes = require("./routes/mechanicRoutes");
 const vehicleRoutes = require("./routes/vehicleRoutes");
 const jobcardRoutes = require("./routes/jobcardRoutes");
+const invoiceRoutes = require("./routes/invoiceRoutes");
 // Initialize the Express app
 const app = express();
 
@@ -51,6 +52,7 @@ app.use("/api/spareparts", sparepartsRoutes);
 app.use("/api/mechanics", mechanicRoutes);
 app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/jobcards", jobcardRoutes);
+app.use("/api/invoices", invoiceRoutes);
 
 // Placeholder routes for frontend compatibility
 app.get("/api/users/services", (req, res) => {
