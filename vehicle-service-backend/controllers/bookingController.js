@@ -3,6 +3,21 @@
 const db = require("../config/db");
 
 /**
+ * Get current date in Sri Lankan timezone (UTC+5:30)
+ */
+const getSriLankanDate = () => {
+  const now = new Date();
+  // Get date parts in Sri Lankan timezone
+  const sriLankaDateString = now.toLocaleDateString("en-CA", {
+    timeZone: "Asia/Colombo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }); // en-CA gives us YYYY-MM-DD format
+  return sriLankaDateString;
+};
+
+/**
  * Creates a new service booking.
  */
 const createBooking = async (req, res) => {
@@ -20,7 +35,6 @@ const createBooking = async (req, res) => {
     vehicleBrandModel,
     manufacturedYear,
     transmissionType,
-    kilometersRun,
     bookingDate,
     timeSlot,
     serviceTypes,
@@ -59,7 +73,7 @@ const createBooking = async (req, res) => {
 
   // Check daily booking limit (8 bookings per day)
   const DAILY_BOOKING_LIMIT = 8;
-  const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+  const today = getSriLankanDate(); // Get today's date in Sri Lankan timezone
 
   try {
     // Check how many bookings exist for today
@@ -82,9 +96,9 @@ const createBooking = async (req, res) => {
       INSERT INTO booking (
         name, phone, vehicleNumber, vehicleType, fuelType,
         vehicleBrand, vehicleBrandModel, manufacturedYear, transmissionType,
-        kilometersRun, bookingDate, timeSlot, serviceTypes,
+        bookingDate, timeSlot, serviceTypes,
         specialRequests, customerId, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     // The 'serviceTypes' array from the frontend is converted to a JSON string for storage.
@@ -98,7 +112,6 @@ const createBooking = async (req, res) => {
       vehicleBrandModel,
       manufacturedYear,
       transmissionType,
-      kilometersRun,
       bookingDate,
       timeSlot,
       JSON.stringify(serviceTypes || []),
@@ -240,6 +253,9 @@ const deleteBooking = async (req, res) => {
  */
 const getBookingStats = async (req, res) => {
   try {
+    const today = getSriLankanDate(); // Get today's date in Sri Lankan timezone
+    const DAILY_BOOKING_LIMIT = 8;
+
     const [totalBookings] = await db.query(
       "SELECT COUNT(*) as total FROM booking"
     );
@@ -252,12 +268,23 @@ const getBookingStats = async (req, res) => {
     const [cancelledBookings] = await db.query(
       "SELECT COUNT(*) as cancelled FROM booking WHERE status = 'cancelled'"
     );
+    const [todayBookings] = await db.query(
+      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ?",
+      [today]
+    );
+    const [activeBookings] = await db.query(
+      "SELECT COUNT(*) as count FROM booking WHERE status IN ('pending', 'confirmed', 'arrived', 'in_progress')"
+    );
 
     res.json({
       total: totalBookings[0].total,
       pending: pendingBookings[0].pending,
       completed: completedBookings[0].completed,
       cancelled: cancelledBookings[0].cancelled,
+      todayBookings: todayBookings[0].count,
+      activeBookings: activeBookings[0].count,
+      dailyBookingLimit: DAILY_BOOKING_LIMIT,
+      remainingSlots: Math.max(0, DAILY_BOOKING_LIMIT - todayBookings[0].count),
     });
   } catch (error) {
     console.error("Error fetching booking stats:", error);
@@ -270,7 +297,7 @@ const getBookingStats = async (req, res) => {
  */
 const checkBookingAvailability = async (req, res) => {
   const DAILY_BOOKING_LIMIT = 8;
-  const today = new Date().toISOString().split("T")[0];
+  const today = getSriLankanDate(); // Get today's date in Sri Lankan timezone
 
   try {
     const [countResult] = await db.query(
@@ -372,25 +399,129 @@ const updateBookingStatus = async (req, res) => {
 
   try {
     let sql, values;
-    
+
     // If status is 'arrived', also set the arrivedTime
-    if (status === 'arrived') {
-      const currentTime = new Date().toLocaleTimeString('en-US', {
+    if (status === "arrived") {
+      const currentTime = new Date().toLocaleTimeString("en-US", {
         hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
+        hour: "2-digit",
+        minute: "2-digit",
       });
-      sql = "UPDATE booking SET status = ?, arrivedTime = ? WHERE bookingId = ?";
+      sql =
+        "UPDATE booking SET status = ?, arrivedTime = ? WHERE bookingId = ?";
       values = [status, currentTime, bookingId];
     } else {
       sql = "UPDATE booking SET status = ? WHERE bookingId = ?";
       values = [status, bookingId];
     }
-    
+
     const [result] = await db.query(sql, values);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Booking not found." });
+    }
+
+    // If status changed to 'arrived', automatically create a jobcard
+    if (status === "arrived") {
+      try {
+        // Get booking details for jobcard creation
+        const [bookingDetails] = await db.query(
+          "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+          [bookingId]
+        );
+
+        if (bookingDetails.length > 0) {
+          const serviceTypes = bookingDetails[0]?.serviceTypes || "[]";
+
+          // Get an available mechanic (or use a default/placeholder mechanic)
+          // You can modify this logic based on your requirements
+          const [availableMechanics] = await db.query(
+            "SELECT mechanicId FROM mechanic WHERE isActive = true ORDER BY mechanicId LIMIT 1"
+          );
+
+          if (availableMechanics.length > 0) {
+            const defaultMechanicId = availableMechanics[0].mechanicId;
+
+            // Create jobcard with status 'open'
+            await db.query(
+              `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
+               VALUES (?, ?, ?, 'open', ?)`,
+              [defaultMechanicId, bookingId, "PENDING_ASSIGNMENT", serviceTypes]
+            );
+
+            console.log(
+              `✅ Jobcard automatically created for booking ${bookingId}`
+            );
+          } else {
+            console.log(
+              `⚠️ No active mechanics found to create jobcard for booking ${bookingId}`
+            );
+          }
+        }
+      } catch (jobcardError) {
+        // Log the error but don't fail the status update
+        console.error("Error creating jobcard:", jobcardError);
+        // Continue with the response even if jobcard creation fails
+      }
+    }
+
+    // If status changed to 'in_progress', update jobcard status as well
+    if (status === "in_progress") {
+      try {
+        // Find and update the jobcard for this booking
+        const [existingJobcard] = await db.query(
+          "SELECT jobcardId FROM jobcard WHERE bookingId = ?",
+          [bookingId]
+        );
+
+        if (existingJobcard.length > 0) {
+          await db.query(
+            "UPDATE jobcard SET status = 'in_progress', partCode = 'ASSIGNED' WHERE bookingId = ?",
+            [bookingId]
+          );
+          console.log(
+            `✅ Jobcard status updated to 'in_progress' for booking ${bookingId}`
+          );
+        } else {
+          console.log(
+            `⚠️ No jobcard found for booking ${bookingId}. Creating one now...`
+          );
+
+          // Get booking details
+          const [bookingDetails] = await db.query(
+            "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+            [bookingId]
+          );
+
+          if (bookingDetails.length > 0) {
+            const serviceTypes = bookingDetails[0]?.serviceTypes || "[]";
+
+            // Get an available mechanic
+            const [availableMechanics] = await db.query(
+              "SELECT mechanicId FROM mechanic WHERE isActive = true ORDER BY mechanicId LIMIT 1"
+            );
+
+            if (availableMechanics.length > 0) {
+              const defaultMechanicId = availableMechanics[0].mechanicId;
+
+              // Create jobcard with status 'in_progress'
+              await db.query(
+                `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
+                 VALUES (?, ?, ?, 'in_progress', ?)`,
+                [defaultMechanicId, bookingId, "ASSIGNED", serviceTypes]
+              );
+
+              console.log(
+                `✅ Jobcard created with 'in_progress' status for booking ${bookingId}`
+              );
+            }
+          }
+        }
+      } catch (jobcardError) {
+        // Log the error but don't fail the status update
+        console.error("Error updating jobcard status:", jobcardError);
+        // Continue with the response even if jobcard update fails
+      }
     }
 
     res.status(200).json({ message: `Booking status updated to ${status}` });
@@ -407,7 +538,8 @@ const updateBookingStatus = async (req, res) => {
  */
 const getTodayBookings = async (req, res) => {
   try {
-    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+    // Get today's date in Sri Lankan timezone
+    const today = getSriLankanDate();
 
     const [bookings] = await db.query(
       "SELECT * FROM booking WHERE DATE(bookingDate) = ? ORDER BY timeSlot ASC",
@@ -421,7 +553,9 @@ const getTodayBookings = async (req, res) => {
       vehicleNumber: booking.vehicleNumber,
       customer: booking.name,
       status: booking.status.toLowerCase(), // Convert to lowercase for consistency
-      arrivedTime: booking.arrivedTime ? booking.arrivedTime.substring(0, 5) : null, // Format as HH:MM
+      arrivedTime: booking.arrivedTime
+        ? booking.arrivedTime.substring(0, 5)
+        : null, // Format as HH:MM
       phone: booking.phone,
       vehicleType: booking.vehicleType,
       serviceTypes: booking.serviceTypes
@@ -444,7 +578,8 @@ const getTodayBookings = async (req, res) => {
  */
 const getArrivedBookings = async (req, res) => {
   try {
-    const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+    // Get today's date in Sri Lankan timezone
+    const today = getSriLankanDate();
 
     const [bookings] = await db.query(
       "SELECT * FROM booking WHERE DATE(bookingDate) = ? AND status = 'arrived' ORDER BY arrivedTime ASC",
@@ -458,7 +593,9 @@ const getArrivedBookings = async (req, res) => {
       vehicleNumber: booking.vehicleNumber,
       customer: booking.name,
       status: booking.status.toLowerCase(),
-      arrivedTime: booking.arrivedTime ? booking.arrivedTime.substring(0, 5) : null,
+      arrivedTime: booking.arrivedTime
+        ? booking.arrivedTime.substring(0, 5)
+        : null,
       phone: booking.phone,
       vehicleType: booking.vehicleType,
       vehicleBrand: booking.vehicleBrand,
@@ -466,7 +603,6 @@ const getArrivedBookings = async (req, res) => {
       manufacturedYear: booking.manufacturedYear,
       fuelType: booking.fuelType,
       transmissionType: booking.transmissionType,
-      kilometersRun: booking.kilometersRun,
       serviceTypes: booking.serviceTypes
         ? JSON.parse(booking.serviceTypes)
         : [],
@@ -490,7 +626,11 @@ const assignMechanicsToBooking = async (req, res) => {
     const { bookingId } = req.params;
     const { mechanicIds } = req.body;
 
-    if (!mechanicIds || !Array.isArray(mechanicIds) || mechanicIds.length === 0) {
+    if (
+      !mechanicIds ||
+      !Array.isArray(mechanicIds) ||
+      mechanicIds.length === 0
+    ) {
       return res.status(400).json({
         message: "Mechanic IDs array is required and cannot be empty.",
       });
@@ -522,11 +662,13 @@ const assignMechanicsToBooking = async (req, res) => {
     }
 
     // Check if all mechanics are available
-    const unavailableMechanics = mechanics.filter(m => m.availability !== 'Available');
+    const unavailableMechanics = mechanics.filter(
+      (m) => m.availability !== "Available"
+    );
     if (unavailableMechanics.length > 0) {
       return res.status(400).json({
         message: "One or more mechanics are not available.",
-        unavailableMechanics: unavailableMechanics.map(m => m.mechanicId)
+        unavailableMechanics: unavailableMechanics.map((m) => m.mechanicId),
       });
     }
 
@@ -537,30 +679,63 @@ const assignMechanicsToBooking = async (req, res) => {
       [mechanicsJson, bookingId]
     );
 
-    // Update mechanics availability to 'Not Available'
+    // Update mechanics availability to 'Busy' (valid enum value)
     await db.query(
-      `UPDATE mechanic SET availability = 'Not Available' WHERE mechanicId IN (${placeholders})`,
+      `UPDATE mechanic SET availability = 'Busy' WHERE mechanicId IN (${placeholders})`,
       mechanicIds
     );
 
-    // Create a single jobcard for the booking
-    const [bookingDetails] = await db.query(
-      "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+    // Check if jobcard already exists for this booking (created when booking arrived)
+    const [existingJobcard] = await db.query(
+      "SELECT jobcardId, partCode FROM jobcard WHERE bookingId = ? LIMIT 1",
       [bookingId]
     );
-    
-    const serviceTypes = bookingDetails[0]?.serviceTypes || '[]';
-    
-    // Create jobcard entry (using first mechanic as primary, but we'll assign all mechanics to it)
-    const [jobcardResult] = await db.query(
-      `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
-       VALUES (?, ?, ?, 'open', ?)`,
-      [mechanicIds[0], bookingId, 'GENERAL_SERVICE', serviceTypes]
-    );
-    
-    const jobcardId = jobcardResult.insertId;
-    
-    // Assign all mechanics to the jobcard using jobcardMechanic table
+
+    let jobcardId;
+
+    if (existingJobcard.length > 0) {
+      // Update existing jobcard with the first selected mechanic and change status
+      jobcardId = existingJobcard[0].jobcardId;
+
+      await db.query(
+        `UPDATE jobcard 
+         SET mechanicId = ?, 
+             partCode = 'ASSIGNED', 
+             status = 'in_progress' 
+         WHERE jobcardId = ?`,
+        [mechanicIds[0], jobcardId]
+      );
+
+      console.log(
+        `✅ Updated existing jobcard ${jobcardId} for booking ${bookingId}`
+      );
+    } else {
+      // Create new jobcard if none exists
+      const [bookingDetails] = await db.query(
+        "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+        [bookingId]
+      );
+
+      const serviceTypes = bookingDetails[0]?.serviceTypes || "[]";
+
+      const [jobcardResult] = await db.query(
+        `INSERT INTO jobcard (mechanicId, bookingId, partCode, status, serviceDetails) 
+         VALUES (?, ?, ?, 'in_progress', ?)`,
+        [mechanicIds[0], bookingId, "ASSIGNED", serviceTypes]
+      );
+
+      jobcardId = jobcardResult.insertId;
+      console.log(
+        `✅ Created new jobcard ${jobcardId} for booking ${bookingId}`
+      );
+    }
+
+    // Clear existing mechanic assignments for this jobcard
+    await db.query("DELETE FROM jobcardMechanic WHERE jobcardId = ?", [
+      jobcardId,
+    ]);
+
+    // Assign all selected mechanics to the jobcard using jobcardMechanic table
     for (const mechanicId of mechanicIds) {
       await db.query(
         `INSERT INTO jobcardMechanic (jobcardId, mechanicId) 
@@ -569,10 +744,14 @@ const assignMechanicsToBooking = async (req, res) => {
       );
     }
 
+    console.log(
+      `✅ Assigned ${mechanicIds.length} mechanic(s) to jobcard ${jobcardId}`
+    );
+
     res.status(200).json({
       message: "Mechanics assigned successfully.",
       assignedMechanics: mechanicIds,
-      bookingId: bookingId
+      bookingId: bookingId,
     });
   } catch (error) {
     console.error("Error assigning mechanics to booking:", error);
@@ -589,6 +768,9 @@ const assignSparePartsToBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
     const { spareParts } = req.body;
+
+    console.log(`\n🔧 Assigning spare parts to booking ${bookingId}`);
+    console.log("Spare parts to assign:", spareParts);
 
     if (!spareParts || !Array.isArray(spareParts) || spareParts.length === 0) {
       return res.status(400).json({
@@ -608,11 +790,11 @@ const assignSparePartsToBooking = async (req, res) => {
       });
     }
 
-    // Validate spare parts
-    const sparePartIds = spareParts.map(sp => sp.partId);
+    // Validate spare parts and get unit prices
+    const sparePartIds = spareParts.map((sp) => sp.partId);
     const placeholders = sparePartIds.map(() => "?").join(",");
     const [existingParts] = await db.query(
-      `SELECT partId, partName, stockQuantity FROM spareparts WHERE partId IN (${placeholders}) AND isActive = true`,
+      `SELECT partId, partName, stockQuantity, unitPrice FROM spareparts WHERE partId IN (${placeholders}) AND isActive = true`,
       sparePartIds
     );
 
@@ -625,13 +807,15 @@ const assignSparePartsToBooking = async (req, res) => {
     // Check stock availability
     const insufficientStock = [];
     for (const sparePart of spareParts) {
-      const existingPart = existingParts.find(ep => ep.partId === sparePart.partId);
+      const existingPart = existingParts.find(
+        (ep) => ep.partId === sparePart.partId
+      );
       if (existingPart && existingPart.stockQuantity < sparePart.quantity) {
         insufficientStock.push({
           partId: sparePart.partId,
           partName: existingPart.partName,
           requested: sparePart.quantity,
-          available: existingPart.stockQuantity
+          available: existingPart.stockQuantity,
         });
       }
     }
@@ -639,16 +823,65 @@ const assignSparePartsToBooking = async (req, res) => {
     if (insufficientStock.length > 0) {
       return res.status(400).json({
         message: "Insufficient stock for one or more spare parts.",
-        insufficientStock
+        insufficientStock,
       });
     }
 
-    // Update booking with assigned spare parts
+    // Check if jobcard exists for this booking (auto-created when booking arrived)
+    const [existingJobcard] = await db.query(
+      "SELECT jobcardId FROM jobcard WHERE bookingId = ? LIMIT 1",
+      [bookingId]
+    );
+
+    let jobcardId;
+    if (existingJobcard.length > 0) {
+      jobcardId = existingJobcard[0].jobcardId;
+      console.log(`✅ Found existing jobcard: ${jobcardId}`);
+    } else {
+      // Create a jobcard if it doesn't exist
+      console.log(
+        "⚠️ No jobcard found, this should not happen for arrived bookings"
+      );
+      return res.status(400).json({
+        message:
+          "Jobcard not found for this booking. Please ensure the booking has arrived status.",
+      });
+    }
+
+    // Clear existing spare part assignments for this jobcard
+    await db.query("DELETE FROM jobcardSparePart WHERE jobcardId = ?", [
+      jobcardId,
+    ]);
+    console.log("🗑️ Cleared existing spare part assignments");
+
+    // Store ALL selected spare parts in jobcardSparePart table
+    let totalSparePartsCost = 0;
+    for (const sparePart of spareParts) {
+      const existingPart = existingParts.find(
+        (ep) => ep.partId === sparePart.partId
+      );
+      const unitPrice = existingPart.unitPrice;
+      const quantity = sparePart.quantity || 1;
+      const totalPrice = unitPrice * quantity;
+      totalSparePartsCost += totalPrice;
+
+      await db.query(
+        `INSERT INTO jobcardSparePart (jobcardId, partId, quantity, unitPrice, totalPrice) 
+         VALUES (?, ?, ?, ?, ?)`,
+        [jobcardId, sparePart.partId, quantity, unitPrice, totalPrice]
+      );
+      console.log(
+        `✅ Stored spare part ${sparePart.partId} (Qty: ${quantity}) in jobcardSparePart table`
+      );
+    }
+
+    // Update booking with assigned spare parts (for backward compatibility)
     const sparePartsJson = JSON.stringify(spareParts);
     await db.query(
       "UPDATE booking SET assignedSpareParts = ? WHERE bookingId = ?",
       [sparePartsJson, bookingId]
     );
+    console.log("✅ Updated booking.assignedSpareParts");
 
     // Update stock quantities
     for (const sparePart of spareParts) {
@@ -657,16 +890,27 @@ const assignSparePartsToBooking = async (req, res) => {
         [sparePart.quantity, sparePart.partId]
       );
     }
+    console.log("✅ Updated spare parts stock quantities");
+
+    console.log(
+      `\n🎉 Successfully assigned ${spareParts.length} spare part(s) to jobcard ${jobcardId}`
+    );
+    console.log(
+      `💰 Total spare parts cost: Rs. ${totalSparePartsCost.toFixed(2)}`
+    );
 
     res.status(200).json({
-      message: "Spare parts assigned successfully.",
+      message: "Spare parts assigned successfully and stored in jobcard.",
       assignedSpareParts: spareParts,
-      bookingId: bookingId
+      bookingId: bookingId,
+      jobcardId: jobcardId,
+      totalCost: totalSparePartsCost,
     });
   } catch (error) {
     console.error("Error assigning spare parts to booking:", error);
     res.status(500).json({
       message: "Server error during spare parts assignment.",
+      error: error.message,
     });
   }
 };

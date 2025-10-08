@@ -11,6 +11,8 @@ const contactRoutes = require("./routes/contactRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const sparepartsRoutes = require("./routes/sparepartsRoutes");
 const mechanicRoutes = require("./routes/mechanicRoutes");
+const vehicleRoutes = require("./routes/vehicleRoutes");
+const jobcardRoutes = require("./routes/jobcardRoutes");
 // Initialize the Express app
 const app = express();
 
@@ -20,7 +22,7 @@ app.use(
     origin: [
       process.env.FRONTEND_URL || "http://localhost:5173",
       "http://localhost:5174",
-      "http://localhost:5173"
+      "http://localhost:5173",
     ],
     credentials: true,
   })
@@ -47,6 +49,8 @@ app.use("/api/breakdown", breakdownRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/spareparts", sparepartsRoutes);
 app.use("/api/mechanics", mechanicRoutes);
+app.use("/api/vehicles", vehicleRoutes);
+app.use("/api/jobcards", jobcardRoutes);
 
 // Placeholder routes for frontend compatibility
 app.get("/api/users/services", (req, res) => {
