@@ -39,6 +39,7 @@ const addUserVehicle = async (req, res) => {
       manufactureYear,
       fuelType,
       transmission,
+      kilometersRun,
     } = req.body;
 
     // Convert vehicle number to uppercase
@@ -90,10 +91,21 @@ const addUserVehicle = async (req, res) => {
       });
     }
 
+    // Optional validation for kilometersRun
+    if (
+      typeof kilometersRun !== "undefined" &&
+      kilometersRun !== null &&
+      (!Number.isInteger(Number(kilometersRun)) || Number(kilometersRun) < 0)
+    ) {
+      return res.status(400).json({
+        message: "kilometersRun must be a non-negative integer if provided.",
+      });
+    }
+
     // Insert the new vehicle
     const vehicleSql = `
-      INSERT INTO vehicle (customerId, vehicleNumber, brand, model, type, manufactureYear, fuelType, transmission) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO vehicle (customerId, vehicleNumber, brand, model, type, manufactureYear, fuelType, transmission, kilometersRun) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const [result] = await db.query(vehicleSql, [
       customerId,
@@ -104,6 +116,9 @@ const addUserVehicle = async (req, res) => {
       manufactureYear,
       fuelType,
       transmission,
+      typeof kilometersRun === "undefined" || kilometersRun === null
+        ? null
+        : Number(kilometersRun),
     ]);
 
     // Get the newly created vehicle
@@ -138,6 +153,7 @@ const updateUserVehicle = async (req, res) => {
       manufactureYear,
       fuelType,
       transmission,
+      kilometersRun,
     } = req.body;
 
     // Convert vehicle number to uppercase
@@ -185,10 +201,21 @@ const updateUserVehicle = async (req, res) => {
       });
     }
 
+    // Optional validation for kilometersRun
+    if (
+      typeof kilometersRun !== "undefined" &&
+      kilometersRun !== null &&
+      (!Number.isInteger(Number(kilometersRun)) || Number(kilometersRun) < 0)
+    ) {
+      return res.status(400).json({
+        message: "kilometersRun must be a non-negative integer if provided.",
+      });
+    }
+
     // Update the vehicle
     const updateSql = `
       UPDATE vehicle 
-      SET vehicleNumber = ?, brand = ?, model = ?, type = ?, manufactureYear = ?, fuelType = ?, transmission = ?
+      SET vehicleNumber = ?, brand = ?, model = ?, type = ?, manufactureYear = ?, fuelType = ?, transmission = ?, kilometersRun = ?
       WHERE vehicleId = ? AND customerId = ?
     `;
     await db.query(updateSql, [
@@ -199,6 +226,9 @@ const updateUserVehicle = async (req, res) => {
       manufactureYear,
       fuelType,
       transmission,
+      typeof kilometersRun === "undefined" || kilometersRun === null
+        ? null
+        : Number(kilometersRun),
       vehicleId,
       customerId,
     ]);

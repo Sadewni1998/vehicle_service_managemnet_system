@@ -57,7 +57,7 @@ const generateInvoice = async (req, res) => {
       try {
         const spareParts = JSON.parse(booking.assignedSpareParts);
         if (Array.isArray(spareParts) && spareParts.length > 0) {
-          const partIds = spareParts.map(sp => sp.partId);
+          const partIds = spareParts.map((sp) => sp.partId);
           const placeholders = partIds.map(() => "?").join(",");
           const [parts] = await db.query(
             `SELECT partId, partName, partCode, category, unitPrice 
@@ -65,13 +65,16 @@ const generateInvoice = async (req, res) => {
              WHERE partId IN (${placeholders})`,
             partIds
           );
-          
-          assignedSparePartsDetails = parts.map(part => {
-            const assignedPart = spareParts.find(sp => sp.partId === part.partId);
+
+          assignedSparePartsDetails = parts.map((part) => {
+            const assignedPart = spareParts.find(
+              (sp) => sp.partId === part.partId
+            );
             return {
               ...part,
               assignedQuantity: assignedPart ? assignedPart.quantity : 1,
-              totalPrice: part.unitPrice * (assignedPart ? assignedPart.quantity : 1)
+              totalPrice:
+                part.unitPrice * (assignedPart ? assignedPart.quantity : 1),
             };
           });
         }
@@ -86,23 +89,37 @@ const generateInvoice = async (req, res) => {
       try {
         serviceTypes = JSON.parse(booking.serviceTypes);
       } catch (error) {
-        serviceTypes = booking.serviceTypes.split(',').map(s => s.trim());
+        serviceTypes = booking.serviceTypes.split(",").map((s) => s.trim());
       }
     }
 
-    // Calculate totals
+    // Calculate totals (ensure numeric math: MySQL DECIMAL fields arrive as strings)
+    const toNum = (v) => {
+      const n = typeof v === "string" ? parseFloat(v) : v;
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    // Normalize parts pricing where unitPrice may be DECIMAL string
+    assignedSparePartsDetails = assignedSparePartsDetails.map((part) => {
+      const qty = toNum(part.assignedQuantity || 1);
+      const unit = toNum(part.unitPrice);
+      const totalPrice = unit * qty;
+      return { ...part, assignedQuantity: qty, unitPrice: unit, totalPrice };
+    });
+
     const laborCost = assignedMechanicsDetails.reduce((total, mechanic) => {
-      return total + (mechanic.hourlyRate || 0);
+      return total + toNum(mechanic.hourlyRate);
     }, 0);
 
     const partsCost = assignedSparePartsDetails.reduce((total, part) => {
-      return total + (part.totalPrice || 0);
+      return total + toNum(part.totalPrice);
     }, 0);
 
     const subtotal = laborCost + partsCost;
     const taxRate = 0.15; // 15% tax
-    const tax = subtotal * taxRate;
-    const total = subtotal + tax;
+    // Round tax to 2 decimals to avoid float artifacts in display
+    const tax = +(subtotal * taxRate).toFixed(2);
+    const total = +(subtotal + tax).toFixed(2);
 
     // Prepare invoice data
     const invoiceData = {
@@ -112,7 +129,7 @@ const generateInvoice = async (req, res) => {
       customer: {
         name: booking.customerName || booking.name,
         phone: booking.customerPhone || booking.phone,
-        email: booking.customerEmail || 'N/A'
+        email: booking.customerEmail || "N/A",
       },
       vehicle: {
         number: booking.vehicleNumber,
@@ -121,13 +138,13 @@ const generateInvoice = async (req, res) => {
         model: booking.vehicleBrandModel,
         year: booking.manufacturedYear,
         fuelType: booking.fuelType,
-        transmission: booking.transmissionType
+        transmission: booking.transmissionType,
       },
       service: {
         date: new Date(booking.bookingDate).toLocaleDateString(),
         timeSlot: booking.timeSlot,
         types: serviceTypes,
-        specialRequests: booking.specialRequests
+        specialRequests: booking.specialRequests,
       },
       mechanics: assignedMechanicsDetails,
       parts: assignedSparePartsDetails,
@@ -136,8 +153,8 @@ const generateInvoice = async (req, res) => {
         partsCost: partsCost,
         subtotal: subtotal,
         tax: tax,
-        total: total
-      }
+        total: total,
+      },
     };
 
     console.log("Invoice data prepared:", invoiceData);
@@ -149,38 +166,40 @@ const generateInvoice = async (req, res) => {
     console.log("Starting PDF generation with Puppeteer...");
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      format: "A4",
       printBackground: true,
       margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
-      }
+        top: "20mm",
+        right: "20mm",
+        bottom: "20mm",
+        left: "20mm",
+      },
     });
 
     await browser.close();
     console.log("PDF generated successfully, size:", pdfBuffer.length);
 
     // Set response headers for PDF download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="invoice-${bookingId}.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="invoice-${bookingId}.pdf"`
+    );
+    res.setHeader("Content-Length", pdfBuffer.length);
 
     res.send(pdfBuffer);
-
   } catch (error) {
     console.error("Error generating invoice:", error);
-    res.status(500).json({ 
-      message: "Error generating invoice", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error generating invoice",
+      error: error.message,
     });
   }
 };
@@ -309,37 +328,80 @@ const generateInvoiceHTML = (data) => {
             <div class="left-column">
                 <div class="section">
                     <h3>Invoice Details</h3>
-                    <div class="field"><strong>Invoice Number:</strong> ${data.invoiceNumber}</div>
-                    <div class="field"><strong>Invoice Date:</strong> ${data.invoiceDate}</div>
-                    <div class="field"><strong>Booking ID:</strong> ${data.bookingId}</div>
+                    <div class="field"><strong>Invoice Number:</strong> ${
+                      data.invoiceNumber
+                    }</div>
+                    <div class="field"><strong>Invoice Date:</strong> ${
+                      data.invoiceDate
+                    }</div>
+                    <div class="field"><strong>Booking ID:</strong> ${
+                      data.bookingId
+                    }</div>
                 </div>
 
                 <div class="section">
                     <h3>Vehicle Information</h3>
-                    <div class="field"><strong>Vehicle Number:</strong> ${data.vehicle.number}</div>
-                    <div class="field"><strong>Type:</strong> ${data.vehicle.type}</div>
-                    <div class="field"><strong>Brand & Model:</strong> ${data.vehicle.brand} ${data.vehicle.model}</div>
-                    <div class="field"><strong>Year:</strong> ${data.vehicle.year}</div>
-                    <div class="field"><strong>Fuel Type:</strong> ${data.vehicle.fuelType}</div>
-                    <div class="field"><strong>Transmission:</strong> ${data.vehicle.transmission}</div>
+                    <div class="field"><strong>Vehicle Number:</strong> ${
+                      data.vehicle.number
+                    }</div>
+                    <div class="field"><strong>Type:</strong> ${
+                      data.vehicle.type
+                    }</div>
+                    <div class="field"><strong>Brand & Model:</strong> ${
+                      data.vehicle.brand
+                    } ${data.vehicle.model}</div>
+                    <div class="field"><strong>Year:</strong> ${
+                      data.vehicle.year
+                    }</div>
+                    <div class="field"><strong>Fuel Type:</strong> ${
+                      data.vehicle.fuelType
+                    }</div>
+                    <div class="field"><strong>Transmission:</strong> ${
+                      data.vehicle.transmission
+                    }</div>
                 </div>
             </div>
 
             <div class="right-column">
                 <div class="section">
                     <h3>Customer Information</h3>
-                    <div class="field"><strong>Name:</strong> ${data.customer.name}</div>
-                    <div class="field"><strong>Phone:</strong> ${data.customer.phone}</div>
-                    <div class="field"><strong>Email:</strong> ${data.customer.email}</div>
+                    <div class="field"><strong>Name:</strong> ${
+                      data.customer.name
+                    }</div>
+                    <div class="field"><strong>Phone:</strong> ${
+                      data.customer.phone
+                    }</div>
+                    <div class="field"><strong>Email:</strong> ${
+                      data.customer.email
+                    }</div>
                 </div>
 
                 <div class="section">
                     <h3>Service Details Service</h3>
-                    <div class="field"><strong>Date:</strong> ${data.service.date}</div>
-                    <div class="field"><strong>Time Slot:</strong> ${data.service.timeSlot}</div>
-                    <div class="field"><strong>Service Types:</strong> ${data.service.types.join(', ')}</div>
-                    ${data.service.specialRequests ? `<div class="field"><strong>Special Requests:</strong> ${data.service.specialRequests}</div>` : ''}
-                    ${data.parts.length > 0 ? `<div class="field"><strong>Spare parts used:</strong> ${data.parts.map(part => `${part.partName} (${part.assignedQuantity})`).join(', ')}</div>` : ''}
+                    <div class="field"><strong>Date:</strong> ${
+                      data.service.date
+                    }</div>
+                    <div class="field"><strong>Time Slot:</strong> ${
+                      data.service.timeSlot
+                    }</div>
+                    <div class="field"><strong>Service Types:</strong> ${data.service.types.join(
+                      ", "
+                    )}</div>
+                    ${
+                      data.service.specialRequests
+                        ? `<div class="field"><strong>Special Requests:</strong> ${data.service.specialRequests}</div>`
+                        : ""
+                    }
+                    ${
+                      data.parts.length > 0
+                        ? `<div class="field"><strong>Spare parts used:</strong> ${data.parts
+                            .map(
+                              (part) =>
+                                `${part.partName} (${part.assignedQuantity})`
+                            )
+                            .join(", ")}</div>`
+                        : ""
+                    }
                 </div>
             </div>
         </div>
@@ -350,23 +412,36 @@ const generateInvoiceHTML = (data) => {
                 <tbody>
                     <tr>
                         <td>Labor Cost</td>
-                        <td>Rs. ${data.pricing.laborCost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td>Rs. ${data.pricing.laborCost.toLocaleString(
+                          "en-US",
+                          { minimumFractionDigits: 2 }
+                        )}</td>
                     </tr>
                     <tr>
                         <td>Parts Cost</td>
-                        <td>Rs. ${data.pricing.partsCost.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td>Rs. ${data.pricing.partsCost.toLocaleString(
+                          "en-US",
+                          { minimumFractionDigits: 2 }
+                        )}</td>
                     </tr>
                     <tr>
                         <td>Subtotal</td>
-                        <td>Rs. ${data.pricing.subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td>Rs. ${data.pricing.subtotal.toLocaleString(
+                          "en-US",
+                          { minimumFractionDigits: 2 }
+                        )}</td>
                     </tr>
                     <tr>
                         <td>Tax (15%)</td>
-                        <td>Rs. ${data.pricing.tax.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td>Rs. ${data.pricing.tax.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}</td>
                     </tr>
                     <tr class="total-row">
                         <td>Total Amount</td>
-                        <td>Rs. ${data.pricing.total.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                        <td>Rs. ${data.pricing.total.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}</td>
                     </tr>
                 </tbody>
             </table>
@@ -388,33 +463,106 @@ const generateInvoiceHTML = (data) => {
 const getLogoBase64 = () => {
   try {
     // Path to the logo file in the public directory
-    const logoPath = path.join(__dirname, '../../public/logo.png');
-    
-    console.log('Looking for logo at:', logoPath);
-    
+    const logoPath = path.join(__dirname, "../../public/logo.png");
+
+    console.log("Looking for logo at:", logoPath);
+
     // Check if logo file exists
     if (fs.existsSync(logoPath)) {
       // Read the logo file and convert to base64
       const logoBuffer = fs.readFileSync(logoPath);
-      console.log('Logo file found and read successfully, size:', logoBuffer.length);
-      return logoBuffer.toString('base64');
+      console.log(
+        "Logo file found and read successfully, size:",
+        logoBuffer.length
+      );
+      return logoBuffer.toString("base64");
     } else {
-      console.log('Logo file not found at:', logoPath);
+      console.log("Logo file not found at:", logoPath);
       // Try alternative path
-      const altPath = path.join(__dirname, '../public/logo.png');
+      const altPath = path.join(__dirname, "../public/logo.png");
       if (fs.existsSync(altPath)) {
         const logoBuffer = fs.readFileSync(altPath);
-        console.log('Logo file found at alternative path:', altPath);
-        return logoBuffer.toString('base64');
+        console.log("Logo file found at alternative path:", altPath);
+        return logoBuffer.toString("base64");
       }
-      return '';
+      return "";
     }
   } catch (error) {
-    console.error('Error reading logo file:', error);
-    return '';
+    console.error("Error reading logo file:", error);
+    return "";
   }
 };
 
 module.exports = {
-  generateInvoice
+  generateInvoice,
+  /**
+   * Finalize an invoice for a booking: transitions booking from 'verified' to 'completed'.
+   * Preconditions:
+   * - Booking exists and is currently 'verified'
+   * - Related jobcard exists and is 'completed'
+   */
+  finalizeInvoice: async (req, res) => {
+    try {
+      const { bookingId } = req.params;
+
+      // Load booking
+      const [bookings] = await db.query(
+        "SELECT bookingId, status FROM booking WHERE bookingId = ?",
+        [bookingId]
+      );
+      if (bookings.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Booking not found" });
+      }
+      const booking = bookings[0];
+
+      if (booking.status !== "verified") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Booking must be 'verified' before it can be finalized to 'completed'.",
+          currentStatus: booking.status,
+        });
+      }
+
+      // Ensure related jobcard exists and is completed
+      const [jcRows] = await db.query(
+        "SELECT jobcardId, status FROM jobcard WHERE bookingId = ? LIMIT 1",
+        [bookingId]
+      );
+      if (jcRows.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No jobcard found for this booking.",
+        });
+      }
+      if (jcRows[0].status !== "completed") {
+        return res.status(400).json({
+          success: false,
+          message: "Jobcard must be completed before finalizing the invoice.",
+          jobcardStatus: jcRows[0].status,
+        });
+      }
+
+      // Transition booking to completed
+      await db.query(
+        "UPDATE booking SET status = 'completed' WHERE bookingId = ?",
+        [bookingId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Invoice finalized and booking marked as 'completed'",
+        bookingId: Number(bookingId),
+      });
+    } catch (error) {
+      console.error("❌ Error finalizing invoice:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error finalizing invoice",
+        error: error.message,
+      });
+    }
+  },
 };

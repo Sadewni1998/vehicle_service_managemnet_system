@@ -95,7 +95,7 @@ export const breakdownAPI = {
   getMyRequests: () => api.get("/breakdown/my-requests"),
   getAll: (params) => api.get("/breakdown", { params }),
   getById: (id) => api.get(`/breakdown/${id}`),
-  updateStatus: (id, status) => api.put(`/breakdown/${id}/status`, status),
+  updateStatus: (id, status) => api.put(`/breakdown/${id}/status`, { status }),
   delete: (id) => api.delete(`/breakdown/${id}`),
   getStats: () => api.get("/breakdown/stats"),
 };
@@ -122,6 +122,8 @@ export const receptionistAPI = {
     api.put(`/bookings/${id}/status`, { status }),
   getBookingStats: () => api.get("/bookings/stats"),
   getTodayBookings: () => api.get("/bookings/today"),
+  updateKilometers: (id, kilometersRun) =>
+    api.put(`/bookings/${id}/kilometers`, { kilometersRun }),
 };
 
 // Service Advisor API
@@ -130,16 +132,21 @@ export const serviceAdvisorAPI = {
   getBookingById: (id) => api.get(`/bookings/${id}`),
   updateBookingStatus: (id, status) =>
     api.put(`/bookings/${id}/status`, { status }),
+  submitJobcard: (bookingId) =>
+    api.put(`/bookings/${bookingId}/submit-jobcard`),
   assignMechanicsToBooking: (bookingId, mechanicIds) =>
     api.put(`/bookings/${bookingId}/assign-mechanics`, { mechanicIds }),
   assignSparePartsToBooking: (bookingId, spareParts) =>
     api.put(`/bookings/${bookingId}/assign-spare-parts`, { spareParts }),
+  getJobcardsReadyForReview: () => api.get(`/jobcards/ready-for-review`),
+  approveJobcard: (jobcardId) => api.put(`/jobcards/${jobcardId}/approve`),
 };
 
 // Mechanics API
 export const mechanicsAPI = {
   getAvailableMechanics: () => api.get("/mechanics/available"),
   getAllMechanics: (params) => api.get("/mechanics", { params }),
+  getByStaffId: (staffId) => api.get(`/mechanics/staff/${staffId}`),
 };
 
 // Jobcard API
@@ -149,6 +156,10 @@ export const jobcardAPI = {
   getJobcardById: (jobcardId) => api.get(`/jobcards/${jobcardId}`),
   updateJobcardStatus: (jobcardId, status) =>
     api.put(`/jobcards/${jobcardId}/status`, { status }),
+  assignMechanics: (jobcardId, mechanicIds) =>
+    api.put(`/jobcards/${jobcardId}/assign-mechanics`, { mechanicIds }),
+  markMechanicCompleted: (jobcardId, mechanicId) =>
+    api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/complete`),
 };
 
 // Spare Parts API
@@ -159,9 +170,9 @@ export const sparePartsAPI = {
 
 // Invoice API
 export const invoiceAPI = {
-  generateInvoice: (bookingId) => 
-    api.get(`/invoices/${bookingId}/generate`, { 
-      responseType: 'blob' // Important for PDF download
+  generateInvoice: (bookingId) =>
+    api.get(`/invoices/${bookingId}/generate`, {
+      responseType: "blob", // Important for PDF download
     }),
 };
 

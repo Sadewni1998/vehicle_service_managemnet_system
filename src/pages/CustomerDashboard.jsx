@@ -155,6 +155,9 @@ const CustomerDashboard = () => {
         manufactureYear: data.manufactureYear,
         fuelType: data.fuelType,
         transmission: data.transmission,
+        kilometersRun: data.kilometersRun
+          ? Number(data.kilometersRun)
+          : undefined,
       };
 
       const response = await vehicleAPI.addVehicle(vehicleData);
@@ -277,6 +280,8 @@ const CustomerDashboard = () => {
         return "bg-purple-100 text-purple-800";
       case "completed":
         return "bg-green-100 text-green-800";
+      case "verified":
+        return "bg-emerald-100 text-emerald-800";
       case "cancelled":
         return "bg-red-100 text-red-800";
       default:
@@ -581,6 +586,18 @@ const CustomerDashboard = () => {
                                   </span>{" "}
                                   {vehicle.transmission}
                                 </p>
+                                {typeof vehicle.kilometersRun !== "undefined" &&
+                                  vehicle.kilometersRun !== null && (
+                                    <p>
+                                      <span className="font-medium">
+                                        Odometer:
+                                      </span>{" "}
+                                      {Number(
+                                        vehicle.kilometersRun
+                                      ).toLocaleString()}{" "}
+                                      km
+                                    </p>
+                                  )}
                                 <p>
                                   <span className="font-medium">Added:</span>{" "}
                                   {new Date(
@@ -762,6 +779,18 @@ const CustomerDashboard = () => {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Current Odometer (km)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              {...register("kilometersRun")}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
                               Fuel Type
                             </label>
                             <select
@@ -842,10 +871,95 @@ const CustomerDashboard = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-6">
                   Service History
                 </h3>
-                <div className="text-center py-12">
-                  <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No service history available</p>
-                </div>
+                {Array.isArray(bookings) &&
+                bookings.filter((b) => b?.status?.toLowerCase() === "verified")
+                  .length > 0 ? (
+                  <div className="space-y-4">
+                    {bookings
+                      .filter((b) => b?.status?.toLowerCase() === "verified")
+                      .map((booking) => (
+                        <div
+                          key={booking.bookingId}
+                          className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <h4 className="font-bold text-gray-900 mb-2">
+                                {parseServiceTypes(booking.serviceTypes)} -{" "}
+                                {booking.vehicleNumber}
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                                <div>
+                                  <p>
+                                    <span className="font-medium">Date:</span>{" "}
+                                    {formatDate(booking.bookingDate)}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">Time:</span>{" "}
+                                    {booking.timeSlot || "Not specified"}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">
+                                      Vehicle:
+                                    </span>{" "}
+                                    {booking.vehicleBrand}{" "}
+                                    {booking.vehicleBrandModel}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p>
+                                    <span className="font-medium">
+                                      Contact:
+                                    </span>{" "}
+                                    {booking.phone}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">Year:</span>{" "}
+                                    {booking.manufacturedYear ||
+                                      "Not specified"}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">
+                                      Fuel Type:
+                                    </span>{" "}
+                                    {booking.fuelType || "Not specified"}
+                                  </p>
+                                </div>
+                              </div>
+                              {booking.specialRequests && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm">
+                                    <span className="font-medium">
+                                      Special Requests:
+                                    </span>{" "}
+                                    {booking.specialRequests}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                booking.status
+                              )}`}
+                            >
+                              {booking.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Booking ID: {booking.bookingId} • Created:{" "}
+                            {formatDate(booking.createdAt)}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      No service history available
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

@@ -206,7 +206,7 @@ const getAllBookings = async (req, res) => {
           try {
             const spareParts = JSON.parse(booking.assignedSpareParts);
             if (Array.isArray(spareParts) && spareParts.length > 0) {
-              const partIds = spareParts.map(sp => sp.partId);
+              const partIds = spareParts.map((sp) => sp.partId);
               const placeholders = partIds.map(() => "?").join(",");
               const [parts] = await db.query(
                 `SELECT partId, partName, partCode, category, unitPrice 
@@ -214,14 +214,17 @@ const getAllBookings = async (req, res) => {
                  WHERE partId IN (${placeholders})`,
                 partIds
               );
-              
+
               // Combine with quantities from assignment
-              enhancedBooking.assignedSparePartsDetails = parts.map(part => {
-                const assignedPart = spareParts.find(sp => sp.partId === part.partId);
+              enhancedBooking.assignedSparePartsDetails = parts.map((part) => {
+                const assignedPart = spareParts.find(
+                  (sp) => sp.partId === part.partId
+                );
                 return {
                   ...part,
                   assignedQuantity: assignedPart ? assignedPart.quantity : 1,
-                  totalPrice: part.unitPrice * (assignedPart ? assignedPart.quantity : 1)
+                  totalPrice:
+                    part.unitPrice * (assignedPart ? assignedPart.quantity : 1),
                 };
               });
             }
@@ -234,12 +237,14 @@ const getAllBookings = async (req, res) => {
         }
 
         // Parse service types if it's a JSON string
-        if (booking.serviceTypes && typeof booking.serviceTypes === 'string') {
+        if (booking.serviceTypes && typeof booking.serviceTypes === "string") {
           try {
             enhancedBooking.serviceTypes = JSON.parse(booking.serviceTypes);
           } catch (error) {
             // If parsing fails, treat as comma-separated string
-            enhancedBooking.serviceTypes = booking.serviceTypes.split(',').map(s => s.trim());
+            enhancedBooking.serviceTypes = booking.serviceTypes
+              .split(",")
+              .map((s) => s.trim());
           }
         }
 
@@ -465,6 +470,7 @@ const updateBookingStatus = async (req, res) => {
     "arrived",
     "confirmed",
     "in_progress",
+    "verified",
     "completed",
     "cancelled",
   ];
@@ -473,6 +479,25 @@ const updateBookingStatus = async (req, res) => {
   }
 
   try {
+    // Load current booking status to enforce transitions
+    const [existing] = await db.query(
+      "SELECT status FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Booking not found." });
+    }
+    const currentStatus = existing[0].status;
+
+    // Prevent skipping verification: only allow completed if currently verified
+    if (status === "completed" && currentStatus !== "verified") {
+      return res.status(400).json({
+        message:
+          "Booking can only be marked 'completed' after it has been 'verified'. Use the invoice finalize endpoint.",
+        currentStatus,
+      });
+    }
+
     let sql, values;
 
     // If status is 'arrived', also set the arrivedTime
@@ -496,46 +521,40 @@ const updateBookingStatus = async (req, res) => {
       return res.status(404).json({ message: "Booking not found." });
     }
 
-    // If status changed to 'arrived', automatically create a jobcard
+    // If status changed to 'arrived', ensure a single jobcard exists (create once)
     if (status === "arrived") {
       try {
-        // Get booking details for jobcard creation
-        const [bookingDetails] = await db.query(
-          "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+        // Check if a jobcard already exists for this booking
+        const [existingJobcard] = await db.query(
+          "SELECT jobcardId FROM jobcard WHERE bookingId = ? LIMIT 1",
           [bookingId]
         );
 
-        if (bookingDetails.length > 0) {
-          const serviceTypes = bookingDetails[0]?.serviceTypes || "[]";
-
-          // Get an available mechanic (or use a default/placeholder mechanic)
-          // You can modify this logic based on your requirements
-          const [availableMechanics] = await db.query(
-            "SELECT mechanicId FROM mechanic WHERE isActive = true ORDER BY mechanicId LIMIT 1"
+        if (existingJobcard.length === 0) {
+          // Get booking details for jobcard creation
+          const [bookingDetails] = await db.query(
+            "SELECT serviceTypes FROM booking WHERE bookingId = ?",
+            [bookingId]
           );
 
-          if (availableMechanics.length > 0) {
-            const defaultMechanicId = availableMechanics[0].mechanicId;
+          const serviceTypes = bookingDetails[0]?.serviceTypes || "[]";
 
-            // Create jobcard with status 'open'
-            await db.query(
-              `INSERT INTO jobcard (bookingId, status, serviceDetails) 
-               VALUES (?, 'open', ?)`,
-              [bookingId, serviceTypes]
-            );
+          // Create jobcard with status 'open'
+          await db.query(
+            `INSERT INTO jobcard (bookingId, status, serviceDetails) 
+             VALUES (?, 'open', ?)`,
+            [bookingId, serviceTypes]
+          );
 
-            console.log(
-              `✅ Jobcard automatically created for booking ${bookingId}`
-            );
-          } else {
-            console.log(
-              `⚠️ No active mechanics found to create jobcard for booking ${bookingId}`
-            );
-          }
+          console.log(`✅ Jobcard created on arrival for booking ${bookingId}`);
+        } else {
+          console.log(
+            `ℹ️ Jobcard already exists for booking ${bookingId}, skipping creation`
+          );
         }
       } catch (jobcardError) {
         // Log the error but don't fail the status update
-        console.error("Error creating jobcard:", jobcardError);
+        console.error("Error ensuring jobcard on arrival:", jobcardError);
         // Continue with the response even if jobcard creation fails
       }
     }
@@ -605,6 +624,41 @@ const updateBookingStatus = async (req, res) => {
     res
       .status(500)
       .json({ message: "Server error during booking status update." });
+  }
+};
+
+/**
+ * Update kilometersRun for a booking (e.g., captured by receptionist at check-in)
+ */
+const updateKilometersRun = async (req, res) => {
+  const { bookingId } = req.params;
+  let { kilometersRun } = req.body;
+
+  if (kilometersRun === undefined || kilometersRun === null) {
+    return res.status(400).json({ message: "kilometersRun is required" });
+  }
+
+  kilometersRun = Number(kilometersRun);
+  if (!Number.isInteger(kilometersRun) || kilometersRun < 0) {
+    return res
+      .status(400)
+      .json({ message: "kilometersRun must be a non-negative integer" });
+  }
+
+  try {
+    const [result] = await db.query(
+      "UPDATE booking SET kilometersRun = ? WHERE bookingId = ?",
+      [kilometersRun, bookingId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    res.json({ message: "Kilometers updated", kilometersRun });
+  } catch (error) {
+    console.error("Error updating kilometersRun:", error);
+    res.status(500).json({ message: "Server error updating kilometersRun" });
   }
 };
 
@@ -805,14 +859,14 @@ const assignMechanicsToBooking = async (req, res) => {
     }
 
     // Clear existing mechanic assignments for this jobcard
-    await db.query("DELETE FROM jobcardmechanic WHERE jobcardId = ?", [
+    await db.query("DELETE FROM jobcardMechanic WHERE jobcardId = ?", [
       jobcardId,
     ]);
 
-    // Assign all selected mechanics to the jobcard using jobcardmechanic table
+    // Assign all selected mechanics to the jobcard using jobcardMechanic table
     for (const mechanicId of mechanicIds) {
       await db.query(
-        `INSERT INTO jobcardmechanic (jobcardId, mechanicId) 
+        `INSERT INTO jobcardMechanic (jobcardId, mechanicId) 
          VALUES (?, ?)`,
         [jobcardId, mechanicId]
       );
@@ -923,7 +977,7 @@ const assignSparePartsToBooking = async (req, res) => {
     }
 
     // Clear existing spare part assignments for this jobcard
-    await db.query("DELETE FROM jobcardsparepart WHERE jobcardId = ?", [
+    await db.query("DELETE FROM jobcardSparePart WHERE jobcardId = ?", [
       jobcardId,
     ]);
     console.log("🗑️ Cleared existing spare part assignments");
@@ -940,7 +994,7 @@ const assignSparePartsToBooking = async (req, res) => {
       totalSparePartsCost += totalPrice;
 
       await db.query(
-        `INSERT INTO jobcardsparepart (jobcardId, partId, quantity, unitPrice, totalPrice) 
+        `INSERT INTO jobcardSparePart (jobcardId, partId, quantity, unitPrice, totalPrice) 
          VALUES (?, ?, ?, ?, ?)`,
         [jobcardId, sparePart.partId, quantity, unitPrice, totalPrice]
       );
@@ -956,6 +1010,13 @@ const assignSparePartsToBooking = async (req, res) => {
       [sparePartsJson, bookingId]
     );
     console.log("✅ Updated booking.assignedSpareParts");
+
+    // Also store assigned spare parts on the jobcard record for quick access
+    await db.query(
+      "UPDATE jobcard SET assignedSparePartIds = ? WHERE jobcardId = ?",
+      [sparePartsJson, jobcardId]
+    );
+    console.log("✅ Updated jobcard.assignedSparePartIds");
 
     // Update stock quantities
     for (const sparePart of spareParts) {
@@ -989,6 +1050,153 @@ const assignSparePartsToBooking = async (req, res) => {
   }
 };
 
+/**
+ * Submit jobcard for a booking: finalize assignments so mechanics see it on their dashboards.
+ * - Ensures a jobcard exists and is set to in_progress
+ * - Writes jobcardMechanic rows for assigned mechanics
+ * - Writes jobcardSparePart rows if not already created
+ * - Updates quick-access JSON fields on jobcard
+ * - Sets booking status to in_progress and mechanics availability to Busy
+ */
+const submitJobcard = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+
+    // Load booking and parse assignments
+    const [bookings] = await db.query(
+      "SELECT bookingId, serviceTypes, assignedMechanics, assignedSpareParts, status FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+    if (bookings.length === 0) {
+      return res.status(404).json({ message: "Booking not found." });
+    }
+    const booking = bookings[0];
+
+    let mechanicIds = [];
+    if (booking.assignedMechanics) {
+      try {
+        mechanicIds = JSON.parse(booking.assignedMechanics) || [];
+      } catch (_) {
+        // ignore parse error
+      }
+    }
+    if (!Array.isArray(mechanicIds) || mechanicIds.length === 0) {
+      return res.status(400).json({
+        message:
+          "Please assign at least one mechanic before submitting the jobcard.",
+      });
+    }
+
+    let spareParts = [];
+    if (booking.assignedSpareParts) {
+      try {
+        spareParts = JSON.parse(booking.assignedSpareParts) || [];
+      } catch (_) {
+        // ignore parse error
+      }
+    }
+
+    const serviceDetails = booking.serviceTypes || "[]";
+
+    // Ensure jobcard exists
+    const [existingJobcard] = await db.query(
+      "SELECT jobcardId FROM jobcard WHERE bookingId = ? LIMIT 1",
+      [bookingId]
+    );
+
+    let jobcardId;
+    if (existingJobcard.length > 0) {
+      jobcardId = existingJobcard[0].jobcardId;
+      await db.query(
+        "UPDATE jobcard SET status = 'in_progress', assignedMechanicIds = ?, assignedSparePartIds = ?, serviceDetails = ? WHERE jobcardId = ?",
+        [
+          JSON.stringify(mechanicIds),
+          JSON.stringify(spareParts),
+          serviceDetails,
+          jobcardId,
+        ]
+      );
+    } else {
+      const [result] = await db.query(
+        "INSERT INTO jobcard (bookingId, status, serviceDetails, assignedMechanicIds, assignedSparePartIds) VALUES (?, 'in_progress', ?, ?, ?)",
+        [
+          bookingId,
+          serviceDetails,
+          JSON.stringify(mechanicIds),
+          JSON.stringify(spareParts),
+        ]
+      );
+      jobcardId = result.insertId;
+    }
+
+    // Sync jobcardMechanic mappings
+    await db.query("DELETE FROM jobcardMechanic WHERE jobcardId = ?", [
+      jobcardId,
+    ]);
+    for (const mechanicId of mechanicIds) {
+      await db.query(
+        "INSERT INTO jobcardMechanic (jobcardId, mechanicId) VALUES (?, ?)",
+        [jobcardId, mechanicId]
+      );
+    }
+
+    // If no rows exist in jobcardSparePart yet, create them and adjust stock
+    const [jspCountRows] = await db.query(
+      "SELECT COUNT(*) as cnt FROM jobcardSparePart WHERE jobcardId = ?",
+      [jobcardId]
+    );
+    const hasSparePartsRows = (jspCountRows[0]?.cnt || 0) > 0;
+    if (!hasSparePartsRows && spareParts.length > 0) {
+      // Load part prices
+      const partIds = spareParts.map((sp) => sp.partId);
+      const placeholders = partIds.map(() => "?").join(",");
+      const [parts] = await db.query(
+        `SELECT partId, unitPrice, stockQuantity FROM spareparts WHERE partId IN (${placeholders})`,
+        partIds
+      );
+      // Insert rows and decrement stock
+      for (const sp of spareParts) {
+        const part = parts.find((p) => p.partId === sp.partId);
+        if (!part) continue;
+        const qty = sp.quantity || 1;
+        const total = parseFloat(part.unitPrice) * qty;
+        await db.query(
+          "INSERT INTO jobcardSparePart (jobcardId, partId, quantity, unitPrice, totalPrice) VALUES (?, ?, ?, ?, ?)",
+          [jobcardId, sp.partId, qty, part.unitPrice, total]
+        );
+        await db.query(
+          "UPDATE spareparts SET stockQuantity = stockQuantity - ? WHERE partId = ?",
+          [qty, sp.partId]
+        );
+      }
+    }
+
+    // Update booking status and mechanic availability
+    await db.query(
+      "UPDATE booking SET status = 'in_progress' WHERE bookingId = ?",
+      [bookingId]
+    );
+    const mechPlaceholders = mechanicIds.map(() => "?").join(",");
+    await db.query(
+      `UPDATE mechanic SET availability = 'Busy' WHERE mechanicId IN (${mechPlaceholders})`,
+      mechanicIds
+    );
+
+    return res.status(200).json({
+      message: "Jobcard submitted successfully and assigned to mechanics.",
+      bookingId,
+      jobcardId,
+      assignedMechanics: mechanicIds,
+    });
+  } catch (error) {
+    console.error("Error submitting jobcard:", error);
+    return res.status(500).json({
+      message: "Server error while submitting jobcard.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   updateBooking,
@@ -1004,4 +1212,6 @@ module.exports = {
   getArrivedBookings,
   assignMechanicsToBooking,
   assignSparePartsToBooking,
+  submitJobcard,
+  updateKilometersRun,
 };

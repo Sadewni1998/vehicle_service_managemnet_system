@@ -1,6 +1,169 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const {
+  ensureAuthenticated,
+  checkRole,
+} = require("../middleware/authMiddleware");
+
+/**
+ * PUT /api/jobcards/:jobcardId/assign-mechanics
+ * Assign one or more mechanics to a specific jobcard
+ * Body: { mechanicIds: number[] }
+ */
+router.put(
+  "/:jobcardId/assign-mechanics",
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
+  async (req, res) => {
+    try {
+      const { jobcardId } = req.params;
+      const { mechanicIds } = req.body;
+
+      if (
+        !mechanicIds ||
+        !Array.isArray(mechanicIds) ||
+        mechanicIds.length === 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Mechanic IDs array is required and cannot be empty.",
+        });
+      }
+
+      // Load jobcard and related booking
+      const [jobcardRows] = await db.query(
+        "SELECT jobcardId, bookingId, status, assignedMechanicIds FROM jobcard WHERE jobcardId = ?",
+        [jobcardId]
+      );
+      if (jobcardRows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Jobcard not found",
+        });
+      }
+      const jobcard = jobcardRows[0];
+
+      // Validate mechanics
+      const placeholders = mechanicIds.map(() => "?").join(",");
+      const [mechanics] = await db.query(
+        `SELECT mechanicId, availability FROM mechanic WHERE mechanicId IN (${placeholders}) AND isActive = true`,
+        mechanicIds
+      );
+      if (mechanics.length !== mechanicIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "One or more mechanics not found or inactive.",
+        });
+      }
+
+      // Ensure all are available
+      const unavailable = mechanics.filter(
+        (m) => m.availability !== "Available"
+      );
+      if (unavailable.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "One or more mechanics are not available.",
+          unavailableMechanics: unavailable.map((m) => m.mechanicId),
+        });
+      }
+
+      // Determine previous vs new assignments to free removed mechanics later
+      let previousMechanicIds = [];
+      if (jobcard.assignedMechanicIds) {
+        try {
+          previousMechanicIds = JSON.parse(jobcard.assignedMechanicIds) || [];
+          if (!Array.isArray(previousMechanicIds)) previousMechanicIds = [];
+        } catch (_) {
+          previousMechanicIds = [];
+        }
+      }
+
+      const previousSet = new Set(previousMechanicIds.map(Number));
+      const newSet = new Set(mechanicIds.map(Number));
+      const removedMechanicIds = previousMechanicIds
+        .map(Number)
+        .filter((mid) => !newSet.has(mid));
+
+      // Update jobcard record (store JSON list). If still open, move to in_progress
+      await db.query(
+        `UPDATE jobcard 
+       SET assignedMechanicIds = ?, 
+           status = CASE WHEN status = 'open' THEN 'in_progress' ELSE status END 
+       WHERE jobcardId = ?`,
+        [JSON.stringify(mechanicIds), jobcardId]
+      );
+
+      // Sync mapping table
+      await db.query("DELETE FROM jobcardMechanic WHERE jobcardId = ?", [
+        jobcardId,
+      ]);
+      for (const mid of mechanicIds) {
+        await db.query(
+          `INSERT INTO jobcardMechanic (jobcardId, mechanicId) VALUES (?, ?)`,
+          [jobcardId, mid]
+        );
+      }
+
+      // Keep booking JSON in sync and ensure status is at least in_progress
+      await db.query(
+        `UPDATE booking 
+       SET assignedMechanics = ?, 
+           status = CASE WHEN status IN ('pending','confirmed','arrived') THEN 'in_progress' ELSE status END
+       WHERE bookingId = ?`,
+        [JSON.stringify(mechanicIds), jobcard.bookingId]
+      );
+
+      // Mark newly assigned mechanics as Busy (idempotent if already Busy)
+      await db.query(
+        `UPDATE mechanic SET availability = 'Busy' WHERE mechanicId IN (${placeholders})`,
+        mechanicIds
+      );
+
+      // Free removed mechanics that no longer have other active jobcards
+      if (removedMechanicIds.length > 0) {
+        const rmPH = removedMechanicIds.map(() => "?").join(",");
+        const [activeCounts] = await db.query(
+          `SELECT jm.mechanicId, COUNT(*) as cnt
+           FROM jobcardMechanic jm
+           JOIN jobcard j ON jm.jobcardId = j.jobcardId
+           WHERE jm.mechanicId IN (${rmPH})
+             AND j.status IN ('open','in_progress','ready_for_review')
+           GROUP BY jm.mechanicId`,
+          removedMechanicIds
+        );
+
+        const busySet = new Set(
+          activeCounts.filter((r) => (r.cnt || 0) > 0).map((r) => r.mechanicId)
+        );
+        const toFree = removedMechanicIds.filter((id) => !busySet.has(id));
+        if (toFree.length > 0) {
+          const freePH = toFree.map(() => "?").join(",");
+          await db.query(
+            `UPDATE mechanic SET availability = 'Available' WHERE mechanicId IN (${freePH})`,
+            toFree
+          );
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `Assigned ${mechanicIds.length} mechanic(s) to jobcard ${jobcardId}`,
+        jobcardId,
+        bookingId: jobcard.bookingId,
+        assignedMechanics: mechanicIds,
+      });
+    } catch (error) {
+      console.error("❌ Error assigning mechanics to jobcard:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error assigning mechanics to jobcard",
+        error: error.message,
+      });
+    }
+  }
+);
 
 /**
  * GET /api/jobcards/mechanic/:mechanicId
@@ -12,13 +175,11 @@ router.get("/mechanic/:mechanicId", async (req, res) => {
 
     console.log(`\n🔍 Fetching jobcards for mechanic ${mechanicId}`);
 
-    // Get all jobcards where this mechanic is assigned (either primary or in jobcardMechanic table)
+    // Get all jobcards where this mechanic is assigned via jobcardMechanic mapping
     const [jobcards] = await db.query(
       `SELECT DISTINCT
         j.jobcardId,
         j.bookingId,
-        j.mechanicId as primaryMechanicId,
-        j.partCode,
         j.status,
         j.serviceDetails,
         j.assignedAt,
@@ -36,10 +197,10 @@ router.get("/mechanic/:mechanicId", async (req, res) => {
         b.assignedSpareParts
       FROM jobcard j
       INNER JOIN booking b ON j.bookingId = b.bookingId
-      LEFT JOIN jobcardMechanic jm ON j.jobcardId = jm.jobcardId
-      WHERE j.mechanicId = ? OR jm.mechanicId = ?
+      INNER JOIN jobcardMechanic jm ON j.jobcardId = jm.jobcardId
+      WHERE jm.mechanicId = ?
       ORDER BY j.assignedAt DESC`,
-      [mechanicId, mechanicId]
+      [mechanicId]
     );
 
     console.log(
@@ -126,6 +287,79 @@ router.get("/mechanic/:mechanicId", async (req, res) => {
  * GET /api/jobcards/:jobcardId
  * Get a specific jobcard by ID
  */
+// Place specific routes before parameterized ones to avoid shadowing
+router.get(
+  "/ready-for-review",
+  ensureAuthenticated,
+  checkRole(["service_advisor"]),
+  async (_req, res) => {
+    try {
+      const [rows] = await db.query(
+        `SELECT 
+         j.jobcardId,
+         j.bookingId,
+         j.status,
+         j.assignedAt,
+         j.completedAt,
+         b.vehicleNumber,
+         b.vehicleType,
+         b.vehicleBrand,
+         b.vehicleBrandModel,
+         b.name as customerName,
+         b.phone as customerPhone,
+         b.bookingDate,
+         b.timeSlot,
+         b.serviceTypes
+       FROM jobcard j
+       JOIN booking b ON j.bookingId = b.bookingId
+       WHERE j.status = 'ready_for_review'
+       ORDER BY j.completedAt DESC, j.assignedAt DESC`
+      );
+
+      for (const jc of rows) {
+        const [mechanics] = await db.query(
+          `SELECT jm.mechanicId, m.mechanicName, m.mechanicCode, m.specialization, jm.assignedAt, jm.completedAt
+         FROM jobcardMechanic jm
+         JOIN mechanic m ON jm.mechanicId = m.mechanicId
+         WHERE jm.jobcardId = ?
+         ORDER BY jm.assignedAt`,
+          [jc.jobcardId]
+        );
+        jc.assignedMechanics = mechanics;
+        const [spareParts] = await db.query(
+          `SELECT jsp.partId, sp.partCode, sp.partName, sp.category, jsp.quantity, jsp.unitPrice, jsp.totalPrice
+         FROM jobcardSparePart jsp
+         JOIN spareparts sp ON jsp.partId = sp.partId
+         WHERE jsp.jobcardId = ?
+         ORDER BY jsp.assignedAt`,
+          [jc.jobcardId]
+        );
+        jc.assignedSpareParts = spareParts;
+        jc.totalPartsCost = spareParts.reduce(
+          (sum, p) => sum + parseFloat(p.totalPrice),
+          0
+        );
+        if (jc.serviceTypes) {
+          try {
+            jc.serviceTypes = JSON.parse(jc.serviceTypes);
+          } catch (_) {}
+        }
+      }
+
+      return res
+        .status(200)
+        .json({ success: true, count: rows.length, data: rows });
+    } catch (error) {
+      console.error("❌ Error listing ready-for-review jobcards:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching jobcards",
+        error: error.message,
+      });
+    }
+  }
+);
+
 router.get("/:jobcardId", async (req, res) => {
   try {
     const { jobcardId } = req.params;
@@ -228,55 +462,262 @@ router.get("/:jobcardId", async (req, res) => {
   }
 });
 
+// (moved earlier to avoid being shadowed by /:jobcardId)
+
 /**
  * PUT /api/jobcards/:jobcardId/status
  * Update jobcard status
  */
-router.put("/:jobcardId/status", async (req, res) => {
-  try {
-    const { jobcardId } = req.params;
-    const { status } = req.body;
+router.put(
+  "/:jobcardId/status",
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
+  async (req, res) => {
+    try {
+      const { jobcardId } = req.params;
+      const { status } = req.body;
 
-    const validStatuses = [
-      "open",
-      "in_progress",
-      "ready_for_review",
-      "completed",
-      "canceled",
-    ];
+      const validStatuses = [
+        "open",
+        "in_progress",
+        "ready_for_review",
+        "completed",
+        "canceled",
+      ];
 
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid status. Must be one of: ${validStatuses.join(
+            ", "
+          )}`,
+        });
+      }
+
+      // Restrict completion: enforce approval flow. Completion must go via /:jobcardId/approve
+      if (status === "completed") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Completing a jobcard is only allowed via the approval endpoint (/api/jobcards/:jobcardId/approve) after mechanics finish.",
+        });
+      }
+
+      // If status is completed, set completedAt timestamp
+      let updateQuery = "UPDATE jobcard SET status = ?";
+      let updateParams = [status];
+
+      if (status === "completed") {
+        updateQuery += ", completedAt = NOW()";
+      }
+
+      updateQuery += " WHERE jobcardId = ?";
+      updateParams.push(jobcardId);
+
+      await db.query(updateQuery, updateParams);
+
+      // Note: completion side-effects (free mechanics, verify booking) occur in /:jobcardId/approve
+
+      res.status(200).json({
+        success: true,
+        message: "Jobcard status updated successfully",
+      });
+    } catch (error) {
+      console.error("Error updating jobcard status:", error);
+      res.status(500).json({
         success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+        message: "Error updating jobcard status",
+        error: error.message,
       });
     }
-
-    // If status is completed, set completedAt timestamp
-    let updateQuery = "UPDATE jobcard SET status = ?";
-    let updateParams = [status];
-
-    if (status === "completed") {
-      updateQuery += ", completedAt = NOW()";
-    }
-
-    updateQuery += " WHERE jobcardId = ?";
-    updateParams.push(jobcardId);
-
-    await db.query(updateQuery, updateParams);
-
-    res.status(200).json({
-      success: true,
-      message: "Jobcard status updated successfully",
-    });
-  } catch (error) {
-    console.error("Error updating jobcard status:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating jobcard status",
-      error: error.message,
-    });
   }
-});
+);
+
+/**
+ * PUT /api/jobcards/:jobcardId/mechanics/:mechanicId/complete
+ * Mark a specific mechanic's work on a jobcard as completed.
+ * If all assigned mechanics have completed, the jobcard is marked completed.
+ */
+router.put(
+  "/:jobcardId/mechanics/:mechanicId/complete",
+  ensureAuthenticated,
+  checkRole(["mechanic"]),
+  async (req, res) => {
+    try {
+      const { jobcardId, mechanicId } = req.params;
+
+      // Validate jobcard exists
+      const [jcRows] = await db.query(
+        "SELECT jobcardId, bookingId, status FROM jobcard WHERE jobcardId = ?",
+        [jobcardId]
+      );
+      if (jcRows.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Jobcard not found" });
+      }
+      const jobcard = jcRows[0];
+
+      // Validate assignment exists
+      const [assignRows] = await db.query(
+        "SELECT jobcardMechanicId, completedAt FROM jobcardMechanic WHERE jobcardId = ? AND mechanicId = ?",
+        [jobcardId, mechanicId]
+      );
+      if (assignRows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "This mechanic is not assigned to the specified jobcard",
+        });
+      }
+
+      const alreadyCompleted = assignRows[0].completedAt != null;
+
+      if (!alreadyCompleted) {
+        await db.query(
+          "UPDATE jobcardMechanic SET completedAt = NOW() WHERE jobcardId = ? AND mechanicId = ? AND completedAt IS NULL",
+          [jobcardId, mechanicId]
+        );
+      }
+
+      // Check remaining mechanics for this jobcard
+      const [[remainingRow]] = await db.query(
+        "SELECT COUNT(*) AS remaining FROM jobcardMechanic WHERE jobcardId = ? AND completedAt IS NULL",
+        [jobcardId]
+      );
+
+      const remaining = remainingRow?.remaining ?? 0;
+
+      // If all mechanics are done, mark jobcard ready_for_review (awaiting advisor approval)
+      let jobcardUpdated = false;
+      if (remaining === 0) {
+        await db.query(
+          "UPDATE jobcard SET status = 'ready_for_review', completedAt = NOW() WHERE jobcardId = ?",
+          [jobcardId]
+        );
+        jobcardUpdated = true;
+      }
+
+      // Provide list of remaining mechanic IDs
+      let remainingMechanicIds = [];
+      if (remaining > 0) {
+        const [incompleteRows] = await db.query(
+          "SELECT mechanicId FROM jobcardMechanic WHERE jobcardId = ? AND completedAt IS NULL",
+          [jobcardId]
+        );
+        remainingMechanicIds = incompleteRows.map((r) => r.mechanicId);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: alreadyCompleted
+          ? "Mechanic completion was already recorded."
+          : "Mechanic marked as completed successfully.",
+        jobcardId: Number(jobcardId),
+        mechanicId: Number(mechanicId),
+        jobcardReadyForReview: jobcardUpdated,
+        remainingCount: remaining,
+        remainingMechanicIds,
+      });
+    } catch (error) {
+      console.error("❌ Error marking mechanic as completed:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error marking mechanic as completed",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/jobcards/:jobcardId/approve
+ * Service Advisor approval: finalize jobcard, free mechanics, and set booking status to 'verified'.
+ */
+router.put(
+  "/:jobcardId/approve",
+  ensureAuthenticated,
+  checkRole(["service_advisor"]),
+  async (req, res) => {
+    try {
+      const { jobcardId } = req.params;
+
+      // Load jobcard and ensure it is ready_for_review
+      const [rows] = await db.query(
+        "SELECT jobcardId, bookingId, status FROM jobcard WHERE jobcardId = ?",
+        [jobcardId]
+      );
+      if (rows.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Jobcard not found" });
+      }
+      const jobcard = rows[0];
+      if (jobcard.status !== "ready_for_review") {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Jobcard is not ready for approval. All mechanics must complete first.",
+        });
+      }
+
+      // Complete jobcard
+      await db.query(
+        "UPDATE jobcard SET status = 'completed', completedAt = NOW() WHERE jobcardId = ?",
+        [jobcardId]
+      );
+
+      // Free mechanics who no longer have active jobs
+      const [assignedRows] = await db.query(
+        "SELECT mechanicId FROM jobcardMechanic WHERE jobcardId = ?",
+        [jobcardId]
+      );
+      const mechanicIds = assignedRows.map((r) => r.mechanicId);
+      if (mechanicIds.length > 0) {
+        const placeholders = mechanicIds.map(() => "?").join(",");
+        const [activeCounts] = await db.query(
+          `SELECT jm.mechanicId, COUNT(*) as cnt
+         FROM jobcardMechanic jm
+         JOIN jobcard j ON jm.jobcardId = j.jobcardId
+         WHERE jm.mechanicId IN (${placeholders})
+           AND j.status IN ('open','in_progress','ready_for_review')
+         GROUP BY jm.mechanicId`,
+          mechanicIds
+        );
+        const busySet = new Set(
+          activeCounts.filter((r) => (r.cnt || 0) > 0).map((r) => r.mechanicId)
+        );
+        const toFree = mechanicIds.filter((id) => !busySet.has(id));
+        if (toFree.length > 0) {
+          const freePH = toFree.map(() => "?").join(",");
+          await db.query(
+            `UPDATE mechanic SET availability = 'Available' WHERE mechanicId IN (${freePH})`,
+            toFree
+          );
+        }
+      }
+
+      // Mark related booking as 'verified'
+      await db.query(
+        "UPDATE booking SET status = 'verified' WHERE bookingId = ?",
+        [jobcard.bookingId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Jobcard approved. Mechanics freed and booking verified.",
+        jobcardId: Number(jobcardId),
+        bookingId: Number(jobcard.bookingId),
+        freedMechanics: mechanicIds || [],
+      });
+    } catch (error) {
+      console.error("❌ Error approving jobcard:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error approving jobcard",
+        error: error.message,
+      });
+    }
+  }
+);
 
 module.exports = router;

@@ -12,7 +12,13 @@ import {
   RefreshCw,
   FileText,
 } from "lucide-react";
-import { bookingsAPI, staffAPI, customerAPI, invoiceAPI } from "../utils/api";
+import {
+  bookingsAPI,
+  staffAPI,
+  customerAPI,
+  invoiceAPI,
+  breakdownAPI,
+} from "../utils/api";
 
 const ManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -37,6 +43,12 @@ const ManagementDashboard = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  // Breakdown requests state
+  const [breakdownRequests, setBreakdownRequests] = useState([]);
+  const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
+  const [selectedBreakdown, setSelectedBreakdown] = useState(null);
+  const [showBreakdownDetails, setShowBreakdownDetails] = useState(false);
+  const [lastUpdatedBreakdowns, setLastUpdatedBreakdowns] = useState(null);
 
   // Load dashboard data
   useEffect(() => {
@@ -72,7 +84,12 @@ const ManagementDashboard = () => {
           pendingBookings: bookingStats.pending || 0,
           completedBookings: bookingStats.completed || 0,
           staffMembers: staffStats.totalStaff || 0,
-          totalCustomers: customerStats.totalCustomers || 0,
+          // Support both { totalCustomers } and { success, data: { totalCustomers } }
+          totalCustomers:
+            (customerStats &&
+              (customerStats.totalCustomers ??
+                customerStats.data?.totalCustomers)) ||
+            0,
         }));
       } catch (error) {
         console.error("Error loading dashboard stats:", error);
@@ -128,6 +145,27 @@ const ManagementDashboard = () => {
     };
   }, [activeTab]);
 
+  // Load breakdown requests when the tab is active
+  useEffect(() => {
+    const loadBreakdowns = async () => {
+      if (activeTab === "breakdown-requests") {
+        setLoadingBreakdowns(true);
+        try {
+          const response = await breakdownAPI.getAll();
+          setBreakdownRequests(response.data || []);
+          setLastUpdatedBreakdowns(new Date());
+        } catch (err) {
+          console.error("Error loading breakdown requests:", err);
+          setError("Failed to load breakdown requests");
+        } finally {
+          setLoadingBreakdowns(false);
+        }
+      }
+    };
+
+    loadBreakdowns();
+  }, [activeTab]);
+
   // Manual refresh function for bookings
   const refreshBookings = async () => {
     setLoadingBookings(true);
@@ -143,56 +181,69 @@ const ManagementDashboard = () => {
     }
   };
 
+  // Update breakdown request status
+  const updateBreakdownStatus = async (requestId, status) => {
+    try {
+      await breakdownAPI.updateStatus(requestId, status);
+      // Optimistically update local state
+      setBreakdownRequests((prev) =>
+        prev.map((r) => (r.requestId === requestId ? { ...r, status } : r))
+      );
+    } catch (err) {
+      console.error("Failed to update breakdown status:", err);
+      setError("Failed to update breakdown status");
+    }
+  };
+
   // Generate invoice for booking
   const generateInvoice = async (booking) => {
     try {
       console.log("Generating invoice for booking:", booking);
       console.log("Booking ID:", booking.bookingId);
-      
+
       // Show loading state
       setError(null);
-      
+
       // Call the invoice API
       console.log("Calling invoice API...");
       const response = await invoiceAPI.generateInvoice(booking.bookingId);
       console.log("API Response received");
-      
+
       // Check if response is valid
       if (!response.data) {
         throw new Error("No data received from server");
       }
-      
+
       // Create blob from response data
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const blob = new Blob([response.data], { type: "application/pdf" });
       console.log("Created blob, size:", blob.size);
-      
+
       // Create download link
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       link.download = `invoice-${booking.bookingId}.pdf`;
-      link.style.display = 'none';
-      
+      link.style.display = "none";
+
       // Trigger download
       document.body.appendChild(link);
       console.log("Triggering download...");
       link.click();
-      
+
       // Cleanup
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       }, 100);
-      
+
       console.log("Invoice downloaded successfully");
-      
     } catch (error) {
       console.error("Error generating invoice:", error);
       console.error("Error details:", {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
-        statusText: error.response?.statusText
+        statusText: error.response?.statusText,
       });
       setError(`Failed to generate invoice: ${error.message}`);
     }
@@ -536,37 +587,47 @@ const ManagementDashboard = () => {
                               </span>
                             </td>
                             <td className="px-6 py-4">
-                              {booking.assignedMechanicsDetails && booking.assignedMechanicsDetails.length > 0 ? (
+                              {booking.assignedMechanicsDetails &&
+                              booking.assignedMechanicsDetails.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                  {booking.assignedMechanicsDetails.map((mechanic, index) => (
-                                    <span
-                                      key={mechanic.mechanicId}
-                                      className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium"
-                                      title={`${mechanic.mechanicName} (${mechanic.specialization})`}
-                                    >
-                                      {mechanic.mechanicCode}
-                                    </span>
-                                  ))}
+                                  {booking.assignedMechanicsDetails.map(
+                                    (mechanic, index) => (
+                                      <span
+                                        key={mechanic.mechanicId}
+                                        className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium"
+                                        title={`${mechanic.mechanicName} (${mechanic.specialization})`}
+                                      >
+                                        {mechanic.mechanicCode}
+                                      </span>
+                                    )
+                                  )}
                                 </div>
                               ) : (
-                                <span className="text-gray-500 text-sm">Not assigned</span>
+                                <span className="text-gray-500 text-sm">
+                                  Not assigned
+                                </span>
                               )}
                             </td>
                             <td className="px-6 py-4">
-                              {booking.assignedSparePartsDetails && booking.assignedSparePartsDetails.length > 0 ? (
+                              {booking.assignedSparePartsDetails &&
+                              booking.assignedSparePartsDetails.length > 0 ? (
                                 <div className="flex flex-wrap gap-1">
-                                  {booking.assignedSparePartsDetails.map((part, index) => (
-                                    <span
-                                      key={part.partId}
-                                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
-                                      title={`${part.partName} (Qty: ${part.assignedQuantity})`}
-                                    >
-                                      {part.partCode}
-                                    </span>
-                                  ))}
+                                  {booking.assignedSparePartsDetails.map(
+                                    (part, index) => (
+                                      <span
+                                        key={part.partId}
+                                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
+                                        title={`${part.partName} (Qty: ${part.assignedQuantity})`}
+                                      >
+                                        {part.partCode}
+                                      </span>
+                                    )
+                                  )}
                                 </div>
                               ) : (
-                                <span className="text-gray-500 text-sm">Not assigned</span>
+                                <span className="text-gray-500 text-sm">
+                                  Not assigned
+                                </span>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -618,15 +679,162 @@ const ManagementDashboard = () => {
 
             {activeTab === "breakdown-requests" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Breakdown Requests
-                </h3>
-                <div className="text-center py-12">
-                  <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    Breakdown request features coming soon
-                  </p>
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Breakdown Requests
+                    </h3>
+                    {lastUpdatedBreakdowns && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Last updated:{" "}
+                        {lastUpdatedBreakdowns.toLocaleTimeString()}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-sm text-gray-600">
+                      Total: {breakdownRequests.length}
+                    </span>
+                  </div>
                 </div>
+
+                {loadingBreakdowns && breakdownRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    <p className="text-gray-600 mt-4">
+                      Loading breakdown requests...
+                    </p>
+                  </div>
+                ) : breakdownRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No breakdown requests found</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            REQUESTED AT
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            CONTACT
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            VEHICLE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            EMERGENCY
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            LOCATION
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            STATUS
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ACTIONS
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {breakdownRequests.map((req, idx) => (
+                          <tr
+                            key={req.requestId}
+                            className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                              idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {req.createdAt
+                                ? new Date(req.createdAt).toLocaleString()
+                                : "-"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {req.contactName}
+                                </span>
+                                <span className="text-gray-600">
+                                  {req.contactPhone}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              <div className="flex flex-col">
+                                <span className="font-mono">
+                                  {req.vehicleNumber}
+                                </span>
+                                <span className="text-gray-600">
+                                  {req.vehicleType || "-"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {req.emergencyType}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {req.latitude}, {req.longitude}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded ${
+                                  req.status === "Completed"
+                                    ? "bg-green-100 text-green-800"
+                                    : req.status === "In Progress"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : req.status === "Approved"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : req.status === "Cancelled"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {req.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedBreakdown(req);
+                                    setShowBreakdownDetails(true);
+                                  }}
+                                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded"
+                                >
+                                  View
+                                </button>
+                                <select
+                                  className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                                  value={req.status}
+                                  onChange={(e) =>
+                                    updateBreakdownStatus(
+                                      req.requestId,
+                                      e.target.value
+                                    )
+                                  }
+                                >
+                                  {[
+                                    "Pending",
+                                    "Approved",
+                                    "In Progress",
+                                    "Completed",
+                                    "Cancelled",
+                                  ].map((s) => (
+                                    <option key={s} value={s}>
+                                      {s}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -822,27 +1030,27 @@ const ManagementDashboard = () => {
                       <div className="mt-1">
                         {selectedBooking.serviceTypes ? (
                           <div className="flex flex-wrap gap-2">
-                            {Array.isArray(selectedBooking.serviceTypes) ? (
-                              selectedBooking.serviceTypes.map((service, index) => (
-                                <span
-                                  key={index}
-                                  className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-                                >
-                                  {service}
-                                </span>
-                              ))
-                            ) : (
-                              selectedBooking.serviceTypes
-                                .split(",")
-                                .map((service, index) => (
-                                  <span
-                                    key={index}
-                                    className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-                                  >
-                                    {service.trim()}
-                                  </span>
-                                ))
-                            )}
+                            {Array.isArray(selectedBooking.serviceTypes)
+                              ? selectedBooking.serviceTypes.map(
+                                  (service, index) => (
+                                    <span
+                                      key={index}
+                                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
+                                    >
+                                      {service}
+                                    </span>
+                                  )
+                                )
+                              : selectedBooking.serviceTypes
+                                  .split(",")
+                                  .map((service, index) => (
+                                    <span
+                                      key={index}
+                                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
+                                    >
+                                      {service.trim()}
+                                    </span>
+                                  ))}
                           </div>
                         ) : (
                           <p className="text-gray-500 text-sm">
@@ -871,44 +1079,66 @@ const ManagementDashboard = () => {
                     Assigned Mechanics
                   </h4>
                   <div className="space-y-3">
-                    {selectedBooking.assignedMechanicsDetails && selectedBooking.assignedMechanicsDetails.length > 0 ? (
+                    {selectedBooking.assignedMechanicsDetails &&
+                    selectedBooking.assignedMechanicsDetails.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedBooking.assignedMechanicsDetails.map((mechanic) => (
-                          <div key={mechanic.mechanicId} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <h5 className="font-medium text-gray-900">{mechanic.mechanicName}</h5>
-                              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                                {mechanic.mechanicCode}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">Specialization:</span>
-                                <p className="font-medium">{mechanic.specialization}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Experience:</span>
-                                <p className="font-medium">{mechanic.experienceYears} years</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Hourly Rate:</span>
-                                <p className="font-medium">Rs. {mechanic.hourlyRate?.toLocaleString()}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Status:</span>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  mechanic.availability === 'Available' 
-                                    ? 'bg-green-100 text-green-800'
-                                    : mechanic.availability === 'Busy'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
-                                  {mechanic.availability}
+                        {selectedBooking.assignedMechanicsDetails.map(
+                          (mechanic) => (
+                            <div
+                              key={mechanic.mechanicId}
+                              className="bg-gray-50 p-4 rounded-lg"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-medium text-gray-900">
+                                  {mechanic.mechanicName}
+                                </h5>
+                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                                  {mechanic.mechanicCode}
                                 </span>
                               </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="text-gray-600">
+                                    Specialization:
+                                  </span>
+                                  <p className="font-medium">
+                                    {mechanic.specialization}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">
+                                    Experience:
+                                  </span>
+                                  <p className="font-medium">
+                                    {mechanic.experienceYears} years
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">
+                                    Hourly Rate:
+                                  </span>
+                                  <p className="font-medium">
+                                    Rs. {mechanic.hourlyRate?.toLocaleString()}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">Status:</span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      mechanic.availability === "Available"
+                                        ? "bg-green-100 text-green-800"
+                                        : mechanic.availability === "Busy"
+                                        ? "bg-red-100 text-red-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                    }`}
+                                  >
+                                    {mechanic.availability}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
                       </div>
                     ) : (
                       <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">
@@ -925,41 +1155,72 @@ const ManagementDashboard = () => {
                     Assigned Spare Parts
                   </h4>
                   <div className="space-y-3">
-                    {selectedBooking.assignedSparePartsDetails && selectedBooking.assignedSparePartsDetails.length > 0 ? (
+                    {selectedBooking.assignedSparePartsDetails &&
+                    selectedBooking.assignedSparePartsDetails.length > 0 ? (
                       <div className="space-y-3">
-                        {selectedBooking.assignedSparePartsDetails.map((part) => (
-                          <div key={part.partId} className="bg-gray-50 p-4 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                              <h5 className="font-medium text-gray-900">{part.partName}</h5>
-                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                                {part.partCode}
-                              </span>
+                        {selectedBooking.assignedSparePartsDetails.map(
+                          (part) => (
+                            <div
+                              key={part.partId}
+                              className="bg-gray-50 p-4 rounded-lg"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-medium text-gray-900">
+                                  {part.partName}
+                                </h5>
+                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                  {part.partCode}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <span className="text-gray-600">
+                                    Category:
+                                  </span>
+                                  <p className="font-medium">{part.category}</p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">
+                                    Quantity:
+                                  </span>
+                                  <p className="font-medium">
+                                    {part.assignedQuantity}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">
+                                    Unit Price:
+                                  </span>
+                                  <p className="font-medium">
+                                    Rs. {part.unitPrice?.toLocaleString()}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="text-gray-600">
+                                    Total Price:
+                                  </span>
+                                  <p className="font-medium text-green-600">
+                                    Rs. {part.totalPrice?.toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div>
-                                <span className="text-gray-600">Category:</span>
-                                <p className="font-medium">{part.category}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Quantity:</span>
-                                <p className="font-medium">{part.assignedQuantity}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Unit Price:</span>
-                                <p className="font-medium">Rs. {part.unitPrice?.toLocaleString()}</p>
-                              </div>
-                              <div>
-                                <span className="text-gray-600">Total Price:</span>
-                                <p className="font-medium text-green-600">Rs. {part.totalPrice?.toLocaleString()}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        )}
                         <div className="bg-green-50 p-3 rounded-lg">
                           <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-900">Total Parts Cost:</span>
+                            <span className="font-medium text-gray-900">
+                              Total Parts Cost:
+                            </span>
                             <span className="font-bold text-green-600 text-lg">
-                              Rs. {selectedBooking.assignedSparePartsDetails.reduce((total, part) => total + (part.totalPrice || 0), 0).toLocaleString()}
+                              Rs.{" "}
+                              {selectedBooking.assignedSparePartsDetails
+                                .reduce(
+                                  (total, part) =>
+                                    total + (part.totalPrice || 0),
+                                  0
+                                )
+                                .toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -977,6 +1238,122 @@ const ManagementDashboard = () => {
             <div className="p-6 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => setShowBookingDetails(false)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Breakdown Details Modal */}
+      {showBreakdownDetails && selectedBreakdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Breakdown Request
+                </h3>
+                <button
+                  onClick={() => setShowBreakdownDetails(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="text-lg font-semibold">Contact</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Name</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.contactName}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Phone</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.contactPhone}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-lg font-semibold">Vehicle</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Vehicle Number</div>
+                    <div className="font-mono">
+                      {selectedBreakdown.vehicleNumber}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Vehicle Type</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.vehicleType || "-"}
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-lg font-semibold">Emergency</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Type</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.emergencyType}
+                    </div>
+                  </div>
+                  {selectedBreakdown.problemDescription && (
+                    <div>
+                      <div className="text-sm text-gray-600">Problem</div>
+                      <div className="font-medium">
+                        {selectedBreakdown.problemDescription}
+                      </div>
+                    </div>
+                  )}
+                  {selectedBreakdown.additionalInfo && (
+                    <div>
+                      <div className="text-sm text-gray-600">
+                        Additional Info
+                      </div>
+                      <div className="font-medium">
+                        {selectedBreakdown.additionalInfo}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-lg font-semibold">Location</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Coordinates</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.latitude},{" "}
+                      {selectedBreakdown.longitude}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Requested At</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.createdAt
+                        ? new Date(selectedBreakdown.createdAt).toLocaleString()
+                        : "-"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Status</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.status}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowBreakdownDetails(false)}
                 className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
               >
                 Close

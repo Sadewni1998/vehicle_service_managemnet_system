@@ -36,8 +36,8 @@ router.get(
 // Temporarily made public for testing - should be protected in production
 router.get(
   "/today",
-  // ensureAuthenticated,
-  // checkRole(["receptionist", "manager"]),
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
   bookingController.getTodayBookings
 );
 
@@ -46,8 +46,8 @@ router.get(
 // Temporarily made public for testing - should be protected in production
 router.get(
   "/arrived",
-  // ensureAuthenticated,
-  // checkRole(["service_advisor", "manager"]),
+  ensureAuthenticated,
+  checkRole(["service_advisor", "manager"]),
   bookingController.getArrivedBookings
 );
 
@@ -56,8 +56,8 @@ router.get(
 // Temporarily made public for testing - should be protected in production
 router.put(
   "/:bookingId/assign-mechanics",
-  // ensureAuthenticated,
-  // checkRole(["service_advisor", "manager"]),
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
   bookingController.assignMechanicsToBooking
 );
 
@@ -66,9 +66,19 @@ router.put(
 // Temporarily made public for testing - should be protected in production
 router.put(
   "/:bookingId/assign-spare-parts",
-  // ensureAuthenticated,
-  // checkRole(["service_advisor", "manager"]),
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
   bookingController.assignSparePartsToBooking
+);
+
+// Route to submit/finalize a jobcard so it appears on assigned mechanics' dashboards
+// PUT /api/bookings/:bookingId/submit-jobcard
+// Temporarily made public for testing - should be protected in production
+router.put(
+  "/:bookingId/submit-jobcard",
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
+  bookingController.submitJobcard
 );
 
 // Route to get booking statistics
@@ -76,8 +86,8 @@ router.put(
 // Temporarily made public for testing - should be protected in production
 router.get(
   "/stats",
-  // ensureAuthenticated,
-  // checkRole(["receptionist", "manager"]),
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
   bookingController.getBookingStats
 );
 
@@ -111,9 +121,18 @@ router.delete(
 // Temporarily made public for testing - should be protected in production
 router.put(
   "/:bookingId/status",
-  // ensureAuthenticated,
-  // checkRole(["receptionist", "manager"]),
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
   bookingController.updateBookingStatus
+);
+
+// Route to update kilometers run for a booking (Receptionist enters at check-in)
+// PUT /api/bookings/:bookingId/kilometers
+router.put(
+  "/:bookingId/kilometers",
+  ensureAuthenticated,
+  checkRole(["receptionist", "manager", "service_advisor"]),
+  bookingController.updateKilometersRun
 );
 
 module.exports = router;

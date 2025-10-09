@@ -11,7 +11,7 @@ import {
   Calendar,
   Car,
 } from "lucide-react";
-import { jobcardAPI } from "../utils/api";
+import { jobcardAPI, mechanicsAPI } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
 const MechanicDashboard = () => {
@@ -20,6 +20,7 @@ const MechanicDashboard = () => {
   const [assignedJobs, setAssignedJobs] = useState([]);
   const [jobcards, setJobcards] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mechanicId, setMechanicId] = useState(null);
 
   // Mock data for when API is not available
   const mockJobs = [
@@ -67,25 +68,79 @@ const MechanicDashboard = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // For now, use mock data for assigned jobs
-        setAssignedJobs(mockJobs);
+        let resolvedMechanicId = user?.mechanicId;
 
-        // Fetch real jobcards from API if user is logged in
-        if (user && user.mechanicId) {
-          console.log("Fetching jobcards for mechanic:", user.mechanicId);
+        // If user is staff and we don't have mechanicId, resolve via staffId
+        if (!resolvedMechanicId && user && user.staffId) {
+          try {
+            const mechRes = await mechanicsAPI.getByStaffId(user.staffId);
+            resolvedMechanicId = mechRes.data?.data?.mechanicId;
+          } catch (e) {
+            console.warn("Unable to resolve mechanic by staffId", e);
+          }
+        }
+
+        if (resolvedMechanicId) {
+          setMechanicId(resolvedMechanicId);
           const response = await jobcardAPI.getMechanicJobcards(
-            user.mechanicId
+            resolvedMechanicId
           );
-          console.log("Jobcards response:", response.data);
-          setJobcards(response.data.data || []);
+          const list = response.data?.data || [];
+          setJobcards(list);
+
+          // Map jobcards to Assigned Jobs tab items
+          const mapped = list.map((jc) => ({
+            id: jc.jobcardId,
+            service:
+              Array.isArray(jc.serviceTypes) && jc.serviceTypes.length > 0
+                ? jc.serviceTypes[0]
+                : "Service",
+            vehicle: jc.vehicleNumber,
+            vehicleModel: `${jc.vehicleBrand || ""} ${
+              jc.vehicleBrandModel || ""
+            }`.trim(),
+            customer: jc.customerName,
+            scheduledTime: jc.timeSlot || "",
+            status:
+              jc.status === "completed"
+                ? "Completed"
+                : jc.status === "in_progress"
+                ? "In Progress"
+                : jc.status === "ready_for_review"
+                ? "Ready for Review"
+                : "Open",
+            statusColor:
+              jc.status === "completed"
+                ? "bg-green-100 text-green-800"
+                : jc.status === "in_progress"
+                ? "bg-yellow-100 text-yellow-800"
+                : jc.status === "ready_for_review"
+                ? "bg-blue-100 text-blue-800"
+                : "bg-gray-100 text-gray-800",
+            actionButton:
+              jc.status === "completed"
+                ? "View"
+                : jc.status === "in_progress"
+                ? "Update Status"
+                : "Start",
+            actionButtonColor:
+              jc.status === "completed"
+                ? "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300"
+                : jc.status === "in_progress"
+                ? "bg-yellow-600 hover:bg-yellow-700 text-white"
+                : "bg-red-600 hover:bg-red-700 text-white",
+          }));
+          setAssignedJobs(mapped);
         } else {
-          console.warn("No mechanic ID found in user object");
+          console.warn("Mechanic ID not available; showing empty lists");
           setJobcards([]);
+          setAssignedJobs([]);
         }
       } catch (error) {
         console.error("Error loading jobcards:", error);
         console.warn("Using empty jobcards array");
         setJobcards([]);
+        setAssignedJobs([]);
       } finally {
         setLoading(false);
       }
@@ -94,30 +149,38 @@ const MechanicDashboard = () => {
     loadData();
   }, [user]);
 
-  // Handle jobcard status update
-  const handleUpdateStatus = async (jobcardId, newStatus) => {
+  // Mechanics should mark only their assignment as completed
+  const handleMarkComplete = async (jobcardId) => {
     try {
-      await jobcardAPI.updateJobcardStatus(jobcardId, newStatus);
+      if (!mechanicId) {
+        alert("Mechanic ID not resolved. Please re-login or try again.");
+        return;
+      }
+      const resp = await jobcardAPI.markMechanicCompleted(
+        jobcardId,
+        mechanicId
+      );
+      const ready = resp?.data?.jobcardReadyForReview;
+      const message = resp?.data?.message || "Marked complete";
 
-      // Update local state
+      // Update local state: if last mechanic, move card to ready_for_review
       setJobcards((prev) =>
         prev.map((jc) =>
           jc.jobcardId === jobcardId
             ? {
                 ...jc,
-                status: newStatus,
-                completedAt:
-                  newStatus === "completed" ? new Date() : jc.completedAt,
+                status: ready ? "ready_for_review" : jc.status,
+                completedAt: ready ? new Date() : jc.completedAt,
               }
             : jc
         )
       );
 
-      alert(`Job card status updated to ${newStatus.replace("_", " ")}!`);
+      alert(message);
     } catch (error) {
-      console.error("Error updating jobcard status:", error);
+      console.error("Error marking mechanic complete:", error);
       alert(
-        "Failed to update jobcard status: " +
+        "Failed to mark complete: " +
           (error.response?.data?.message || error.message)
       );
     }
@@ -452,38 +515,26 @@ const MechanicDashboard = () => {
 
                           {/* Action Buttons */}
                           <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">
+                            {/* Mechanics cannot update generic status; show only Mark Complete */}
                             <button
                               onClick={() =>
-                                handleUpdateStatus(
-                                  jobcard.jobcardId,
-                                  "in_progress"
-                                )
+                                handleMarkComplete(jobcard.jobcardId)
                               }
-                              disabled={jobcard.status === "completed"}
-                              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                jobcard.status === "completed"
-                                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                  : "bg-yellow-600 text-white hover:bg-yellow-700"
-                              }`}
-                            >
-                              Mark In Progress
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleUpdateStatus(
-                                  jobcard.jobcardId,
-                                  "completed"
-                                )
+                              disabled={
+                                jobcard.status === "completed" ||
+                                jobcard.status === "ready_for_review"
                               }
-                              disabled={jobcard.status === "completed"}
                               className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                jobcard.status === "completed"
+                                jobcard.status === "completed" ||
+                                jobcard.status === "ready_for_review"
                                   ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                   : "bg-green-600 text-white hover:bg-green-700"
                               }`}
                             >
                               {jobcard.status === "completed"
                                 ? "Completed ✓"
+                                : jobcard.status === "ready_for_review"
+                                ? "Awaiting Review"
                                 : "Mark Complete"}
                             </button>
                           </div>

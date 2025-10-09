@@ -32,9 +32,13 @@ CREATE TABLE IF NOT EXISTS vehicle (
     manufactureYear INT,
     fuelType VARCHAR(50),
     transmission VARCHAR(50),
+    kilometersRun INT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE CASCADE
 );
+
+-- Ensure new column exists when upgrading existing databases
+ALTER TABLE vehicle ADD COLUMN IF NOT EXISTS kilometersRun INT NULL;
 
 -- =======================================================
 -- BOOKING TABLE
@@ -55,7 +59,7 @@ CREATE TABLE IF NOT EXISTS booking (
     timeSlot VARCHAR(100) NOT NULL,
     serviceTypes JSON,
     specialRequests TEXT,
-    status ENUM('pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'arrived') DEFAULT 'pending',
+    status ENUM('pending', 'arrived', 'confirmed', 'in_progress', 'verified', 'completed', 'cancelled') DEFAULT 'pending',
     arrivedTime TIME NULL,
     assignedMechanics JSON NULL,
     assignedSpareParts JSON NULL,
@@ -127,6 +131,12 @@ INSERT INTO staff (name, email, password, role) VALUES
 ('Manager', 'manager@vehicleservice.com', '$2b$10$0emTWCs9TR36WJRnhgKtU.8bvB00iLhgYU373PcYx5S0WaRFUXye2', 'manager'),
 ('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K', 'mechanic');
 
+-- Additional test staff data
+INSERT INTO staff (name, email, password, role) VALUES
+('Alice Reception', 'alice.reception@vehicleservice.com', '$2b$10$abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef', 'receptionist'),
+('Bob Mechanic', 'bob.mechanic@vehicleservice.com', '$2b$10$123456123456123456123456123456123456123456123456123456', 'mechanic'),
+('Carol Advisor', 'carol.advisor@vehicleservice.com', '$2b$10$654321654321654321654321654321654321654321654321654321', 'service_advisor');
+
 -- =======================================================
 -- MECHANIC TABLE
 -- =======================================================
@@ -151,6 +161,12 @@ INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, exper
 VALUES
 (4, 'MEC001', 'Sarah', 'Engine and Transmission', 5, '["ASE Certified","Engine Specialist"]', 2500.00),
 (4, 'MEC002', 'John', 'Electrical Systems', 3, '["Auto Electrician","Hybrid Systems"]', 2200.00);
+
+-- Additional test mechanic data for staff mechanics
+-- Note: staffId for 'Bob Mechanic' is expected to be 6 (after 5 staff entries above)
+INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, hourlyRate)
+VALUES
+(6, 'MEC003', 'Bob Mechanic', 'Engine Specialist', 4, '["ASE Certified"]', 2300.00);
 
 -- =======================================================
 -- SPARE PARTS TABLE

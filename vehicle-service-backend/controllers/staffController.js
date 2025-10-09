@@ -9,7 +9,7 @@ const jwt = require("jsonwebtoken");
  * In a real application, this should only be accessible by a manager/admin.
  */
 const registerStaff = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, mechanicDetails } = req.body;
 
   if (!name || !email || !password || !role) {
     return res
@@ -17,33 +17,108 @@ const registerStaff = async (req, res) => {
       .json({ message: "Name, email, password, and role are required." });
   }
 
+  let conn;
   try {
-    const [existingStaff] = await db.query(
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    // Check if staff already exists
+    const [existingStaff] = await conn.query(
       "SELECT email FROM staff WHERE email = ?",
       [email]
     );
     if (existingStaff.length > 0) {
+      await conn.rollback();
       return res
         .status(409)
         .json({ message: "A staff member with this email already exists." });
     }
 
+    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const sql =
+    // Create staff record
+    const insertStaffSql =
       "INSERT INTO staff (name, email, password, role) VALUES (?, ?, ?, ?)";
-    const [result] = await db.query(sql, [name, email, hashedPassword, role]);
+    const [staffResult] = await conn.query(insertStaffSql, [
+      name,
+      email,
+      hashedPassword,
+      role,
+    ]);
+
+    const staffId = staffResult.insertId;
+
+    // If the role is mechanic, also create a mechanic record linked to this staff
+    let mechanicRecord = null;
+    if (role === "mechanic") {
+      // Generate next mechanic code (MEC###)
+      const [maxCodeResult] = await conn.execute(
+        'SELECT MAX(CAST(SUBSTRING(mechanicCode, 4) AS UNSIGNED)) as maxNum FROM mechanic WHERE mechanicCode LIKE "MEC%"'
+      );
+      const nextNum = (maxCodeResult[0].maxNum || 0) + 1;
+      const mechanicCode = `MEC${nextNum.toString().padStart(3, "0")}`;
+
+      // Prepare mechanic details (fallbacks to sensible defaults)
+      const specialization = mechanicDetails?.specialization || null;
+      const experienceYears = mechanicDetails?.experienceYears ?? 0;
+      const certifications = mechanicDetails?.certifications || null; // can be JSON string
+      const availability = mechanicDetails?.availability || "Available";
+      const hourlyRate = mechanicDetails?.hourlyRate ?? null;
+      const mechanicName = mechanicDetails?.mechanicName || name;
+
+      // Validate availability if provided
+      const validAvailability = ["Available", "Busy", "On Break", "Off Duty"];
+      if (availability && !validAvailability.includes(availability)) {
+        await conn.rollback();
+        return res.status(400).json({ message: "Invalid availability status" });
+      }
+
+      const insertMechanicSql =
+        "INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, availability, hourlyRate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+      const [mechResult] = await conn.query(insertMechanicSql, [
+        staffId,
+        mechanicCode,
+        mechanicName,
+        specialization,
+        experienceYears,
+        certifications,
+        availability,
+        hourlyRate,
+      ]);
+
+      // Fetch the created mechanic via the view for response consistency
+      const [mechanicRows] = await conn.query(
+        "SELECT * FROM mechanic_details WHERE mechanicId = ?",
+        [mechResult.insertId]
+      );
+      mechanicRecord = mechanicRows[0] || null;
+    }
+
+    await conn.commit();
 
     res.status(201).json({
-      message: "Staff member created successfully!",
-      staffId: result.insertId,
+      message:
+        role === "mechanic"
+          ? "Mechanic and staff account created successfully!"
+          : "Staff member created successfully!",
+      staffId,
+      mechanic: mechanicRecord,
     });
   } catch (error) {
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (_) {}
+    }
     console.error("Staff registration error:", error);
     res
       .status(500)
       .json({ message: "Server error during staff registration." });
+  } finally {
+    if (conn) conn.release();
   }
 };
 

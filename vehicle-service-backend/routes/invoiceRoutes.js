@@ -12,10 +12,18 @@ const {
 // GET /api/invoices/:bookingId/generate
 router.get(
   "/:bookingId/generate",
-  // Temporarily removing auth for testing - uncomment in production
-  // ensureAuthenticated,
-  // checkRole(["manager", "receptionist"]),
+  ensureAuthenticated,
+  checkRole(["manager"]),
   invoiceController.generateInvoice
+);
+
+// Route to finalize an invoice and mark booking as completed (after verification)
+// POST /api/invoices/:bookingId/finalize
+router.post(
+  "/:bookingId/finalize",
+  ensureAuthenticated,
+  checkRole(["manager"]),
+  invoiceController.finalizeInvoice
 );
 
 module.exports = router;
