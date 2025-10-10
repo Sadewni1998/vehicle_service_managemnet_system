@@ -49,6 +49,23 @@ const ManagementDashboard = () => {
   const [selectedBreakdown, setSelectedBreakdown] = useState(null);
   const [showBreakdownDetails, setShowBreakdownDetails] = useState(false);
   const [lastUpdatedBreakdowns, setLastUpdatedBreakdowns] = useState(null);
+  
+  // Staff management state
+  const [staff, setStaff] = useState([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [showStaffForm, setShowStaffForm] = useState(false);
+  const [staffForm, setStaffForm] = useState({
+    name: '',
+    email: '',
+    role: '',
+    mechanicDetails: {
+      specialization: '',
+      experienceYears: 0,
+      certifications: '',
+      hourlyRate: 0
+    }
+  });
+  const [roleAvailability, setRoleAvailability] = useState({});
 
   // Load dashboard data
   useEffect(() => {
@@ -166,6 +183,26 @@ const ManagementDashboard = () => {
     loadBreakdowns();
   }, [activeTab]);
 
+  // Load staff when the tab is active
+  useEffect(() => {
+    const loadStaff = async () => {
+      if (activeTab === "staff") {
+        setLoadingStaff(true);
+        try {
+          const response = await staffAPI.getAll();
+          setStaff(response.data || []);
+        } catch (err) {
+          console.error("Error loading staff:", err);
+          setError("Failed to load staff");
+        } finally {
+          setLoadingStaff(false);
+        }
+      }
+    };
+
+    loadStaff();
+  }, [activeTab]);
+
   // Manual refresh function for bookings
   const refreshBookings = async () => {
     setLoadingBookings(true);
@@ -192,6 +229,101 @@ const ManagementDashboard = () => {
     } catch (err) {
       console.error("Failed to update breakdown status:", err);
       setError("Failed to update breakdown status");
+    }
+  };
+
+  // Check role availability
+  const checkRoleAvailability = async (role) => {
+    try {
+      const response = await staffAPI.checkRoleAvailability(role);
+      setRoleAvailability(prev => ({
+        ...prev,
+        [role]: response.data.isAvailable
+      }));
+      return response.data.isAvailable;
+    } catch (err) {
+      console.error("Failed to check role availability:", err);
+      return false;
+    }
+  };
+
+  // Handle staff form input changes
+  const handleStaffFormChange = async (field, value) => {
+    setStaffForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // Check role availability when role changes
+    if (field === 'role' && (value === 'receptionist' || value === 'service_advisor')) {
+      await checkRoleAvailability(value);
+    }
+  };
+
+  // Handle mechanic details changes
+  const handleMechanicDetailsChange = (field, value) => {
+    setStaffForm(prev => ({
+      ...prev,
+      mechanicDetails: {
+        ...prev.mechanicDetails,
+        [field]: value
+      }
+    }));
+  };
+
+  // Submit staff registration
+  const handleStaffSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      setError(null);
+      
+      // Check role availability for restricted roles
+      if (staffForm.role === 'receptionist' || staffForm.role === 'service_advisor') {
+        const isAvailable = await checkRoleAvailability(staffForm.role);
+        if (!isAvailable) {
+          setError(`${staffForm.role} role is already taken. Only one ${staffForm.role} is allowed.`);
+          return;
+        }
+      }
+
+      const staffData = {
+        name: staffForm.name,
+        email: staffForm.email,
+        role: staffForm.role
+      };
+
+      // Add mechanic details if role is mechanic
+      if (staffForm.role === 'mechanic') {
+        staffData.mechanicDetails = staffForm.mechanicDetails;
+      }
+
+      const response = await staffAPI.register(staffData);
+      
+      // Show success message with auto-generated password
+      alert(`Staff member created successfully!\n\nAuto-generated password: ${response.data.autoPassword}\n\nPlease save this password and share it with the staff member.`);
+      
+      // Reset form and close modal
+      setStaffForm({
+        name: '',
+        email: '',
+        role: '',
+        mechanicDetails: {
+          specialization: '',
+          experienceYears: 0,
+          certifications: '',
+          hourlyRate: 0
+        }
+      });
+      setShowStaffForm(false);
+      
+      // Refresh staff list
+      const staffResponse = await staffAPI.getAll();
+      setStaff(staffResponse.data || []);
+      
+    } catch (err) {
+      console.error("Failed to create staff member:", err);
+      setError(err.response?.data?.message || "Failed to create staff member");
     }
   };
 
@@ -476,15 +608,114 @@ const ManagementDashboard = () => {
 
             {activeTab === "staff" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Staff Management
-                </h3>
-                <div className="text-center py-12">
-                  <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    Staff management features coming soon
-                  </p>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Staff Management
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Manage staff members and their roles
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowStaffForm(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <User className="w-4 h-4" />
+                    Add New Staff
+                  </button>
                 </div>
+
+                {loadingStaff ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    <p className="text-gray-600 mt-4">Loading staff...</p>
+                  </div>
+                ) : staff.length === 0 ? (
+                  <div className="text-center py-12">
+                    <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No staff members found</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            NAME
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            EMAIL
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ROLE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            MECHANIC DETAILS
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            CREATED
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {staff.map((member, index) => (
+                          <tr
+                            key={member.staffId}
+                            className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {member.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {member.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded ${
+                                  member.role === "manager"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : member.role === "receptionist"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : member.role === "service_advisor"
+                                    ? "bg-green-100 text-green-800"
+                                    : member.role === "mechanic"
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-gray-100 text-gray-800"
+                                }`}
+                              >
+                                {member.role.replace('_', ' ').toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {member.role === "mechanic" && member.mechanicId ? (
+                                <div className="text-sm">
+                                  <div className="font-medium text-gray-900">
+                                    {member.mechanicCode} - {member.specialization}
+                                  </div>
+                                  <div className="text-gray-600">
+                                    {member.experienceYears} years exp • Rs. {member.hourlyRate}/hr
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    Status: {member.availability}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 text-sm">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {new Date(member.createdAt).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1359,6 +1590,193 @@ const ManagementDashboard = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Registration Modal */}
+      {showStaffForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Add New Staff Member
+                </h3>
+                <button
+                  onClick={() => setShowStaffForm(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleStaffSubmit} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Basic Information</h4>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={staffForm.name}
+                      onChange={(e) => handleStaffFormChange('name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Enter full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={staffForm.email}
+                      onChange={(e) => handleStaffFormChange('email', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Enter email address"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Role *
+                    </label>
+                    <select
+                      required
+                      value={staffForm.role}
+                      onChange={(e) => handleStaffFormChange('role', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    >
+                      <option value="">Select a role</option>
+                      <option value="receptionist">Receptionist</option>
+                      <option value="service_advisor">Service Advisor</option>
+                      <option value="mechanic">Mechanic</option>
+                    </select>
+                    {staffForm.role && (staffForm.role === 'receptionist' || staffForm.role === 'service_advisor') && (
+                      <div className="mt-2">
+                        {roleAvailability[staffForm.role] === false ? (
+                          <p className="text-red-600 text-sm">
+                            ⚠️ {staffForm.role.replace('_', ' ')} role is already taken
+                          </p>
+                        ) : roleAvailability[staffForm.role] === true ? (
+                          <p className="text-green-600 text-sm">
+                            ✓ {staffForm.role.replace('_', ' ')} role is available
+                          </p>
+                        ) : (
+                          <p className="text-gray-500 text-sm">Checking availability...</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mechanic Details */}
+                {staffForm.role === 'mechanic' && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg font-semibold text-gray-900">Mechanic Details</h4>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Specialization
+                      </label>
+                      <input
+                        type="text"
+                        value={staffForm.mechanicDetails.specialization}
+                        onChange={(e) => handleMechanicDetailsChange('specialization', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="e.g., Engine Specialist, Electrical Systems"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Experience (Years)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={staffForm.mechanicDetails.experienceYears}
+                        onChange={(e) => handleMechanicDetailsChange('experienceYears', parseInt(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Certifications
+                      </label>
+                      <input
+                        type="text"
+                        value={staffForm.mechanicDetails.certifications}
+                        onChange={(e) => handleMechanicDetailsChange('certifications', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="e.g., ASE Certified, Auto Electrician"
+                      />
+                    </div>
+
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Hourly Rate (Rs.)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={staffForm.mechanicDetails.hourlyRate}
+                        onChange={(e) => handleMechanicDetailsChange('hourlyRate', parseFloat(e.target.value) || 0)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">
+                      Auto-Generated Password
+                    </h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>A secure password will be automatically generated for the new staff member. Make sure to save and share it with them.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowStaffForm(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Create Staff Member
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

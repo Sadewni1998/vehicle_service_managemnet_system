@@ -14,6 +14,16 @@ router.post("/register", staffController.registerStaff);
 // @access  Public
 router.post("/login", staffController.loginStaff);
 
+// @route   GET /api/staff
+// @desc    Get all staff members
+// @access  Protected (manager only)
+router.get("/", staffController.getAllStaff);
+
+// @route   GET /api/staff/role-availability/:role
+// @desc    Check if a role is available (for receptionist and service_advisor)
+// @access  Protected (manager only)
+router.get("/role-availability/:role", staffController.checkRoleAvailability);
+
 // @route   GET /api/staff/stats
 // @desc    Get staff statistics
 // @access  Temporarily public for testing - should be protected in production
