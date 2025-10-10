@@ -106,6 +106,8 @@ export const staffAPI = {
   login: (credentials) => api.post("/staff/login", credentials),
   getProfile: () => api.get("/staff/profile"),
   updateProfile: (staffData) => api.put("/staff/profile", staffData),
+  getAll: () => api.get("/staff"),
+  checkRoleAvailability: (role) => api.get(`/staff/role-availability/${role}`),
   getStats: () => api.get("/staff/stats"),
 };
 

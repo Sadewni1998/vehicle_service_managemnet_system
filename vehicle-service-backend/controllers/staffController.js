@@ -9,12 +9,20 @@ const jwt = require("jsonwebtoken");
  * In a real application, this should only be accessible by a manager/admin.
  */
 const registerStaff = async (req, res) => {
-  const { name, email, password, role, mechanicDetails } = req.body;
+  const { name, email, role, mechanicDetails } = req.body;
 
-  if (!name || !email || !password || !role) {
+  if (!name || !email || !role) {
     return res
       .status(400)
-      .json({ message: "Name, email, password, and role are required." });
+      .json({ message: "Name, email, and role are required." });
+  }
+
+  // Validate role
+  const validRoles = ['receptionist', 'mechanic', 'service_advisor'];
+  if (!validRoles.includes(role)) {
+    return res
+      .status(400)
+      .json({ message: "Invalid role. Must be one of: receptionist, mechanic, service_advisor." });
   }
 
   let conn;
@@ -34,9 +42,26 @@ const registerStaff = async (req, res) => {
         .json({ message: "A staff member with this email already exists." });
     }
 
+    // Check role availability for receptionist and service_advisor
+    if (role === 'receptionist' || role === 'service_advisor') {
+      const [existingRole] = await conn.query(
+        "SELECT COUNT(*) as count FROM staff WHERE role = ?",
+        [role]
+      );
+      if (existingRole[0].count > 0) {
+        await conn.rollback();
+        return res
+          .status(409)
+          .json({ message: `${role} role is already taken. Only one ${role} is allowed.` });
+      }
+    }
+
+    // Generate auto password
+    const autoPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
+    
     // Hash password
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(autoPassword, salt);
 
     // Create staff record
     const insertStaffSql =
@@ -64,19 +89,11 @@ const registerStaff = async (req, res) => {
       const specialization = mechanicDetails?.specialization || null;
       const experienceYears = mechanicDetails?.experienceYears ?? 0;
       const certifications = mechanicDetails?.certifications || null; // can be JSON string
-      const availability = mechanicDetails?.availability || "Available";
       const hourlyRate = mechanicDetails?.hourlyRate ?? null;
       const mechanicName = mechanicDetails?.mechanicName || name;
 
-      // Validate availability if provided
-      const validAvailability = ["Available", "Busy", "On Break", "Off Duty"];
-      if (availability && !validAvailability.includes(availability)) {
-        await conn.rollback();
-        return res.status(400).json({ message: "Invalid availability status" });
-      }
-
       const insertMechanicSql =
-        "INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, availability, hourlyRate) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        "INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, availability, hourlyRate) VALUES (?, ?, ?, ?, ?, ?, 'Available', ?)";
 
       const [mechResult] = await conn.query(insertMechanicSql, [
         staffId,
@@ -85,7 +102,6 @@ const registerStaff = async (req, res) => {
         specialization,
         experienceYears,
         certifications,
-        availability,
         hourlyRate,
       ]);
 
@@ -106,6 +122,7 @@ const registerStaff = async (req, res) => {
           : "Staff member created successfully!",
       staffId,
       mechanic: mechanicRecord,
+      autoPassword: autoPassword, // Return the auto-generated password
     });
   } catch (error) {
     if (conn) {
@@ -173,6 +190,68 @@ const loginStaff = async (req, res) => {
 };
 
 /**
+ * Get all staff members
+ */
+const getAllStaff = async (req, res) => {
+  try {
+    const [staff] = await db.query(`
+      SELECT 
+        s.staffId,
+        s.name,
+        s.email,
+        s.role,
+        s.createdAt,
+        s.updatedAt,
+        m.mechanicId,
+        m.mechanicCode,
+        m.specialization,
+        m.experienceYears,
+        m.availability,
+        m.hourlyRate
+      FROM staff s
+      LEFT JOIN mechanic m ON s.staffId = m.staffId
+      ORDER BY s.createdAt DESC
+    `);
+
+    res.json(staff);
+  } catch (error) {
+    console.error("Error fetching staff:", error);
+    res.status(500).json({ message: "Server error fetching staff." });
+  }
+};
+
+/**
+ * Check if a role is already taken (for receptionist and service_advisor)
+ */
+const checkRoleAvailability = async (req, res) => {
+  try {
+    const { role } = req.params;
+    
+    if (!['receptionist', 'service_advisor'].includes(role)) {
+      return res.status(400).json({ message: "Invalid role for availability check." });
+    }
+
+    const [existing] = await db.query(
+      "SELECT COUNT(*) as count FROM staff WHERE role = ?",
+      [role]
+    );
+
+    const isAvailable = existing[0].count === 0;
+    
+    res.json({
+      role,
+      isAvailable,
+      message: isAvailable 
+        ? `${role} role is available` 
+        : `${role} role is already taken`
+    });
+  } catch (error) {
+    console.error("Error checking role availability:", error);
+    res.status(500).json({ message: "Server error checking role availability." });
+  }
+};
+
+/**
  * Get staff statistics (total count, count by role, etc.)
  */
 const getStaffStats = async (req, res) => {
@@ -206,5 +285,7 @@ const getStaffStats = async (req, res) => {
 module.exports = {
   registerStaff,
   loginStaff,
+  getAllStaff,
+  checkRoleAvailability,
   getStaffStats,
 };
