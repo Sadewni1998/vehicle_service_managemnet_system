@@ -160,8 +160,10 @@ export const jobcardAPI = {
     api.put(`/jobcards/${jobcardId}/status`, { status }),
   assignMechanics: (jobcardId, mechanicIds) =>
     api.put(`/jobcards/${jobcardId}/assign-mechanics`, { mechanicIds }),
-  markMechanicCompleted: (jobcardId, mechanicId) =>
-    api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/complete`),
+  markMechanicCompleted: (jobcardId, mechanicId, notes) =>
+    api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/complete`, { notes }),
+  updateMechanicNotes: (jobcardId, mechanicId, notes) =>
+    api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/notes`, { notes }),
 };
 
 // Spare Parts API

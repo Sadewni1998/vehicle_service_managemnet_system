@@ -1036,28 +1036,58 @@ const ManagementDashboard = () => {
                                 >
                                   View
                                 </button>
-                                <select
-                                  className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
-                                  value={req.status}
-                                  onChange={(e) =>
-                                    updateBreakdownStatus(
-                                      req.requestId,
-                                      e.target.value
-                                    )
-                                  }
-                                >
-                                  {[
-                                    "Pending",
-                                    "Approved",
-                                    "In Progress",
-                                    "Completed",
-                                    "Cancelled",
-                                  ].map((s) => (
-                                    <option key={s} value={s}>
-                                      {s}
-                                    </option>
-                                  ))}
-                                </select>
+                                {req.status === "Pending" && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        updateBreakdownStatus(
+                                          req.requestId,
+                                          "Approved"
+                                        )
+                                      }
+                                      className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        updateBreakdownStatus(
+                                          req.requestId,
+                                          "Cancelled"
+                                        )
+                                      }
+                                      className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded"
+                                    >
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                                {req.status === "Approved" && (
+                                  <button
+                                    onClick={() =>
+                                      updateBreakdownStatus(
+                                        req.requestId,
+                                        "In Progress"
+                                      )
+                                    }
+                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded"
+                                  >
+                                    Start Work
+                                  </button>
+                                )}
+                                {req.status === "In Progress" && (
+                                  <button
+                                    onClick={() =>
+                                      updateBreakdownStatus(
+                                        req.requestId,
+                                        "Completed"
+                                      )
+                                    }
+                                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded"
+                                  >
+                                    Complete
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

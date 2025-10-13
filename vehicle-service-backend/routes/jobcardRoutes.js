@@ -216,7 +216,8 @@ router.get("/mechanic/:mechanicId", async (req, res) => {
           m.mechanicCode,
           m.specialization,
           jm.assignedAt,
-          jm.completedAt
+          jm.completedAt,
+          jm.notes
         FROM jobcardMechanic jm
         JOIN mechanic m ON jm.mechanicId = m.mechanicId
         WHERE jm.jobcardId = ?
@@ -224,6 +225,13 @@ router.get("/mechanic/:mechanicId", async (req, res) => {
         [jobcard.jobcardId]
       );
       jobcard.assignedMechanics = mechanics;
+
+      // Find the current mechanic's notes for this jobcard
+      const currentMechanicAssignment = mechanics.find(m => m.mechanicId == mechanicId);
+      if (currentMechanicAssignment) {
+        jobcard.mechanicNotes = currentMechanicAssignment.notes;
+        jobcard.mechanicCompletedAt = currentMechanicAssignment.completedAt;
+      }
 
       // Get assigned spare parts for each jobcard
       const [spareParts] = await db.query(
@@ -318,7 +326,7 @@ router.get(
 
       for (const jc of rows) {
         const [mechanics] = await db.query(
-          `SELECT jm.mechanicId, m.mechanicName, m.mechanicCode, m.specialization, jm.assignedAt, jm.completedAt
+          `SELECT jm.mechanicId, m.mechanicName, m.mechanicCode, m.specialization, jm.assignedAt, jm.completedAt, jm.notes
          FROM jobcardMechanic jm
          JOIN mechanic m ON jm.mechanicId = m.mechanicId
          WHERE jm.jobcardId = ?
@@ -534,6 +542,66 @@ router.put(
 );
 
 /**
+ * PUT /api/jobcards/:jobcardId/mechanics/:mechanicId/notes
+ * Update notes for a specific mechanic's work on a jobcard
+ */
+router.put(
+  "/:jobcardId/mechanics/:mechanicId/notes",
+  ensureAuthenticated,
+  checkRole(["mechanic"]),
+  async (req, res) => {
+    try {
+      const { jobcardId, mechanicId } = req.params;
+      const { notes } = req.body;
+
+      // Validate jobcard exists
+      const [jcRows] = await db.query(
+        "SELECT jobcardId, bookingId, status FROM jobcard WHERE jobcardId = ?",
+        [jobcardId]
+      );
+      if (jcRows.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Jobcard not found" });
+      }
+
+      // Validate assignment exists
+      const [assignRows] = await db.query(
+        "SELECT jobcardMechanicId FROM jobcardMechanic WHERE jobcardId = ? AND mechanicId = ?",
+        [jobcardId, mechanicId]
+      );
+      if (assignRows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "This mechanic is not assigned to the specified jobcard",
+        });
+      }
+
+      // Update notes in jobcardMechanic table
+      await db.query(
+        "UPDATE jobcardMechanic SET notes = ? WHERE jobcardId = ? AND mechanicId = ?",
+        [notes || null, jobcardId, mechanicId]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: "Notes updated successfully",
+        jobcardId: Number(jobcardId),
+        mechanicId: Number(mechanicId),
+        notes: notes || null,
+      });
+    } catch (error) {
+      console.error("❌ Error updating mechanic notes:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error updating notes",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
  * PUT /api/jobcards/:jobcardId/mechanics/:mechanicId/complete
  * Mark a specific mechanic's work on a jobcard as completed.
  * If all assigned mechanics have completed, the jobcard is marked completed.
@@ -545,6 +613,7 @@ router.put(
   async (req, res) => {
     try {
       const { jobcardId, mechanicId } = req.params;
+      const { notes } = req.body; // Optional notes when completing
 
       // Validate jobcard exists
       const [jcRows] = await db.query(
@@ -573,9 +642,10 @@ router.put(
       const alreadyCompleted = assignRows[0].completedAt != null;
 
       if (!alreadyCompleted) {
+        // Update jobcardMechanic with completion and notes
         await db.query(
-          "UPDATE jobcardMechanic SET completedAt = NOW() WHERE jobcardId = ? AND mechanicId = ? AND completedAt IS NULL",
-          [jobcardId, mechanicId]
+          "UPDATE jobcardMechanic SET completedAt = NOW(), notes = ? WHERE jobcardId = ? AND mechanicId = ? AND completedAt IS NULL",
+          [notes || null, jobcardId, mechanicId]
         );
       }
 

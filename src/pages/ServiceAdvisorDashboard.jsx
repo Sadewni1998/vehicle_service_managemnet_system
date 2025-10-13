@@ -10,6 +10,7 @@ import {
   Phone,
   Clock,
   User,
+  Package,
 } from "lucide-react";
 import { serviceAdvisorAPI, mechanicsAPI, sparePartsAPI } from "../utils/api";
 
@@ -32,6 +33,18 @@ const ServiceAdvisorDashboard = () => {
   // Ready-for-review jobcards state
   const [readyJobcards, setReadyJobcards] = useState([]);
   const [loadingReady, setLoadingReady] = useState(false);
+  const [showJobcardReview, setShowJobcardReview] = useState(false);
+  const [selectedJobcard, setSelectedJobcard] = useState(null);
+  
+  // All assigned jobs state
+  const [assignedJobs, setAssignedJobs] = useState(() => {
+    // Load from localStorage on component mount
+    const savedJobs = localStorage.getItem('assignedJobs');
+    return savedJobs ? JSON.parse(savedJobs) : [];
+  });
+  const [showJobDetails, setShowJobDetails] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [jobStatusFilter, setJobStatusFilter] = useState('all');
 
   // Fetch arrived bookings when component mounts or when assign-jobs tab is active
   useEffect(() => {
@@ -43,11 +56,29 @@ const ServiceAdvisorDashboard = () => {
     }
   }, [activeTab]);
 
+  // Save assigned jobs to localStorage whenever the state changes
+  useEffect(() => {
+    localStorage.setItem('assignedJobs', JSON.stringify(assignedJobs));
+  }, [assignedJobs]);
+
   const fetchArrivedBookings = async () => {
     try {
       setLoading(true);
       const response = await serviceAdvisorAPI.getArrivedBookings();
-      setArrivedBookings(response.data);
+      const newBookings = response.data;
+      
+      // Preserve locally assigned bookings that might not be returned by API
+      // (e.g., bookings that have been assigned mechanics but not yet submitted)
+      setArrivedBookings((prevBookings) => {
+        const newBookingIds = new Set(newBookings.map(b => b.id));
+        const locallyAssignedBookings = prevBookings.filter(booking => 
+          !newBookingIds.has(booking.id) && 
+          (booking.assignedMechanics || booking.assignedSpareParts) &&
+          !submittedBookings.includes(booking.id)
+        );
+        
+        return [...newBookings, ...locallyAssignedBookings];
+      });
     } catch (error) {
       console.error("Error fetching arrived bookings:", error);
       // Use mock data if API fails
@@ -83,6 +114,13 @@ const ServiceAdvisorDashboard = () => {
       // Backend returns { success, count, data }
       const list = response?.data?.data || [];
       setReadyJobcards(list);
+      
+      // Update job statuses in All Jobs tab for jobs that are ready for review
+      list.forEach(jobcard => {
+        updateJobStatus(jobcard.bookingId, 'ready_for_review', {
+          readyForReviewAt: new Date().toISOString()
+        });
+      });
     } catch (error) {
       console.error("Error fetching ready-for-review jobcards:", error);
       setReadyJobcards([]);
@@ -193,32 +231,17 @@ const ServiceAdvisorDashboard = () => {
       return;
     }
 
-    try {
-      const mechanicIds = selectedMechanics.map((m) => m.mechanicId);
-      const response = await serviceAdvisorAPI.assignMechanicsToBooking(
-        selectedBooking.id,
-        mechanicIds
-      );
+    // Only update local state - don't call backend until "Submit Job" is clicked
+    setArrivedBookings((prev) =>
+      prev.map((booking) =>
+        booking.id === selectedBooking.id
+          ? { ...booking, assignedMechanics: selectedMechanics }
+          : booking
+      )
+    );
 
-      // Update local state to show assigned mechanics with full mechanic objects
-      // The backend now returns mechanic codes, but we store the full mechanic objects for display
-      setArrivedBookings((prev) =>
-        prev.map((booking) =>
-          booking.id === selectedBooking.id
-            ? { ...booking, assignedMechanics: selectedMechanics }
-            : booking
-        )
-      );
-
-      alert("Mechanics assigned successfully!");
-      setShowAssignMechanics(false);
-    } catch (error) {
-      console.error("Error assigning mechanics:", error);
-      alert(
-        "Failed to assign mechanics: " +
-          (error.response?.data?.message || error.message)
-      );
-    }
+    alert("Mechanics assigned locally! Click 'Submit Job' to finalize the assignment.");
+    setShowAssignMechanics(false);
   };
 
   const handleAssignSpareParts = async () => {
@@ -227,39 +250,22 @@ const ServiceAdvisorDashboard = () => {
       return;
     }
 
-    try {
-      const spareParts = selectedSpareParts.map((sp) => ({
-        partId: sp.partId,
-        quantity: sp.quantity || 1,
-      }));
-      await serviceAdvisorAPI.assignSparePartsToBooking(
-        selectedBooking.id,
-        spareParts
-      );
+    // Only update local state - don't call backend until "Submit Job" is clicked
+    setArrivedBookings((prev) =>
+      prev.map((booking) =>
+        booking.id === selectedBooking.id
+          ? { ...booking, assignedSpareParts: selectedSpareParts }
+          : booking
+      )
+    );
 
-      // Update local state to show assigned spare parts with full part objects
-      setArrivedBookings((prev) =>
-        prev.map((booking) =>
-          booking.id === selectedBooking.id
-            ? { ...booking, assignedSpareParts: selectedSpareParts }
-            : booking
-        )
-      );
-
-      alert("Spare parts assigned successfully!");
-      setShowAssignSpareParts(false);
-    } catch (error) {
-      console.error("Error assigning spare parts:", error);
-      alert(
-        "Failed to assign spare parts: " +
-          (error.response?.data?.message || error.message)
-      );
-    }
+    alert("Spare parts assigned locally! Click 'Submit Job' to finalize the assignment.");
+    setShowAssignSpareParts(false);
   };
 
   const handleSubmitJob = async (booking) => {
     try {
-      // Check if mechanics and spare parts are assigned
+      // Check if mechanics are assigned (required)
       if (
         !booking.assignedMechanics ||
         booking.assignedMechanics.length === 0
@@ -268,19 +274,51 @@ const ServiceAdvisorDashboard = () => {
         return;
       }
 
-      if (
-        !booking.assignedSpareParts ||
-        booking.assignedSpareParts.length === 0
-      ) {
-        alert("Please assign spare parts before submitting the job");
-        return;
+      // First, assign mechanics to the booking (this creates jobcard and makes it visible to mechanics)
+      const mechanicIds = booking.assignedMechanics.map((m) => m.mechanicId);
+      await serviceAdvisorAPI.assignMechanicsToBooking(booking.id, mechanicIds);
+
+      // Then, assign spare parts to the booking (optional)
+      if (booking.assignedSpareParts && booking.assignedSpareParts.length > 0) {
+        const spareParts = booking.assignedSpareParts.map((sp) => ({
+          partId: sp.partId,
+          quantity: sp.quantity || 1,
+        }));
+        await serviceAdvisorAPI.assignSparePartsToBooking(booking.id, spareParts);
       }
 
-      // Call backend to submit/create jobcard
+      // Finally, submit the jobcard
       await serviceAdvisorAPI.submitJobcard(booking.id);
 
       // Add to submitted bookings list
       setSubmittedBookings((prev) => [...prev, booking.id]);
+
+      // Remove from arrived bookings list since it's now submitted
+      setArrivedBookings((prev) => prev.filter(b => b.id !== booking.id));
+
+      // Add to assigned jobs list for All Jobs tab
+      const jobData = {
+        id: booking.id,
+        vehicleNumber: booking.vehicleNumber,
+        customer: booking.customer,
+        serviceTypes: booking.serviceTypes,
+        status: 'in_progress',
+        assignedMechanics: booking.assignedMechanics,
+        assignedSpareParts: booking.assignedSpareParts,
+        timeSlot: booking.timeSlot,
+        phone: booking.phone,
+        vehicleType: booking.vehicleType,
+        vehicleBrand: booking.vehicleBrand,
+        vehicleBrandModel: booking.vehicleBrandModel,
+        manufacturedYear: booking.manufacturedYear,
+        fuelType: booking.fuelType,
+        transmissionType: booking.transmissionType,
+        kilometersRun: booking.kilometersRun,
+        specialRequests: booking.specialRequests,
+        submittedAt: new Date().toISOString()
+      };
+      
+      setAssignedJobs((prev) => [jobData, ...prev]);
 
       alert("Job submitted successfully! Mechanics can now start work.");
     } catch (error) {
@@ -322,18 +360,55 @@ const ServiceAdvisorDashboard = () => {
   const tabs = [
     { id: "assign-jobs", label: "Assign jobs" },
     { id: "job-cards", label: "Job cards" },
-    { id: "schedule", label: "Schedule" },
+    { id: "all-jobs", label: "All Jobs" },
     { id: "all-mechanics", label: "All mechanics" },
   ];
+
+  const reviewJobcard = (jobcard) => {
+    setSelectedJobcard(jobcard);
+    setShowJobcardReview(true);
+  };
+
+  const viewJobDetails = (job) => {
+    setSelectedJob(job);
+    setShowJobDetails(true);
+  };
+
+  const updateJobStatus = (bookingId, newStatus, additionalData = {}) => {
+    setAssignedJobs((prev) =>
+      prev.map((job) => {
+        if (job.id === bookingId) {
+          return {
+            ...job,
+            status: newStatus,
+            ...additionalData
+          };
+        }
+        return job;
+      })
+    );
+  };
 
   const approveJobcard = async (jobcardId) => {
     try {
       await serviceAdvisorAPI.approveJobcard(jobcardId);
-      // Remove from list after approval
+      
+      // Remove from ready jobcards list after approval
       setReadyJobcards((prev) =>
         prev.filter((jc) => jc.jobcardId !== jobcardId)
       );
-      alert("Jobcard approved successfully!");
+      
+      // Update the corresponding job in All Jobs tab to show completed status
+      if (selectedJobcard) {
+        updateJobStatus(selectedJobcard.bookingId, 'completed', {
+          completedAt: new Date().toISOString()
+        });
+      }
+      
+      // Close review modal if open
+      setShowJobcardReview(false);
+      setSelectedJobcard(null);
+      alert("Jobcard approved successfully! Mechanics have been set to Available.");
     } catch (error) {
       console.error("Error approving jobcard:", error);
       alert(
@@ -588,8 +663,8 @@ const ServiceAdvisorDashboard = () => {
                                         )}
                                       </div>
                                     ) : (
-                                      <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
-                                        Not assigned
+                                      <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                                        Optional
                                       </span>
                                     )}
                                   </div>
@@ -705,7 +780,10 @@ const ServiceAdvisorDashboard = () => {
                               )}
                           </div>
                           <div className="flex items-center space-x-3">
-                            <button className="px-4 py-2 rounded-full text-xs font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors">
+                            <button 
+                              onClick={() => reviewJobcard(jc)}
+                              className="px-4 py-2 rounded-full text-xs font-medium bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
                               Review
                             </button>
                             <button
@@ -723,17 +801,188 @@ const ServiceAdvisorDashboard = () => {
               </div>
             )}
 
-            {activeTab === "schedule" && (
+            {activeTab === "all-jobs" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Schedule
-                </h3>
-                <div className="text-center py-12">
-                  <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    Schedule management features coming soon
-                  </p>
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    All Assigned Jobs
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <select
+                      value={jobStatusFilter}
+                      onChange={(e) => setJobStatusFilter(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    >
+                      <option value="all">All Jobs</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="ready_for_review">Ready for Review</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to clear all completed jobs?')) {
+                          setAssignedJobs(prev => prev.filter(job => job.status !== 'completed'));
+                        }
+                      }}
+                      className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                    >
+                      Clear Completed
+                    </button>
+                  </div>
                 </div>
+
+                {(() => {
+                  const filteredJobs = assignedJobs.filter(job => 
+                    jobStatusFilter === 'all' || job.status === jobStatusFilter
+                  );
+                  
+                  return filteredJobs.length === 0 ? (
+                    <div className="text-center py-12">
+                      <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">
+                        {assignedJobs.length === 0 
+                          ? "No assigned jobs found"
+                          : `No ${jobStatusFilter.replace('_', ' ')} jobs found`
+                        }
+                      </p>
+                      <p className="text-gray-500 text-sm mt-2">
+                        {assignedJobs.length === 0 
+                          ? "Jobs will appear here when you assign mechanics to bookings and submit them"
+                          : "Try selecting a different status filter"
+                        }
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredJobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="flex items-center gap-2">
+                                <Car className="w-5 h-5 text-gray-500" />
+                                <span className="font-bold text-gray-900">
+                                  {job.vehicleNumber}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-500" />
+                                <span className="text-gray-700">
+                                  {job.customer}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-gray-500" />
+                                <span className="text-gray-700">
+                                  {job.timeSlot}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <p className="text-sm text-gray-600">Services</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {Array.isArray(job.serviceTypes) && job.serviceTypes.length > 0 ? (
+                                    job.serviceTypes.map((service, index) => (
+                                      <span
+                                        key={index}
+                                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
+                                      >
+                                        {service}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="text-gray-500 text-sm">No services specified</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Job Status</p>
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  job.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  job.status === 'ready_for_review' ? 'bg-orange-100 text-orange-800' :
+                                  job.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {job.status.replace('_', ' ')}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Assigned Mechanics</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {job.assignedMechanics && job.assignedMechanics.length > 0 ? (
+                                    job.assignedMechanics.map((mechanic, index) => (
+                                      <span
+                                        key={mechanic.mechanicId || index}
+                                        className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs"
+                                      >
+                                        {mechanic.mechanicName || mechanic.name || `Mechanic ${mechanic.mechanicId || index + 1}`} ({mechanic.mechanicCode || "N/A"})
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
+                                      No mechanics assigned
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Assigned Spare Parts</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {job.assignedSpareParts && job.assignedSpareParts.length > 0 ? (
+                                    job.assignedSpareParts.map((part, index) => (
+                                      <span
+                                        key={part.partId || index}
+                                        className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs"
+                                      >
+                                        {part.partName || part.name || `Part ${part.partId || index + 1}`} ({part.partCode || "N/A"})
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                                      Optional - No parts assigned
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-sm text-gray-500">
+                              {job.submittedAt && (
+                                <div>Submitted: {new Date(job.submittedAt).toLocaleString()}</div>
+                              )}
+                              {job.readyForReviewAt && (
+                                <div className="text-orange-600 font-medium">
+                                  Ready for Review: {new Date(job.readyForReviewAt).toLocaleString()}
+                                </div>
+                              )}
+                              {job.completedAt && (
+                                <div className="text-green-600 font-medium">
+                                  Completed: {new Date(job.completedAt).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-2 ml-4">
+                            <button
+                              onClick={() => viewJobDetails(job)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                            >
+                              <Eye className="w-4 h-4" />
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -959,8 +1208,8 @@ const ServiceAdvisorDashboard = () => {
                         )}
                       </div>
                     ) : (
-                      <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm">
-                        No spare parts assigned
+                      <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
+                        Optional - No spare parts assigned
                       </span>
                     )}
                   </div>
@@ -1419,6 +1668,467 @@ const ServiceAdvisorDashboard = () => {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 Assign Selected Parts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Job Card Review Modal */}
+      {showJobcardReview && selectedJobcard && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                Job Card Review - #{selectedJobcard.jobcardId}
+              </h3>
+              <button
+                onClick={() => setShowJobcardReview(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Job Card Header */}
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900">
+                      Job Card #{selectedJobcard.jobcardId}
+                    </h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Booking #{selectedJobcard.bookingId} • {selectedJobcard.vehicleNumber}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                      READY FOR REVIEW
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(selectedJobcard.completedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle & Customer Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Car className="w-5 h-5 text-red-600" />
+                    Vehicle Information
+                  </h5>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Vehicle Number:</span>
+                      <span className="font-medium">{selectedJobcard.vehicleNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Brand & Model:</span>
+                      <span className="font-medium">{selectedJobcard.vehicleBrand} {selectedJobcard.vehicleBrandModel}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Type:</span>
+                      <span className="font-medium">{selectedJobcard.vehicleType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Time Slot:</span>
+                      <span className="font-medium">{selectedJobcard.timeSlot}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="w-5 h-5 text-red-600" />
+                    Customer Information
+                  </h5>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Name:</span>
+                      <span className="font-medium">{selectedJobcard.customerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Phone:</span>
+                      <span className="font-medium">{selectedJobcard.customerPhone}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Services */}
+              {selectedJobcard.serviceTypes && Array.isArray(selectedJobcard.serviceTypes) && (
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-red-600" />
+                    Services Performed
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedJobcard.serviceTypes.map((service, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium"
+                      >
+                        <Wrench className="w-3 h-3 mr-1" />
+                        {service}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assigned Mechanics & Their Notes */}
+              {selectedJobcard.assignedMechanics && selectedJobcard.assignedMechanics.length > 0 && (
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <UsersRound className="w-5 h-5 text-red-600" />
+                    Mechanics & Their Notes
+                  </h5>
+                  <div className="space-y-4">
+                    {selectedJobcard.assignedMechanics.map((mechanic) => (
+                      <div key={mechanic.mechanicId} className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h6 className="font-medium text-gray-900">
+                              {mechanic.mechanicName} ({mechanic.mechanicCode})
+                            </h6>
+                            <p className="text-sm text-gray-600">{mechanic.specialization}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                              mechanic.completedAt ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {mechanic.completedAt ? 'Completed' : 'In Progress'}
+                            </span>
+                            {mechanic.completedAt && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {new Date(mechanic.completedAt).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3">
+                          <h7 className="text-sm font-medium text-gray-700 mb-2 block">Mechanic Notes:</h7>
+                          <div className="bg-white rounded-lg p-3 border border-gray-200 min-h-[60px]">
+                            {mechanic.notes ? (
+                              <p className="text-sm text-gray-700 whitespace-pre-wrap">{mechanic.notes}</p>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No notes provided by this mechanic</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assigned Spare Parts */}
+              {selectedJobcard.assignedSpareParts && selectedJobcard.assignedSpareParts.length > 0 && (
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-red-600" />
+                    Spare Parts Used
+                  </h5>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="space-y-3">
+                      {selectedJobcard.assignedSpareParts.map((part) => (
+                        <div key={part.partId} className="flex justify-between items-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-gray-600" />
+                            <span className="font-medium">{part.partName}</span>
+                            <span className="text-gray-500">({part.partCode})</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-gray-700">Qty: {part.quantity}</span>
+                            <span className="text-gray-700 ml-4">Rs. {parseFloat(part.totalPrice).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-gray-200 mt-3 pt-3">
+                      <div className="flex justify-between items-center font-semibold text-sm">
+                        <span>Total Parts Cost:</span>
+                        <span className="text-red-600">
+                          Rs. {parseFloat(selectedJobcard.totalPartsCost).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowJobcardReview(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => approveJobcard(selectedJobcard.jobcardId)}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Approve Job Card
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Job Details Modal */}
+      {showJobDetails && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                Job Details - {selectedJob.vehicleNumber}
+              </h3>
+              <button
+                onClick={() => setShowJobDetails(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Job Header */}
+              <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900">
+                      {selectedJob.vehicleNumber}
+                    </h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Customer: {selectedJob.customer} • {selectedJob.timeSlot}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
+                      selectedJob.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      selectedJob.status === 'ready_for_review' ? 'bg-orange-100 text-orange-800' :
+                      selectedJob.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedJob.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedJob.submittedAt && new Date(selectedJob.submittedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle & Customer Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Car className="w-5 h-5 text-red-600" />
+                    Vehicle Information
+                  </h5>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Vehicle Number:</span>
+                      <span className="font-medium">{selectedJob.vehicleNumber}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Brand & Model:</span>
+                      <span className="font-medium">{selectedJob.vehicleBrand} {selectedJob.vehicleBrandModel}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Type:</span>
+                      <span className="font-medium">{selectedJob.vehicleType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Year:</span>
+                      <span className="font-medium">{selectedJob.manufacturedYear}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Fuel Type:</span>
+                      <span className="font-medium">{selectedJob.fuelType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Transmission:</span>
+                      <span className="font-medium">{selectedJob.transmissionType}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Kilometers:</span>
+                      <span className="font-medium">{selectedJob.kilometersRun?.toLocaleString()} km</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User className="w-5 h-5 text-red-600" />
+                    Customer Information
+                  </h5>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Name:</span>
+                      <span className="font-medium">{selectedJob.customer}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Phone:</span>
+                      <span className="font-medium">{selectedJob.phone}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Time Slot:</span>
+                      <span className="font-medium">{selectedJob.timeSlot}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Submitted:</span>
+                      <span className="font-medium">{selectedJob.submittedAt && new Date(selectedJob.submittedAt).toLocaleString()}</span>
+                    </div>
+                    {selectedJob.readyForReviewAt && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Ready for Review:</span>
+                        <span className="font-medium text-orange-600">{new Date(selectedJob.readyForReviewAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedJob.completedAt && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Completed:</span>
+                        <span className="font-medium text-green-600">{new Date(selectedJob.completedAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Services */}
+              {selectedJob.serviceTypes && Array.isArray(selectedJob.serviceTypes) && selectedJob.serviceTypes.length > 0 && (
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Wrench className="w-5 h-5 text-red-600" />
+                    Services
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedJob.serviceTypes.map((service, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium"
+                      >
+                        <Wrench className="w-3 h-3 mr-1" />
+                        {service}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Special Requests */}
+              {selectedJob.specialRequests && (
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Clipboard className="w-5 h-5 text-red-600" />
+                    Special Requests
+                  </h5>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-gray-700">{selectedJob.specialRequests}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Assigned Mechanics */}
+              {selectedJob.assignedMechanics && selectedJob.assignedMechanics.length > 0 && (
+                <div>
+                  <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <UsersRound className="w-5 h-5 text-red-600" />
+                    Assigned Mechanics
+                  </h5>
+                  <div className="space-y-3">
+                    {selectedJob.assignedMechanics.map((mechanic, index) => (
+                      <div key={mechanic.mechanicId || index} className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h6 className="font-medium text-gray-900">
+                              {mechanic.mechanicName || mechanic.name || `Mechanic ${mechanic.mechanicId || index + 1}`}
+                            </h6>
+                            <p className="text-sm text-gray-600">Code: {mechanic.mechanicCode || "N/A"}</p>
+                            {mechanic.specialization && (
+                              <p className="text-sm text-gray-600">Specialization: {mechanic.specialization}</p>
+                            )}
+                          </div>
+                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                            Assigned
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Assigned Spare Parts */}
+              <div>
+                <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-red-600" />
+                  Assigned Spare Parts
+                </h5>
+                {selectedJob.assignedSpareParts && selectedJob.assignedSpareParts.length > 0 ? (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="space-y-3">
+                      {selectedJob.assignedSpareParts.map((part, index) => (
+                        <div key={part.partId || index} className="flex justify-between items-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-gray-600" />
+                            <span className="font-medium">{part.partName || part.name || `Part ${part.partId || index + 1}`}</span>
+                            <span className="text-gray-500">({part.partCode || "N/A"})</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-gray-700">Qty: {part.quantity || 1}</span>
+                            {part.unitPrice && (
+                              <span className="text-gray-700 ml-4">Rs. {parseFloat(part.unitPrice).toFixed(2)}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-gray-600 text-sm">Optional - No spare parts assigned for this job</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowJobDetails(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
