@@ -5,16 +5,50 @@ import { Eye, EyeOff, Plus, Trash2, Car } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
+// Vehicle brand and model data structure
+const vehicleData = {
+  toyota: {
+    name: "Toyota",
+    models: ["Camry", "Prius", "Corolla", "GR Supra", "Highlander", "Land Cruiser"]
+  },
+  honda: {
+    name: "Honda", 
+    models: ["Civic", "Accord", "HR-V", "CR-V", "Ridgeline"]
+  },
+  suzuki: {
+    name: "Suzuki",
+    models: ["Jimny", "Carry", "XL6", "Ciaz", "Grand Vitara", "BALENO", "Celerio"]
+  },
+  ford: {
+    name: "Ford",
+    models: ["Bronco", "EcoSport", "Mustang", "Explorer", "Escape", "Kuga"]
+  },
+  mazda: {
+    name: "Mazda",
+    models: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-50"]
+  },
+  isuzu: {
+    name: "Isuzu",
+    models: ["D-max", "Bellel", "Bellett", "Elf", "Gemini", "Panther"]
+  },
+  subaru: {
+    name: "Subaru",
+    models: ["Ascent", "BRZ", "Crosstrek", "Outback", "Legacy", "Impreza"]
+  }
+};
+
 const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [vehicles, setVehicles] = useState([{ id: 1 }]);
+  const [selectedBrands, setSelectedBrands] = useState({});
   const {
     register,
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm();
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
@@ -28,7 +62,29 @@ const Register = () => {
   const removeVehicle = (id) => {
     if (vehicles.length > 1) {
       setVehicles(vehicles.filter((vehicle) => vehicle.id !== id));
+      // Clean up selected brand state for removed vehicle
+      const vehicleIndex = vehicles.findIndex(v => v.id === id);
+      if (vehicleIndex !== -1) {
+        const newSelectedBrands = { ...selectedBrands };
+        delete newSelectedBrands[vehicleIndex];
+        setSelectedBrands(newSelectedBrands);
+      }
     }
+  };
+
+  const handleBrandChange = (vehicleIndex, brand) => {
+    // Update selected brand state
+    setSelectedBrands(prev => ({
+      ...prev,
+      [vehicleIndex]: brand
+    }));
+    
+    // Reset model selection when brand changes
+    setValue(`vehicle_model.${vehicleIndex}`, '');
+  };
+
+  const getAvailableModels = (brand) => {
+    return brand && vehicleData[brand] ? vehicleData[brand].models : [];
   };
 
   const onSubmit = async (data) => {
@@ -381,17 +437,16 @@ const Register = () => {
                         {...register(`vehicle_brand.${index}`, {
                           required: "Vehicle brand is required",
                         })}
+                        onChange={(e) => handleBrandChange(index, e.target.value)}
                       >
                         <option value="" disabled hidden>
                           Select Brand
                         </option>
-                        <option value="toyota">Toyota</option>
-                        <option value="honda">Honda</option>
-                        <option value="suzuki">Suzuki</option>
-                        <option value="ford">Ford</option>
-                        <option value="mazda">Mazda</option>
-                        <option value="isuzu">Isuzu</option>
-                        <option value="subaru">Subaru</option>
+                        {Object.entries(vehicleData).map(([key, brand]) => (
+                          <option key={key} value={key}>
+                            {brand.name}
+                          </option>
+                        ))}
                       </select>
                       {errors.vehicle_brand?.[index] && (
                         <p className="mt-1 text-sm text-red-600">
@@ -404,13 +459,23 @@ const Register = () => {
                       <label className="block text-sm font-medium text-gray-700">
                         Model <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
+                      <select
                         className="input-field mt-2"
+                        defaultValue=""
+                        disabled={!selectedBrands[index]}
                         {...register(`vehicle_model.${index}`, {
                           required: "Vehicle model is required",
                         })}
-                      />
+                      >
+                        <option value="" disabled hidden>
+                          {selectedBrands[index] ? "Select Model" : "Select Brand First"}
+                        </option>
+                        {getAvailableModels(selectedBrands[index]).map((model) => (
+                          <option key={model} value={model}>
+                            {model}
+                          </option>
+                        ))}
+                      </select>
                       {errors.vehicle_model?.[index] && (
                         <p className="mt-1 text-sm text-red-600">
                           {errors.vehicle_model[index].message}

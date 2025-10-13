@@ -10,6 +10,9 @@ import {
   User,
   Calendar,
   Car,
+  Edit3,
+  Save,
+  X,
 } from "lucide-react";
 import { jobcardAPI, mechanicsAPI } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
@@ -21,45 +24,46 @@ const MechanicDashboard = () => {
   const [jobcards, setJobcards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mechanicId, setMechanicId] = useState(null);
+  const [editingNotes, setEditingNotes] = useState({});
+  const [notes, setNotes] = useState({});
 
   // Mock data for when API is not available
   const mockJobs = [
     {
       id: 1,
-      service: "Oil Change",
-      vehicle: "ABC1234",
-      vehicleModel: "Toyota Prius 2020",
+      vehicleNumber: "ABC1234",
+      vehicleDetails: "Toyota Prius 2020",
+      vehicleType: "Sedan",
+      services: ["Oil Change"],
       customer: "John Doe",
-      scheduledTime: "10:00 AM",
+      customerPhone: "123-456-7890",
+      scheduledTimeSlot: "10:00 AM",
       status: "In Progress",
-      statusColor: "bg-yellow-500 text-white",
-      actionButton: "Update Status",
-      actionButtonColor: "bg-red-600 hover:bg-red-700 text-white",
+      statusColor: "bg-yellow-100 text-yellow-800",
     },
     {
       id: 2,
-      service: "Brake Service",
-      vehicle: "XYZ9876",
-      vehicleModel: "Honda Civic 2019",
+      vehicleNumber: "XYZ9876",
+      vehicleDetails: "Honda Civic 2019",
+      vehicleType: "Sedan",
+      services: ["Brake Service"],
       customer: "Jane Smith",
-      scheduledTime: "2:00 PM",
+      customerPhone: "234-567-8901",
+      scheduledTimeSlot: "2:00 PM",
       status: "Scheduled",
       statusColor: "bg-blue-100 text-blue-800",
-      actionButton: "View Details",
-      actionButtonColor:
-        "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300",
     },
     {
       id: 3,
-      service: "Engine Diagnostic",
-      vehicle: "DEF5555",
-      vehicleModel: "Nissan Altima 2021",
+      vehicleNumber: "DEF5555",
+      vehicleDetails: "Nissan Altima 2021",
+      vehicleType: "Sedan",
+      services: ["Engine Diagnostic"],
       customer: "Bob Johnson",
-      scheduledTime: "3:30 PM",
+      customerPhone: "345-678-9012",
+      scheduledTimeSlot: "3:30 PM",
       status: "Completed",
       statusColor: "bg-green-100 text-green-800",
-      actionButton: "View Report",
-      actionButtonColor: "bg-green-600 hover:bg-green-700 text-white",
     },
   ];
 
@@ -91,16 +95,17 @@ const MechanicDashboard = () => {
           // Map jobcards to Assigned Jobs tab items
           const mapped = list.map((jc) => ({
             id: jc.jobcardId,
-            service:
-              Array.isArray(jc.serviceTypes) && jc.serviceTypes.length > 0
-                ? jc.serviceTypes[0]
-                : "Service",
-            vehicle: jc.vehicleNumber,
-            vehicleModel: `${jc.vehicleBrand || ""} ${
+            vehicleNumber: jc.vehicleNumber,
+            vehicleDetails: `${jc.vehicleBrand || ""} ${
               jc.vehicleBrandModel || ""
             }`.trim(),
+            vehicleType: jc.vehicleType,
+            services: Array.isArray(jc.serviceTypes) && jc.serviceTypes.length > 0
+              ? jc.serviceTypes
+              : ["Service"],
             customer: jc.customerName,
-            scheduledTime: jc.timeSlot || "",
+            customerPhone: jc.customerPhone,
+            scheduledTimeSlot: jc.timeSlot || "",
             status:
               jc.status === "completed"
                 ? "Completed"
@@ -117,18 +122,6 @@ const MechanicDashboard = () => {
                 : jc.status === "ready_for_review"
                 ? "bg-blue-100 text-blue-800"
                 : "bg-gray-100 text-gray-800",
-            actionButton:
-              jc.status === "completed"
-                ? "View"
-                : jc.status === "in_progress"
-                ? "Update Status"
-                : "Start",
-            actionButtonColor:
-              jc.status === "completed"
-                ? "bg-white hover:bg-gray-50 text-gray-700 border border-gray-300"
-                : jc.status === "in_progress"
-                ? "bg-yellow-600 hover:bg-yellow-700 text-white"
-                : "bg-red-600 hover:bg-red-700 text-white",
           }));
           setAssignedJobs(mapped);
         } else {
@@ -149,6 +142,48 @@ const MechanicDashboard = () => {
     loadData();
   }, [user]);
 
+  // Handle notes editing
+  const handleEditNotes = (jobcardId) => {
+    setEditingNotes(prev => ({ ...prev, [jobcardId]: true }));
+    // Initialize notes with existing value if available
+    const jobcard = jobcards.find(jc => jc.jobcardId === jobcardId);
+    if (jobcard && jobcard.mechanicNotes) {
+      setNotes(prev => ({ ...prev, [jobcardId]: jobcard.mechanicNotes }));
+    }
+  };
+
+  const handleCancelEdit = (jobcardId) => {
+    setEditingNotes(prev => ({ ...prev, [jobcardId]: false }));
+    setNotes(prev => ({ ...prev, [jobcardId]: "" }));
+  };
+
+  const handleSaveNotes = async (jobcardId) => {
+    try {
+      if (!mechanicId) {
+        alert("Mechanic ID not resolved. Please re-login or try again.");
+        return;
+      }
+
+      const notesText = notes[jobcardId] || "";
+      await jobcardAPI.updateMechanicNotes(jobcardId, mechanicId, notesText);
+
+      // Update local state
+      setJobcards((prev) =>
+        prev.map((jc) =>
+          jc.jobcardId === jobcardId
+            ? { ...jc, mechanicNotes: notesText }
+            : jc
+        )
+      );
+
+      setEditingNotes(prev => ({ ...prev, [jobcardId]: false }));
+      alert("Notes saved successfully!");
+    } catch (error) {
+      console.error("Error saving notes:", error);
+      alert("Failed to save notes: " + (error.response?.data?.message || error.message));
+    }
+  };
+
   // Mechanics should mark only their assignment as completed
   const handleMarkComplete = async (jobcardId) => {
     try {
@@ -156,9 +191,12 @@ const MechanicDashboard = () => {
         alert("Mechanic ID not resolved. Please re-login or try again.");
         return;
       }
+
+      const notesText = notes[jobcardId] || "";
       const resp = await jobcardAPI.markMechanicCompleted(
         jobcardId,
-        mechanicId
+        mechanicId,
+        notesText
       );
       const ready = resp?.data?.jobcardReadyForReview;
       const message = resp?.data?.message || "Marked complete";
@@ -171,10 +209,16 @@ const MechanicDashboard = () => {
                 ...jc,
                 status: ready ? "ready_for_review" : jc.status,
                 completedAt: ready ? new Date() : jc.completedAt,
+                mechanicNotes: notesText,
+                mechanicCompletedAt: new Date(),
               }
             : jc
         )
       );
+
+      // Clear editing state
+      setEditingNotes(prev => ({ ...prev, [jobcardId]: false }));
+      setNotes(prev => ({ ...prev, [jobcardId]: "" }));
 
       alert(message);
     } catch (error) {
@@ -294,30 +338,52 @@ const MechanicDashboard = () => {
                     {assignedJobs.map((job) => (
                       <div
                         key={job.id}
-                        className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                        className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
                       >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="font-bold text-gray-900 mb-1">
-                              {job.service} - {job.vehicle}
-                            </h4>
-                            <div className="space-y-1 text-sm text-gray-600">
-                              <p>{job.vehicleModel}</p>
-                              <p>Customer: {job.customer}</p>
-                              <p>Scheduled: {job.scheduledTime}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {/* Left Column - Vehicle and Customer Info */}
+                          <div className="space-y-4">
+                            <div>
+                              <h4 className="font-bold text-lg text-gray-900 mb-2">
+                                Vehicle: {job.vehicleNumber}
+                              </h4>
+                              <div className="space-y-2 text-sm text-gray-600">
+                                <p><span className="font-medium">Vehicle Details:</span> {job.vehicleDetails}</p>
+                                <p><span className="font-medium">Vehicle Type:</span> {job.vehicleType}</p>
+                                <p><span className="font-medium">Customer:</span> {job.customer}</p>
+                                <p><span className="font-medium">Phone:</span> {job.customerPhone}</p>
+                                <p><span className="font-medium">Scheduled Time Slot:</span> {job.scheduledTimeSlot}</p>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-3">
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-medium ${job.statusColor}`}
-                            >
-                              {job.status}
-                            </span>
-                            <button
-                              className={`px-4 py-2 rounded-full text-xs font-medium transition-colors ${job.actionButtonColor}`}
-                            >
-                              {job.actionButton}
-                            </button>
+
+                          {/* Right Column - Services */}
+                          <div className="space-y-4">
+                            <div>
+                              <h5 className="font-semibold text-gray-900 mb-2">Services Required:</h5>
+                              <div className="flex flex-wrap gap-2">
+                                {job.services.map((service, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium"
+                                  >
+                                    <Wrench className="w-3 h-3 mr-1" />
+                                    {service}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Status */}
+                          <div className="flex flex-col justify-between">
+                            <div className="text-right">
+                              <span
+                                className={`inline-flex px-3 py-1 rounded-full text-xs font-medium w-fit ${job.statusColor}`}
+                              >
+                                {job.status}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -512,6 +578,76 @@ const MechanicDashboard = () => {
                                 </div>
                               </div>
                             )}
+
+                          {/* Mechanic Notes Section */}
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="text-sm font-semibold text-gray-700">
+                                My Notes:
+                              </h5>
+                              {!editingNotes[jobcard.jobcardId] && 
+                               jobcard.status !== "completed" && 
+                               jobcard.status !== "ready_for_review" && (
+                                <button
+                                  onClick={() => handleEditNotes(jobcard.jobcardId)}
+                                  className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  {jobcard.mechanicNotes ? "Edit" : "Add Notes"}
+                                </button>
+                              )}
+                            </div>
+
+                            {editingNotes[jobcard.jobcardId] ? (
+                              <div className="space-y-3">
+                                <textarea
+                                  value={notes[jobcard.jobcardId] || ""}
+                                  onChange={(e) =>
+                                    setNotes(prev => ({
+                                      ...prev,
+                                      [jobcard.jobcardId]: e.target.value
+                                    }))
+                                  }
+                                  placeholder="Add your notes about this job..."
+                                  className="w-full p-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                                  rows={3}
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleSaveNotes(jobcard.jobcardId)}
+                                    className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+                                  >
+                                    <Save className="w-3 h-3" />
+                                    Save Notes
+                                  </button>
+                                  <button
+                                    onClick={() => handleCancelEdit(jobcard.jobcardId)}
+                                    className="flex items-center gap-1 px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-gray-50 rounded-lg p-3 min-h-[60px]">
+                                {jobcard.mechanicNotes ? (
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                    {jobcard.mechanicNotes}
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-gray-500 italic">
+                                    No notes added yet
+                                  </p>
+                                )}
+                                {jobcard.mechanicCompletedAt && (
+                                  <p className="text-xs text-gray-500 mt-2">
+                                    Completed: {new Date(jobcard.mechanicCompletedAt).toLocaleString()}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Action Buttons */}
                           <div className="flex gap-3 mt-4 pt-4 border-t border-gray-200">

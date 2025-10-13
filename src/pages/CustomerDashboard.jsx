@@ -16,8 +16,40 @@ import {
   Trash2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { bookingsAPI, vehicleAPI } from "../utils/api";
+import { bookingsAPI, vehicleAPI, breakdownAPI } from "../utils/api";
 import toast from "react-hot-toast";
+
+// Vehicle brand and model data structure
+const vehicleData = {
+  toyota: {
+    name: "Toyota",
+    models: ["Camry", "Prius", "Corolla", "GR Supra", "Highlander", "Land Cruiser"]
+  },
+  honda: {
+    name: "Honda", 
+    models: ["Civic", "Accord", "HR-V", "CR-V", "Ridgeline"]
+  },
+  suzuki: {
+    name: "Suzuki",
+    models: ["Jimny", "Carry", "XL6", "Ciaz", "Grand Vitara", "BALENO", "Celerio"]
+  },
+  ford: {
+    name: "Ford",
+    models: ["Bronco", "EcoSport", "Mustang", "Explorer", "Escape", "Kuga"]
+  },
+  mazda: {
+    name: "Mazda",
+    models: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-50"]
+  },
+  isuzu: {
+    name: "Isuzu",
+    models: ["D-max", "Bellel", "Bellett", "Elf", "Gemini", "Panther"]
+  },
+  subaru: {
+    name: "Subaru",
+    models: ["Ascent", "BRZ", "Crosstrek", "Outback", "Legacy", "Impreza"]
+  }
+};
 
 const CustomerDashboard = () => {
   const [activeTab, setActiveTab] = useState("appointments");
@@ -28,12 +60,18 @@ const CustomerDashboard = () => {
   const [showAddVehicleForm, setShowAddVehicleForm] = useState(false);
   const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [selectedBrand, setSelectedBrand] = useState("");
+  const [breakdownRequests, setBreakdownRequests] = useState([]);
+  const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
+  const [selectedBreakdown, setSelectedBreakdown] = useState(null);
+  const [showBreakdownDetails, setShowBreakdownDetails] = useState(false);
   const { user } = useAuth();
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm();
 
   // Early return if user is not authenticated
@@ -132,9 +170,42 @@ const CustomerDashboard = () => {
     }
   }, [user, retryCount]);
 
+  // Fetch breakdown requests when tab is active
+  useEffect(() => {
+    const fetchBreakdownRequests = async () => {
+      if (activeTab === "breakdown-requests" && user) {
+        setLoadingBreakdowns(true);
+        try {
+          const response = await breakdownAPI.getMyRequests();
+          setBreakdownRequests(response.data?.data || response.data || []);
+          setError(null);
+        } catch (err) {
+          console.error("Error fetching breakdown requests:", err);
+          setError("Failed to load breakdown requests");
+          toast.error("Failed to load your breakdown requests");
+        } finally {
+          setLoadingBreakdowns(false);
+        }
+      }
+    };
+
+    fetchBreakdownRequests();
+  }, [activeTab, user]);
+
   // Retry function for failed API calls
   const retryFetchBookings = () => {
     setRetryCount((prev) => prev + 1);
+  };
+
+  // Handle brand selection and reset model
+  const handleBrandChange = (brand) => {
+    setSelectedBrand(brand);
+    setValue("model", "");
+  };
+
+  // Get available models for selected brand
+  const getAvailableModels = (brand) => {
+    return brand && vehicleData[brand] ? vehicleData[brand].models : [];
   };
 
   // Save vehicles to localStorage (backup)
@@ -168,6 +239,7 @@ const CustomerDashboard = () => {
       saveVehicles(updatedVehicles);
 
       setShowAddVehicleForm(false);
+      setSelectedBrand("");
       reset();
       toast.success("Vehicle added successfully!");
 
@@ -264,6 +336,7 @@ const CustomerDashboard = () => {
   const tabs = [
     { id: "appointments", label: "Appointments" },
     { id: "vehicles", label: "Vehicles" },
+    { id: "breakdown-requests", label: "Breakdown Requests" },
     { id: "service-history", label: "Service History" },
     { id: "bills", label: "Bills" },
     { id: "e-shop", label: "E-Shop" },
@@ -283,6 +356,42 @@ const CustomerDashboard = () => {
       case "verified":
         return "bg-emerald-100 text-emerald-800";
       case "cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Helper function to map manager status to customer-friendly status
+  const getCustomerFriendlyStatus = (managerStatus) => {
+    switch (managerStatus?.toLowerCase()) {
+      case "pending":
+        return "Pending";
+      case "approved":
+        return "Approved";
+      case "in progress":
+        return "On the Way";
+      case "completed":
+        return "Completed";
+      case "cancelled":
+        return "Rejected";
+      default:
+        return managerStatus || "Unknown";
+    }
+  };
+
+  // Helper function to get breakdown status color
+  const getBreakdownStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "approved":
+        return "bg-green-100 text-green-800";
+      case "on the way":
+        return "bg-blue-100 text-blue-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      case "rejected":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
@@ -635,6 +744,7 @@ const CustomerDashboard = () => {
                         <button
                           onClick={() => {
                             setShowAddVehicleForm(false);
+                            setSelectedBrand("");
                             reset();
                           }}
                           className="text-gray-400 hover:text-gray-600"
@@ -680,17 +790,16 @@ const CustomerDashboard = () => {
                               {...register("brand", {
                                 required: "Brand is required",
                               })}
+                              onChange={(e) => handleBrandChange(e.target.value)}
                             >
                               <option value="" disabled hidden>
                                 Select Brand
                               </option>
-                              <option value="toyota">Toyota</option>
-                              <option value="honda">Honda</option>
-                              <option value="suzuki">Suzuki</option>
-                              <option value="ford">Ford</option>
-                              <option value="mazda">Mazda</option>
-                              <option value="isuzu">Isuzu</option>
-                              <option value="subaru">Subaru</option>
+                              {Object.entries(vehicleData).map(([key, brand]) => (
+                                <option key={key} value={key}>
+                                  {brand.name}
+                                </option>
+                              ))}
                             </select>
                             {errors.brand && (
                               <p className="mt-1 text-sm text-red-600">
@@ -703,13 +812,23 @@ const CustomerDashboard = () => {
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Model
                             </label>
-                            <input
-                              type="text"
+                            <select
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              defaultValue=""
+                              disabled={!selectedBrand}
                               {...register("model", {
                                 required: "Model is required",
                               })}
-                            />
+                            >
+                              <option value="" disabled hidden>
+                                {selectedBrand ? "Select Model" : "Select Brand First"}
+                              </option>
+                              {getAvailableModels(selectedBrand).map((model) => (
+                                <option key={model} value={model}>
+                                  {model}
+                                </option>
+                              ))}
+                            </select>
                             {errors.model && (
                               <p className="mt-1 text-sm text-red-600">
                                 {errors.model.message}
@@ -845,6 +964,7 @@ const CustomerDashboard = () => {
                             type="button"
                             onClick={() => {
                               setShowAddVehicleForm(false);
+                              setSelectedBrand("");
                               reset();
                             }}
                             className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
@@ -861,6 +981,143 @@ const CustomerDashboard = () => {
                         </div>
                       </form>
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "breakdown-requests" && (
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      My Breakdown Requests
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Track the status of your emergency breakdown requests
+                    </p>
+                  </div>
+                  <Link
+                    to="/request"
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Request
+                  </Link>
+                </div>
+
+                {loadingBreakdowns ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-4" />
+                    <p className="text-gray-600">Loading breakdown requests...</p>
+                  </div>
+                ) : breakdownRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      No breakdown requests found
+                    </h3>
+                    <p className="text-gray-600 mb-6">
+                      You haven't submitted any breakdown requests yet.
+                    </p>
+                    <Link
+                      to="/request"
+                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Submit New Request
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {breakdownRequests.map((request) => {
+                      const customerStatus = getCustomerFriendlyStatus(request.status);
+                      return (
+                        <div
+                          key={request.requestId}
+                          className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-4 mb-4">
+                                <div>
+                                  <h4 className="text-lg font-semibold text-gray-900">
+                                    {request.emergencyType}
+                                  </h4>
+                                  <p className="text-sm text-gray-600">
+                                    Vehicle: {request.vehicleNumber} ({request.vehicleType || "Unknown Type"})
+                                  </p>
+                                </div>
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
+                                    customerStatus
+                                  )}`}
+                                >
+                                  {customerStatus}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Requested:</span>{" "}
+                                    {request.createdAt
+                                      ? new Date(request.createdAt).toLocaleString()
+                                      : "Unknown"}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Location:</span>{" "}
+                                    {request.latitude}, {request.longitude}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Contact:</span>{" "}
+                                    {request.contactName} - {request.contactPhone}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Request ID:</span>{" "}
+                                    #{request.requestId}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {request.problemDescription && (
+                                <div className="mb-4">
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Problem Description:</span>
+                                  </p>
+                                  <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg mt-1">
+                                    {request.problemDescription}
+                                  </p>
+                                </div>
+                              )}
+
+                              {request.additionalInfo && (
+                                <div className="mb-4">
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Additional Information:</span>
+                                  </p>
+                                  <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg mt-1">
+                                    {request.additionalInfo}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                setSelectedBreakdown(request);
+                                setShowBreakdownDetails(true);
+                              }}
+                              className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+                            >
+                              View Details
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -993,6 +1250,120 @@ const CustomerDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Breakdown Details Modal */}
+      {showBreakdownDetails && selectedBreakdown && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Breakdown Request Details
+                </h3>
+                <button
+                  onClick={() => setShowBreakdownDetails(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Request Information</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Request ID</div>
+                    <div className="font-medium">#{selectedBreakdown.requestId}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Emergency Type</div>
+                    <div className="font-medium">{selectedBreakdown.emergencyType}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Status</div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
+                        getCustomerFriendlyStatus(selectedBreakdown.status)
+                      )}`}
+                    >
+                      {getCustomerFriendlyStatus(selectedBreakdown.status)}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Requested At</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.createdAt
+                        ? new Date(selectedBreakdown.createdAt).toLocaleString()
+                        : "Unknown"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Vehicle Information</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Vehicle Number</div>
+                    <div className="font-mono font-medium">{selectedBreakdown.vehicleNumber}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Vehicle Type</div>
+                    <div className="font-medium">{selectedBreakdown.vehicleType || "Not specified"}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Location</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.latitude}, {selectedBreakdown.longitude}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Contact Information</h4>
+                  <div>
+                    <div className="text-sm text-gray-600">Name</div>
+                    <div className="font-medium">{selectedBreakdown.contactName}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Phone</div>
+                    <div className="font-medium">{selectedBreakdown.contactPhone}</div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">Problem Details</h4>
+                  {selectedBreakdown.problemDescription && (
+                    <div>
+                      <div className="text-sm text-gray-600">Description</div>
+                      <div className="font-medium bg-gray-50 p-3 rounded-lg">
+                        {selectedBreakdown.problemDescription}
+                      </div>
+                    </div>
+                  )}
+                  {selectedBreakdown.additionalInfo && (
+                    <div>
+                      <div className="text-sm text-gray-600">Additional Information</div>
+                      <div className="font-medium bg-gray-50 p-3 rounded-lg">
+                        {selectedBreakdown.additionalInfo}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowBreakdownDetails(false)}
+                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

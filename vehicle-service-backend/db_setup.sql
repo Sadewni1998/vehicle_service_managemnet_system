@@ -37,9 +37,6 @@ CREATE TABLE IF NOT EXISTS vehicle (
     FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE CASCADE
 );
 
--- Ensure new column exists when upgrading existing databases
-ALTER TABLE vehicle ADD COLUMN IF NOT EXISTS kilometersRun INT NULL;
-
 -- =======================================================
 -- BOOKING TABLE
 -- =======================================================
@@ -52,7 +49,7 @@ CREATE TABLE IF NOT EXISTS booking (
     fuelType VARCHAR(50),
     vehicleBrand VARCHAR(100),
     vehicleBrandModel VARCHAR(100),
-    manufacturedYear YEAR,
+    manufacturedYear INT,
     transmissionType VARCHAR(50),
     kilometersRun INT,
     bookingDate DATE NOT NULL,
@@ -110,15 +107,13 @@ CREATE TABLE IF NOT EXISTS contact_submissions (
 -- STAFF TABLE
 -- =======================================================
 CREATE TABLE IF NOT EXISTS staff (
-    staffId INT(11) NOT NULL AUTO_INCREMENT,
+    staffId INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role ENUM('receptionist', 'mechanic', 'manager', 'service_advisor') NOT NULL,
-    createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (staffId),
-    UNIQUE KEY email (email)
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_staff_email ON staff(email);
@@ -129,19 +124,14 @@ INSERT INTO staff (name, email, password, role) VALUES
 ('Service Advisor', 'service_advicer@vehicleservice.com', '$2b$10$6NkoMNcWBjifArTW5hfryuJPPLIwfZpaIPbhso7XuU2toEP17wWXe', 'service_advisor'),
 ('Receptionist', 'receptionist@vehicleservice.com', '$2b$10$MOOmKWRYOlT8w.bRO.4lq.MxVPT9wlpaTbLJBFnEORPj9MoA1v3zu', 'receptionist'),
 ('Manager', 'manager@vehicleservice.com', '$2b$10$0emTWCs9TR36WJRnhgKtU.8bvB00iLhgYU373PcYx5S0WaRFUXye2', 'manager'),
-('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K', 'mechanic');
-
--- Additional test staff data
-INSERT INTO staff (name, email, password, role) VALUES
-('Alice Reception', 'alice.reception@vehicleservice.com', '$2b$10$abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdef', 'receptionist'),
-('Bob Mechanic', 'bob.mechanic@vehicleservice.com', '$2b$10$123456123456123456123456123456123456123456123456123456', 'mechanic'),
-('Carol Advisor', 'carol.advisor@vehicleservice.com', '$2b$10$654321654321654321654321654321654321654321654321654321', 'service_advisor');
+('Mechanic', 'mechanic@vehicleservice.com', '$2b$10$NlhlnAzMEEcZn4eZa1wO3uqzZmmSk6xqUZSmIvP60gv2EoKs8pr2K', 'mechanic'),
+('Bob Mechanic', 'bob.mechanic@vehicleservice.com', '$2b$10$123456123456123456123456123456123456123456123456123456', 'mechanic');
 
 -- =======================================================
 -- MECHANIC TABLE
 -- =======================================================
 CREATE TABLE IF NOT EXISTS mechanic (
-    mechanicId INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+    mechanicId INT AUTO_INCREMENT PRIMARY KEY,
     staffId INT NOT NULL,
     mechanicName VARCHAR(50) NOT NULL,
     mechanicCode VARCHAR(20) NOT NULL UNIQUE,
@@ -160,13 +150,7 @@ CREATE TABLE IF NOT EXISTS mechanic (
 INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, hourlyRate)
 VALUES
 (4, 'MEC001', 'Sarah', 'Engine and Transmission', 5, '["ASE Certified","Engine Specialist"]', 2500.00),
-(4, 'MEC002', 'John', 'Electrical Systems', 3, '["Auto Electrician","Hybrid Systems"]', 2200.00);
-
--- Additional test mechanic data for staff mechanics
--- Note: staffId for 'Bob Mechanic' is expected to be 6 (after 5 staff entries above)
-INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, hourlyRate)
-VALUES
-(6, 'MEC003', 'Bob Mechanic', 'Engine Specialist', 4, '["ASE Certified"]', 2300.00);
+(5, 'MEC002', 'Bob Mechanic', 'Electrical Systems', 4, '["Auto Electrician"]', 2300.00);
 
 -- =======================================================
 -- SPARE PARTS TABLE
@@ -230,10 +214,10 @@ INNER JOIN staff s ON m.staffId = s.staffId
 WHERE m.isActive = TRUE;
 
 -- =======================================================
--- JOBCARD TABLES (final working version)
+-- JOBCARD TABLES
 -- =======================================================
 CREATE TABLE IF NOT EXISTS jobcard (
-    jobcardId INT AUTO_INCREMENT PRIMARY KEY NOT NULL,
+    jobcardId INT AUTO_INCREMENT PRIMARY KEY,
     bookingId INT NOT NULL,
     status ENUM('open', 'in_progress', 'ready_for_review', 'completed', 'canceled') DEFAULT 'open',
     serviceDetails JSON NOT NULL,
@@ -245,18 +229,18 @@ CREATE TABLE IF NOT EXISTS jobcard (
 );
 
 CREATE TABLE IF NOT EXISTS jobcardMechanic (
-    jobcardMechanicId INT NOT NULL AUTO_INCREMENT,
+    jobcardMechanicId INT AUTO_INCREMENT PRIMARY KEY,
     jobcardId INT NOT NULL,
     mechanicId INT NOT NULL,
     assignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completedAt TIMESTAMP NULL,
-    PRIMARY KEY (jobcardMechanicId),
+    notes TEXT NULL,
     FOREIGN KEY (jobcardId) REFERENCES jobcard(jobcardId) ON DELETE CASCADE,
     FOREIGN KEY (mechanicId) REFERENCES mechanic(mechanicId) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS jobcardSparePart (
-    jobcardSparePartId INT NOT NULL AUTO_INCREMENT,
+    jobcardSparePartId INT AUTO_INCREMENT PRIMARY KEY,
     jobcardId INT NOT NULL,
     partId INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
@@ -264,13 +248,11 @@ CREATE TABLE IF NOT EXISTS jobcardSparePart (
     totalPrice DECIMAL(10, 2) NOT NULL,
     assignedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     usedAt TIMESTAMP NULL,
-    PRIMARY KEY (jobcardSparePartId),
     FOREIGN KEY (jobcardId) REFERENCES jobcard(jobcardId) ON DELETE CASCADE,
     FOREIGN KEY (partId) REFERENCES spareparts(partId) ON DELETE RESTRICT,
     INDEX idx_jobcard_id (jobcardId),
     INDEX idx_part_id (partId)
 );
-
 
 -- =======================================================
 -- TEST BOOKINGS
@@ -281,8 +263,8 @@ INSERT INTO booking (
     kilometersRun, bookingDate, timeSlot, serviceTypes,
     specialRequests, customerId, status, arrivedTime
 ) VALUES 
-('John Smith', '0771234567', 'ABC-123', 'Sedan', 'Petrol', 'Toyota', 'Camry', 2020, 'Automatic', 45000, CURDATE(), '07:30-09:30', '["Oil Change", "Brake Inspection"]', 'Please check the air conditioning system', NULL, 'pending', NULL),
-('Sarah Johnson', '0777654321', 'XYZ-789', 'SUV', 'Petrol', 'Honda', 'CR-V', 2019, 'Automatic', 52000, CURDATE(), '09:30-11:30', '["Engine Service", "Tire Rotation"]', 'Check for any unusual noises', NULL, 'pending', NULL),
-('Michael Chen', '0775555555', 'DEF-456', 'Hatchback', 'Petrol', 'Nissan', 'Micra', 2021, 'Manual', 28000, CURDATE(), '12:00-14:00', '["Regular Service", "Battery Check"]', 'Replace air filter', NULL, 'arrived', '07:45'),
-('Emily Davis', '0778888888', 'GHI-321', 'Sedan', 'Petrol', 'BMW', '3 Series', 2018, 'Automatic', 65000, CURDATE(), '14:00-16:00', '["Premium Service", "Transmission Check"]', 'Full diagnostic check', NULL, 'pending', NULL),
-('Robert Wilson', '0779999999', 'JKL-654', 'Pickup', 'Diesel', 'Ford', 'Ranger', 2017, 'Manual', 78000, CURDATE(), '16:00-18:00', '["Engine Overhaul", "Clutch Replacement"]', 'Customer cancelled due to emergency', NULL, 'cancelled', NULL);
+('John Smith', '0771234567', 'ABC-123', 'Sedan', 'Petrol', 'Toyota', 'Camry', 2020, 'Automatic', 45000, CURDATE(), '07:30-09:30', JSON_ARRAY('Oil Change', 'Brake Inspection'), 'Please check the air conditioning system', NULL, 'pending', NULL),
+('Sarah Johnson', '0777654321', 'XYZ-789', 'SUV', 'Petrol', 'Honda', 'CR-V', 2019, 'Automatic', 52000, CURDATE(), '09:30-11:30', JSON_ARRAY('Engine Service', 'Tire Rotation'), 'Check for any unusual noises', NULL, 'pending', NULL),
+('Michael Chen', '0775555555', 'DEF-456', 'Hatchback', 'Petrol', 'Nissan', 'Micra', 2021, 'Manual', 28000, CURDATE(), '12:00-14:00', JSON_ARRAY('Regular Service', 'Battery Check'), 'Replace air filter', NULL, 'arrived', '07:45'),
+('Emily Davis', '0778888888', 'GHI-321', 'Sedan', 'Petrol', 'BMW', '3 Series', 2018, 'Automatic', 65000, CURDATE(), '14:00-16:00', JSON_ARRAY('Premium Service', 'Transmission Check'), 'Full diagnostic check', NULL, 'pending', NULL),
+('Robert Wilson', '0779999999', 'JKL-654', 'Pickup', 'Diesel', 'Ford', 'Ranger', 2017, 'Manual', 78000, CURDATE(), '16:00-18:00', JSON_ARRAY('Engine Overhaul', 'Clutch Replacement'), 'Customer cancelled due to emergency', NULL, 'cancelled', NULL);
