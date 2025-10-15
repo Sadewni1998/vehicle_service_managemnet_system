@@ -170,7 +170,12 @@ const ServiceAdvisorDashboard = () => {
     try {
       const response = await mechanicsAPI.getAvailableMechanics();
       setAvailableMechanics(response.data.data || []);
-      setSelectedMechanics([]);
+      // Preselect already assigned mechanics (if any) so user can add/remove
+      if (Array.isArray(booking.assignedMechanics)) {
+        setSelectedMechanics(booking.assignedMechanics);
+      } else {
+        setSelectedMechanics([]);
+      }
       setMechanicSearchTerm("");
       setMechanicSpecializationFilter("");
       setShowAssignMechanics(true);
@@ -235,7 +240,11 @@ const ServiceAdvisorDashboard = () => {
           isActive: true,
         },
       ]);
-      setSelectedMechanics([]);
+      if (Array.isArray(booking.assignedMechanics)) {
+        setSelectedMechanics(booking.assignedMechanics);
+      } else {
+        setSelectedMechanics([]);
+      }
       setMechanicSearchTerm("");
       setMechanicSpecializationFilter("");
       setShowAssignMechanics(true);
@@ -247,18 +256,37 @@ const ServiceAdvisorDashboard = () => {
     try {
       const response = await sparePartsAPI.getAllSpareParts();
       setAvailableSpareParts(response.data.data || []);
-      setSelectedSpareParts([]);
+      // Preselect already assigned spare parts (if any) so user can add/remove
+      if (Array.isArray(booking.assignedSpareParts)) {
+        setSelectedSpareParts(booking.assignedSpareParts);
+      } else {
+        setSelectedSpareParts([]);
+      }
       setShowAssignSpareParts(true);
     } catch (error) {
       console.error("Error fetching spare parts:", error);
       setAvailableSpareParts([]);
+      if (Array.isArray(booking.assignedSpareParts)) {
+        setSelectedSpareParts(booking.assignedSpareParts);
+      } else {
+        setSelectedSpareParts([]);
+      }
       setShowAssignSpareParts(true);
     }
   };
 
   const handleAssignMechanics = async () => {
+    // If none selected, clear current assignment
     if (selectedMechanics.length === 0) {
-      alert("Please select at least one mechanic");
+      setArrivedBookings((prev) =>
+        prev.map((booking) =>
+          booking.id === selectedBooking.id
+            ? { ...booking, assignedMechanics: [] }
+            : booking
+        )
+      );
+      alert("Cleared mechanic assignments for this booking.");
+      setShowAssignMechanics(false);
       return;
     }
 
@@ -278,8 +306,17 @@ const ServiceAdvisorDashboard = () => {
   };
 
   const handleAssignSpareParts = async () => {
+    // If none selected, clear current assignment
     if (selectedSpareParts.length === 0) {
-      alert("Please select at least one spare part");
+      setArrivedBookings((prev) =>
+        prev.map((booking) =>
+          booking.id === selectedBooking.id
+            ? { ...booking, assignedSpareParts: [] }
+            : booking
+        )
+      );
+      alert("Cleared spare parts for this booking.");
+      setShowAssignSpareParts(false);
       return;
     }
 
@@ -1389,17 +1426,40 @@ const ServiceAdvisorDashboard = () => {
 
               {selectedMechanics.length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">
-                    Selected Mechanics:
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-blue-900">
+                      Selected Mechanics:
+                    </h4>
+                    <button
+                      onClick={() => setSelectedMechanics([])}
+                      className="text-xs text-blue-700 hover:text-blue-900"
+                    >
+                      Clear all
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {selectedMechanics.map((mechanic) => (
                       <span
                         key={mechanic.mechanicId}
-                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium"
+                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1"
                       >
-                        {mechanic.mechanicName || mechanic.name} (
-                        {mechanic.mechanicCode})
+                        <span>
+                          {mechanic.mechanicName || mechanic.name} (
+                          {mechanic.mechanicCode})
+                        </span>
+                        <button
+                          aria-label="Remove mechanic"
+                          onClick={() =>
+                            setSelectedMechanics((prev) =>
+                              prev.filter(
+                                (m) => m.mechanicId !== mechanic.mechanicId
+                              )
+                            )
+                          }
+                          className="ml-1 text-blue-800 hover:text-blue-900"
+                        >
+                          ×
+                        </button>
                       </span>
                     ))}
                   </div>
@@ -1473,10 +1533,15 @@ const ServiceAdvisorDashboard = () => {
                           )}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedMechanics([
-                                ...selectedMechanics,
-                                mechanic,
-                              ]);
+                              setSelectedMechanics((prev) => {
+                                if (
+                                  prev.some(
+                                    (m) => m.mechanicId === mechanic.mechanicId
+                                  )
+                                )
+                                  return prev; // avoid duplicates
+                                return [...prev, mechanic];
+                              });
                             } else {
                               setSelectedMechanics(
                                 selectedMechanics.filter(
@@ -1659,6 +1724,45 @@ const ServiceAdvisorDashboard = () => {
                 Select spare parts to assign to this booking:
               </p>
 
+              {selectedSpareParts.length > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-purple-900">
+                      Selected Parts:
+                    </h4>
+                    <button
+                      onClick={() => setSelectedSpareParts([])}
+                      className="text-xs text-purple-700 hover:text-purple-900"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSpareParts.map((part) => (
+                      <span
+                        key={part.partId}
+                        className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1"
+                      >
+                        <span>
+                          {part.partName || part.name} ({part.partCode || ""})
+                        </span>
+                        <button
+                          aria-label="Remove part"
+                          onClick={() =>
+                            setSelectedSpareParts((prev) =>
+                              prev.filter((sp) => sp.partId !== part.partId)
+                            )
+                          }
+                          className="ml-1 text-purple-800 hover:text-purple-900"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                 {availableSpareParts.map((part) => (
                   <div key={part.partId} className="border rounded-lg p-4">
@@ -1670,10 +1774,11 @@ const ServiceAdvisorDashboard = () => {
                         )}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedSpareParts([
-                              ...selectedSpareParts,
-                              { ...part, quantity: 1 },
-                            ]);
+                            setSelectedSpareParts((prev) => {
+                              if (prev.some((sp) => sp.partId === part.partId))
+                                return prev; // avoid duplicates
+                              return [...prev, { ...part, quantity: 1 }];
+                            });
                           } else {
                             setSelectedSpareParts(
                               selectedSpareParts.filter(
@@ -1718,9 +1823,15 @@ const ServiceAdvisorDashboard = () => {
                                 )?.quantity || 1
                               }
                               onChange={(e) => {
-                                const quantity = parseInt(e.target.value) || 1;
-                                setSelectedSpareParts(
-                                  selectedSpareParts.map((sp) =>
+                                let quantity = parseInt(e.target.value) || 1;
+                                if (quantity < 1) quantity = 1;
+                                if (part.stockQuantity)
+                                  quantity = Math.min(
+                                    quantity,
+                                    Number(part.stockQuantity)
+                                  );
+                                setSelectedSpareParts((prev) =>
+                                  prev.map((sp) =>
                                     sp.partId === part.partId
                                       ? { ...sp, quantity }
                                       : sp
