@@ -1,6 +1,8 @@
 // controllers/breakdownController.js
 
 const db = require("../config/db");
+const { isTenDigitPhone } = require("../utils/validators");
+const jwt = require("jsonwebtoken");
 
 /**
  * Creates a new breakdown service request (public access - no authentication required).
@@ -19,25 +21,72 @@ const createBreakdownRequest = async (req, res) => {
     additionalInfo,
   } = req.body;
 
-  // Basic validation
-  if (
-    !name ||
-    !phone ||
-    !vehicleNumber ||
-    !emergencyType ||
-    !latitude ||
-    !longitude
-  ) {
+  // Try to detect authenticated customer from Authorization header (optional)
+  let customerId = null;
+  let contactName = name;
+  let contactPhone = phone;
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && decoded.customerId) {
+        customerId = decoded.customerId;
+        // If contact details not provided, fetch from DB
+        if (!contactName || !contactPhone) {
+          const [rows] = await db.query(
+            "SELECT name, phone FROM customer WHERE customerId = ?",
+            [customerId]
+          );
+          if (rows && rows[0]) {
+            contactName = contactName || rows[0].name;
+            contactPhone = contactPhone || rows[0].phone;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // If token invalid, proceed as public request
+    customerId = null;
+  }
+
+  // Basic validation (allow name/phone omission for authenticated customers if profile has them)
+  if (!vehicleNumber || !emergencyType || !latitude || !longitude) {
+    return res.status(400).json({
+      message: "Vehicle number, emergency type, and location are required.",
+    });
+  }
+
+  // Ensure we have contact details either from body or from user profile (if logged in)
+  if (!contactName || !contactPhone) {
+    return res.status(400).json({
+      message:
+        "Contact name and phone are required (or must be available on your profile).",
+    });
+  }
+
+  // Validate phone if provided
+  if (!isTenDigitPhone(String(contactPhone))) {
     return res
       .status(400)
-      .json({
-        message:
-          "Name, phone, vehicle number, emergency type, and location are required.",
-      });
+      .json({ message: "Phone number must be exactly 10 digits." });
   }
 
   try {
-    // For public requests, we'll use customerId = NULL and store contact info directly
+    // If authenticated, try to link to user's vehicle by vehicle number (case-insensitive)
+    let vehicleId = null;
+    if (customerId) {
+      const upperVehicleNumber = String(vehicleNumber).toUpperCase();
+      const [vehRows] = await db.query(
+        "SELECT vehicleId FROM vehicle WHERE customerId = ? AND UPPER(vehicleNumber) = ?",
+        [customerId, upperVehicleNumber]
+      );
+      if (vehRows && vehRows[0]) {
+        vehicleId = vehRows[0].vehicleId;
+      }
+    }
+
+    // Insert request; for public requests, customerId/vehicleId remain NULL and store contact info directly
     const sql = `
       INSERT INTO breakdown_request (
         customerId, vehicleId, emergencyType, latitude, longitude, problemDescription, additionalInfo,
@@ -45,16 +94,16 @@ const createBreakdownRequest = async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
-      null, // customerId - NULL for public requests
-      null, // vehicleId - NULL for public requests
+      customerId, // customerId - may be NULL for public requests
+      vehicleId, // vehicleId - may be NULL
       emergencyType,
       latitude,
       longitude,
       problemDescription,
       additionalInfo,
-      name,
-      phone,
-      vehicleNumber,
+      contactName,
+      contactPhone,
+      String(vehicleNumber || "").toUpperCase(),
       vehicleType,
     ];
 
@@ -63,6 +112,7 @@ const createBreakdownRequest = async (req, res) => {
     res.status(201).json({
       message: "Breakdown request submitted successfully!",
       requestId: result.insertId,
+      linkedToCustomer: !!customerId,
     });
   } catch (error) {
     console.error("Breakdown request error:", error);

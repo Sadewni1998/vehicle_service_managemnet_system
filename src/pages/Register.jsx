@@ -1,5 +1,11 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import {
+  unicodeNameRegex,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+  tenDigitPhoneRegex,
+} from "../utils/validators";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Plus, Trash2, Car } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -9,32 +15,47 @@ import toast from "react-hot-toast";
 const vehicleData = {
   toyota: {
     name: "Toyota",
-    models: ["Camry", "Prius", "Corolla", "GR Supra", "Highlander", "Land Cruiser"]
+    models: [
+      "Camry",
+      "Prius",
+      "Corolla",
+      "GR Supra",
+      "Highlander",
+      "Land Cruiser",
+    ],
   },
   honda: {
-    name: "Honda", 
-    models: ["Civic", "Accord", "HR-V", "CR-V", "Ridgeline"]
+    name: "Honda",
+    models: ["Civic", "Accord", "HR-V", "CR-V", "Ridgeline"],
   },
   suzuki: {
     name: "Suzuki",
-    models: ["Jimny", "Carry", "XL6", "Ciaz", "Grand Vitara", "BALENO", "Celerio"]
+    models: [
+      "Jimny",
+      "Carry",
+      "XL6",
+      "Ciaz",
+      "Grand Vitara",
+      "BALENO",
+      "Celerio",
+    ],
   },
   ford: {
     name: "Ford",
-    models: ["Bronco", "EcoSport", "Mustang", "Explorer", "Escape", "Kuga"]
+    models: ["Bronco", "EcoSport", "Mustang", "Explorer", "Escape", "Kuga"],
   },
   mazda: {
     name: "Mazda",
-    models: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-50"]
+    models: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-50"],
   },
   isuzu: {
     name: "Isuzu",
-    models: ["D-max", "Bellel", "Bellett", "Elf", "Gemini", "Panther"]
+    models: ["D-max", "Bellel", "Bellett", "Elf", "Gemini", "Panther"],
   },
   subaru: {
     name: "Subaru",
-    models: ["Ascent", "BRZ", "Crosstrek", "Outback", "Legacy", "Impreza"]
-  }
+    models: ["Ascent", "BRZ", "Crosstrek", "Outback", "Legacy", "Impreza"],
+  },
 };
 
 const Register = () => {
@@ -63,7 +84,7 @@ const Register = () => {
     if (vehicles.length > 1) {
       setVehicles(vehicles.filter((vehicle) => vehicle.id !== id));
       // Clean up selected brand state for removed vehicle
-      const vehicleIndex = vehicles.findIndex(v => v.id === id);
+      const vehicleIndex = vehicles.findIndex((v) => v.id === id);
       if (vehicleIndex !== -1) {
         const newSelectedBrands = { ...selectedBrands };
         delete newSelectedBrands[vehicleIndex];
@@ -74,13 +95,13 @@ const Register = () => {
 
   const handleBrandChange = (vehicleIndex, brand) => {
     // Update selected brand state
-    setSelectedBrands(prev => ({
+    setSelectedBrands((prev) => ({
       ...prev,
-      [vehicleIndex]: brand
+      [vehicleIndex]: brand,
     }));
-    
+
     // Reset model selection when brand changes
-    setValue(`vehicle_model.${vehicleIndex}`, '');
+    setValue(`vehicle_model.${vehicleIndex}`, "");
   };
 
   const getAvailableModels = (brand) => {
@@ -189,8 +210,19 @@ const Register = () => {
                     type="text"
                     id="username"
                     className="input-field mt-1"
+                    inputMode="text"
+                    aria-label="Name with Initials"
+                    title="Letters only. Allowed separators: space, hyphen (-), apostrophe ('), and period (.)"
                     {...register("username", {
                       required: "name with initials is required",
+                      validate: (v) =>
+                        unicodeNameRegex.test(v || "") ||
+                        "Use letters only; separators allowed: space, hyphen (-), apostrophe ('), period (.)",
+                      onChange: (e) => {
+                        const sanitized = sanitizeNameInput(e.target.value);
+                        if (sanitized !== e.target.value)
+                          e.target.value = sanitized;
+                      },
                     })}
                   />
                   {errors.username && (
@@ -211,6 +243,8 @@ const Register = () => {
                     type="email"
                     id="email"
                     className="input-field mt-1"
+                    placeholder="name@example.com"
+                    title="Enter a valid email, e.g., name@example.com"
                     {...register("email", {
                       required: "Email is required",
                       pattern: {
@@ -237,11 +271,19 @@ const Register = () => {
                     type="tel"
                     id="contact_number"
                     className="input-field mt-1"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="0712345678"
+                    title="Enter 10 digits, e.g., 0712345678"
                     {...register("contact_number", {
                       required: "Contact number is required",
-                      pattern: {
-                        value: /^[0-9+\-\s()]+$/,
-                        message: "Invalid contact number",
+                      validate: (v) =>
+                        tenDigitPhoneRegex.test((v || "").trim()) ||
+                        "Phone number must be exactly 10 digits",
+                      onChange: (e) => {
+                        const sanitized = sanitizePhoneInput(e.target.value);
+                        if (sanitized !== e.target.value)
+                          e.target.value = sanitized;
                       },
                     })}
                   />
@@ -437,7 +479,9 @@ const Register = () => {
                         {...register(`vehicle_brand.${index}`, {
                           required: "Vehicle brand is required",
                         })}
-                        onChange={(e) => handleBrandChange(index, e.target.value)}
+                        onChange={(e) =>
+                          handleBrandChange(index, e.target.value)
+                        }
                       >
                         <option value="" disabled hidden>
                           Select Brand
@@ -468,13 +512,17 @@ const Register = () => {
                         })}
                       >
                         <option value="" disabled hidden>
-                          {selectedBrands[index] ? "Select Model" : "Select Brand First"}
+                          {selectedBrands[index]
+                            ? "Select Model"
+                            : "Select Brand First"}
                         </option>
-                        {getAvailableModels(selectedBrands[index]).map((model) => (
-                          <option key={model} value={model}>
-                            {model}
-                          </option>
-                        ))}
+                        {getAvailableModels(selectedBrands[index]).map(
+                          (model) => (
+                            <option key={model} value={model}>
+                              {model}
+                            </option>
+                          )
+                        )}
                       </select>
                       {errors.vehicle_model?.[index] && (
                         <p className="mt-1 text-sm text-red-600">

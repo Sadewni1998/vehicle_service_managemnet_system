@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const { isTenDigitPhone } = require("../utils/validators");
 
 /**
  * Handles new customer registration with mandatory vehicle details.
@@ -16,10 +17,17 @@ const register = async (req, res) => {
   const { name, email, password, phone, address, vehicles } = req.body;
 
   // Basic validation for required customer fields
-  if (!name || !email || !password) {
+  if (!name || !email || !password || !phone) {
     return res
       .status(400)
-      .json({ message: "Name, email, and password are required." });
+      .json({ message: "Name, email, password, and phone are required." });
+  }
+
+  // Phone validation (if provided)
+  if (!isTenDigitPhone(phone)) {
+    return res
+      .status(400)
+      .json({ message: "Phone number must be exactly 10 digits." });
   }
 
   // Validate that vehicle information is provided
@@ -287,6 +295,12 @@ const updateProfile = async (req, res) => {
   try {
     const customerId = req.user.customerId;
     const { name, phone, address } = req.body;
+
+    if (phone && !isTenDigitPhone(phone)) {
+      return res
+        .status(400)
+        .json({ message: "Phone number must be exactly 10 digits." });
+    }
 
     const [result] = await db.query(
       "UPDATE customer SET name = ?, phone = ?, address = ? WHERE customerId = ?",

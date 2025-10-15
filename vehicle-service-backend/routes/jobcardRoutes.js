@@ -227,7 +227,9 @@ router.get("/mechanic/:mechanicId", async (req, res) => {
       jobcard.assignedMechanics = mechanics;
 
       // Find the current mechanic's notes for this jobcard
-      const currentMechanicAssignment = mechanics.find(m => m.mechanicId == mechanicId);
+      const currentMechanicAssignment = mechanics.find(
+        (m) => m.mechanicId == mechanicId
+      );
       if (currentMechanicAssignment) {
         jobcard.mechanicNotes = currentMechanicAssignment.notes;
         jobcard.mechanicCompletedAt = currentMechanicAssignment.completedAt;
@@ -362,6 +364,59 @@ router.get(
       return res.status(500).json({
         success: false,
         message: "Error fetching jobcards",
+        error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/jobcards/stats/service-advisor
+ * Returns dashboard summary stats for Service Advisor
+ * - availableMechanics: count of active mechanics with availability 'Available'
+ * - pendingJobcardReviews: count of jobcards with status 'ready_for_review'
+ * - assignedJobs: count of DISTINCT jobcards assigned to mechanics where status is not completed/canceled
+ * - jobsDoneToday: count of jobcards completed today
+ */
+router.get(
+  "/stats/service-advisor",
+  ensureAuthenticated,
+  checkRole(["service_advisor", "manager"]),
+  async (_req, res) => {
+    try {
+      const [[{ count: availableMechanics }]] = await db.query(
+        "SELECT COUNT(*) AS count FROM mechanic WHERE isActive = TRUE AND availability = 'Available'"
+      );
+
+      const [[{ count: pendingJobcardReviews }]] = await db.query(
+        "SELECT COUNT(*) AS count FROM jobcard WHERE status = 'ready_for_review'"
+      );
+
+      const [[{ count: assignedJobs }]] = await db.query(
+        `SELECT COUNT(DISTINCT j.jobcardId) AS count
+         FROM jobcard j
+         JOIN jobcardMechanic jm ON j.jobcardId = jm.jobcardId
+         WHERE j.status IN ('open','in_progress','ready_for_review')`
+      );
+
+      const [[{ count: jobsDoneToday }]] = await db.query(
+        "SELECT COUNT(*) AS count FROM jobcard WHERE status = 'completed' AND DATE(completedAt) = CURDATE()"
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          availableMechanics: Number(availableMechanics) || 0,
+          pendingJobcardReviews: Number(pendingJobcardReviews) || 0,
+          assignedJobs: Number(assignedJobs) || 0,
+          jobsDoneToday: Number(jobsDoneToday) || 0,
+        },
+      });
+    } catch (error) {
+      console.error("❌ Error fetching service advisor stats:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Error fetching service advisor stats",
         error: error.message,
       });
     }

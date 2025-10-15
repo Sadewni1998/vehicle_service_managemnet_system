@@ -3,6 +3,12 @@ import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Car, Wrench, CheckCircle, AlertCircle } from "lucide-react";
 import { bookingsAPI, authAPI, vehicleAPI } from "../utils/api";
+import {
+  unicodeNameRegex,
+  sanitizeNameInput,
+  sanitizePhoneInput,
+  tenDigitPhoneRegex,
+} from "../utils/validators";
 import { useAuth } from "../context/AuthContext";
 // Debug components removed for production
 
@@ -82,7 +88,8 @@ const Booking = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       setValue("name", user.name || "");
-      setValue("phone_number", user.phone || "");
+      // Sanitize phone in case stored value contains spaces or symbols
+      setValue("phone_number", sanitizePhoneInput(user.phone || ""));
     }
   }, [isAuthenticated, user, setValue]);
 
@@ -467,7 +474,20 @@ const Booking = () => {
                       type="text"
                       placeholder="Name with Initials"
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
-                      {...register("name", { required: "Name is required" })}
+                      inputMode="text"
+                      aria-label="Name with Initials"
+                      title="Letters only. Allowed separators: space, hyphen (-), apostrophe ('), and period (.)"
+                      {...register("name", {
+                        required: "Name is required",
+                        validate: (v) =>
+                          unicodeNameRegex.test(v || "") ||
+                          "Use letters only; separators allowed: space, hyphen (-), apostrophe ('), period (.)",
+                        onChange: (e) => {
+                          const sanitized = sanitizeNameInput(e.target.value);
+                          if (sanitized !== e.target.value)
+                            e.target.value = sanitized;
+                        },
+                      })}
                     />
                     {errors.name && (
                       <p className="text-red-200 text-sm mt-1">
@@ -481,10 +501,21 @@ const Booking = () => {
                   <div>
                     <input
                       type="tel"
-                      placeholder="Phone Number"
+                      placeholder="0712345678"
                       className="w-full px-4 py-3 rounded-lg border-0 focus:ring-2 focus:ring-white"
+                      inputMode="numeric"
+                      maxLength={10}
+                      title="Enter 10 digits, e.g., 0712345678"
                       {...register("phone_number", {
                         required: "Phone number is required",
+                        validate: (v) =>
+                          tenDigitPhoneRegex.test((v || "").trim()) ||
+                          "Phone number must be exactly 10 digits",
+                        onChange: (e) => {
+                          const sanitized = sanitizePhoneInput(e.target.value);
+                          if (sanitized !== e.target.value)
+                            e.target.value = sanitized;
+                        },
                       })}
                     />
                     {errors.phone_number && (

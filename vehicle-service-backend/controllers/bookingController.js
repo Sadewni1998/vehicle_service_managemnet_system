@@ -1,6 +1,7 @@
 // controllers/bookingController.js
 
 const db = require("../config/db");
+const { isTenDigitPhone } = require("../utils/validators");
 
 /**
  * Get current date in Sri Lankan timezone (UTC+5:30)
@@ -47,6 +48,13 @@ const createBooking = async (req, res) => {
       message:
         "Name, phone, vehicle number, booking date, and time slot are required.",
     });
+  }
+
+  // Validate phone format: exactly 10 digits
+  if (!isTenDigitPhone(String(phone))) {
+    return res
+      .status(400)
+      .json({ message: "Phone number must be exactly 10 digits." });
   }
 
   // Check if the selected time slot is available for the booking date
@@ -142,6 +150,15 @@ const updateBooking = async (req, res) => {
   // If serviceTypes is being updated, it must be stringified
   if (fieldsToUpdate.serviceTypes) {
     fieldsToUpdate.serviceTypes = JSON.stringify(fieldsToUpdate.serviceTypes);
+  }
+
+  // If phone is being updated, validate 10 digits
+  if (Object.prototype.hasOwnProperty.call(fieldsToUpdate, "phone")) {
+    if (!isTenDigitPhone(String(fieldsToUpdate.phone || ""))) {
+      return res
+        .status(400)
+        .json({ message: "Phone number must be exactly 10 digits." });
+    }
   }
 
   try {

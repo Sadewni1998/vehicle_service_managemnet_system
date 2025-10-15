@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import {
   Calendar,
@@ -23,36 +23,57 @@ import toast from "react-hot-toast";
 const vehicleData = {
   toyota: {
     name: "Toyota",
-    models: ["Camry", "Prius", "Corolla", "GR Supra", "Highlander", "Land Cruiser"]
+    models: [
+      "Camry",
+      "Prius",
+      "Corolla",
+      "GR Supra",
+      "Highlander",
+      "Land Cruiser",
+    ],
   },
   honda: {
-    name: "Honda", 
-    models: ["Civic", "Accord", "HR-V", "CR-V", "Ridgeline"]
+    name: "Honda",
+    models: ["Civic", "Accord", "HR-V", "CR-V", "Ridgeline"],
   },
   suzuki: {
     name: "Suzuki",
-    models: ["Jimny", "Carry", "XL6", "Ciaz", "Grand Vitara", "BALENO", "Celerio"]
+    models: [
+      "Jimny",
+      "Carry",
+      "XL6",
+      "Ciaz",
+      "Grand Vitara",
+      "BALENO",
+      "Celerio",
+    ],
   },
   ford: {
     name: "Ford",
-    models: ["Bronco", "EcoSport", "Mustang", "Explorer", "Escape", "Kuga"]
+    models: ["Bronco", "EcoSport", "Mustang", "Explorer", "Escape", "Kuga"],
   },
   mazda: {
     name: "Mazda",
-    models: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-50"]
+    models: ["Mazda2", "Mazda3", "Mazda6", "CX-3", "CX-30", "CX-5", "CX-50"],
   },
   isuzu: {
     name: "Isuzu",
-    models: ["D-max", "Bellel", "Bellett", "Elf", "Gemini", "Panther"]
+    models: ["D-max", "Bellel", "Bellett", "Elf", "Gemini", "Panther"],
   },
   subaru: {
     name: "Subaru",
-    models: ["Ascent", "BRZ", "Crosstrek", "Outback", "Legacy", "Impreza"]
-  }
+    models: ["Ascent", "BRZ", "Crosstrek", "Outback", "Legacy", "Impreza"],
+  },
 };
 
 const CustomerDashboard = () => {
-  const [activeTab, setActiveTab] = useState("appointments");
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Initialize tab from query param if present
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("tab") || "appointments";
+  });
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,6 +87,18 @@ const CustomerDashboard = () => {
   const [selectedBreakdown, setSelectedBreakdown] = useState(null);
   const [showBreakdownDetails, setShowBreakdownDetails] = useState(false);
   const { user } = useAuth();
+  // Keep URL in sync when tab changes (so refresh/deep-link works)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (activeTab !== (params.get("tab") || "appointments")) {
+      params.set("tab", activeTab);
+      navigate(
+        { pathname: location.pathname, search: params.toString() },
+        { replace: true }
+      );
+    }
+  }, [activeTab]);
+
   const {
     register,
     handleSubmit,
@@ -232,10 +265,13 @@ const CustomerDashboard = () => {
       };
 
       const response = await vehicleAPI.addVehicle(vehicleData);
-      const newVehicle = response.data;
+      // Backend returns { success, message, data: { ...vehicle } }
+      const newVehicle = response?.data?.data || response?.data;
 
       // Update local state
-      const updatedVehicles = [...vehicles, newVehicle];
+      const updatedVehicles = Array.isArray(vehicles)
+        ? [...vehicles, newVehicle]
+        : [newVehicle];
       saveVehicles(updatedVehicles);
 
       setShowAddVehicleForm(false);
@@ -245,7 +281,9 @@ const CustomerDashboard = () => {
 
       // Refresh vehicles from API
       const vehiclesResponse = await vehicleAPI.getUserVehicles();
-      setVehicles(vehiclesResponse.data || []);
+      const vehiclesData =
+        vehiclesResponse?.data?.data || vehiclesResponse?.data || [];
+      setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
     } catch (error) {
       console.error("Error adding vehicle:", error);
       const errorMessage =
@@ -790,16 +828,20 @@ const CustomerDashboard = () => {
                               {...register("brand", {
                                 required: "Brand is required",
                               })}
-                              onChange={(e) => handleBrandChange(e.target.value)}
+                              onChange={(e) =>
+                                handleBrandChange(e.target.value)
+                              }
                             >
                               <option value="" disabled hidden>
                                 Select Brand
                               </option>
-                              {Object.entries(vehicleData).map(([key, brand]) => (
-                                <option key={key} value={key}>
-                                  {brand.name}
-                                </option>
-                              ))}
+                              {Object.entries(vehicleData).map(
+                                ([key, brand]) => (
+                                  <option key={key} value={key}>
+                                    {brand.name}
+                                  </option>
+                                )
+                              )}
                             </select>
                             {errors.brand && (
                               <p className="mt-1 text-sm text-red-600">
@@ -821,13 +863,17 @@ const CustomerDashboard = () => {
                               })}
                             >
                               <option value="" disabled hidden>
-                                {selectedBrand ? "Select Model" : "Select Brand First"}
+                                {selectedBrand
+                                  ? "Select Model"
+                                  : "Select Brand First"}
                               </option>
-                              {getAvailableModels(selectedBrand).map((model) => (
-                                <option key={model} value={model}>
-                                  {model}
-                                </option>
-                              ))}
+                              {getAvailableModels(selectedBrand).map(
+                                (model) => (
+                                  <option key={model} value={model}>
+                                    {model}
+                                  </option>
+                                )
+                              )}
                             </select>
                             {errors.model && (
                               <p className="mt-1 text-sm text-red-600">
@@ -1009,7 +1055,9 @@ const CustomerDashboard = () => {
                 {loadingBreakdowns ? (
                   <div className="text-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-red-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Loading breakdown requests...</p>
+                    <p className="text-gray-600">
+                      Loading breakdown requests...
+                    </p>
                   </div>
                 ) : breakdownRequests.length === 0 ? (
                   <div className="text-center py-12">
@@ -1031,7 +1079,9 @@ const CustomerDashboard = () => {
                 ) : (
                   <div className="space-y-4">
                     {breakdownRequests.map((request) => {
-                      const customerStatus = getCustomerFriendlyStatus(request.status);
+                      const customerStatus = getCustomerFriendlyStatus(
+                        request.status
+                      );
                       return (
                         <div
                           key={request.requestId}
@@ -1045,7 +1095,8 @@ const CustomerDashboard = () => {
                                     {request.emergencyType}
                                   </h4>
                                   <p className="text-sm text-gray-600">
-                                    Vehicle: {request.vehicleNumber} ({request.vehicleType || "Unknown Type"})
+                                    Vehicle: {request.vehicleNumber} (
+                                    {request.vehicleType || "Unknown Type"})
                                   </p>
                                 </div>
                                 <span
@@ -1060,23 +1111,34 @@ const CustomerDashboard = () => {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                 <div>
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Requested:</span>{" "}
+                                    <span className="font-medium">
+                                      Requested:
+                                    </span>{" "}
                                     {request.createdAt
-                                      ? new Date(request.createdAt).toLocaleString()
+                                      ? new Date(
+                                          request.createdAt
+                                        ).toLocaleString()
                                       : "Unknown"}
                                   </p>
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Location:</span>{" "}
+                                    <span className="font-medium">
+                                      Location:
+                                    </span>{" "}
                                     {request.latitude}, {request.longitude}
                                   </p>
                                 </div>
                                 <div>
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Contact:</span>{" "}
-                                    {request.contactName} - {request.contactPhone}
+                                    <span className="font-medium">
+                                      Contact:
+                                    </span>{" "}
+                                    {request.contactName} -{" "}
+                                    {request.contactPhone}
                                   </p>
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Request ID:</span>{" "}
+                                    <span className="font-medium">
+                                      Request ID:
+                                    </span>{" "}
                                     #{request.requestId}
                                   </p>
                                 </div>
@@ -1085,7 +1147,9 @@ const CustomerDashboard = () => {
                               {request.problemDescription && (
                                 <div className="mb-4">
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Problem Description:</span>
+                                    <span className="font-medium">
+                                      Problem Description:
+                                    </span>
                                   </p>
                                   <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg mt-1">
                                     {request.problemDescription}
@@ -1096,7 +1160,9 @@ const CustomerDashboard = () => {
                               {request.additionalInfo && (
                                 <div className="mb-4">
                                   <p className="text-sm text-gray-600">
-                                    <span className="font-medium">Additional Information:</span>
+                                    <span className="font-medium">
+                                      Additional Information:
+                                    </span>
                                   </p>
                                   <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-lg mt-1">
                                     {request.additionalInfo}
@@ -1272,14 +1338,20 @@ const CustomerDashboard = () => {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900">Request Information</h4>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Request Information
+                  </h4>
                   <div>
                     <div className="text-sm text-gray-600">Request ID</div>
-                    <div className="font-medium">#{selectedBreakdown.requestId}</div>
+                    <div className="font-medium">
+                      #{selectedBreakdown.requestId}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Emergency Type</div>
-                    <div className="font-medium">{selectedBreakdown.emergencyType}</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.emergencyType}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Status</div>
@@ -1302,37 +1374,52 @@ const CustomerDashboard = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900">Vehicle Information</h4>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Vehicle Information
+                  </h4>
                   <div>
                     <div className="text-sm text-gray-600">Vehicle Number</div>
-                    <div className="font-mono font-medium">{selectedBreakdown.vehicleNumber}</div>
+                    <div className="font-mono font-medium">
+                      {selectedBreakdown.vehicleNumber}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Vehicle Type</div>
-                    <div className="font-medium">{selectedBreakdown.vehicleType || "Not specified"}</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.vehicleType || "Not specified"}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Location</div>
                     <div className="font-medium">
-                      {selectedBreakdown.latitude}, {selectedBreakdown.longitude}
+                      {selectedBreakdown.latitude},{" "}
+                      {selectedBreakdown.longitude}
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900">Contact Information</h4>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Contact Information
+                  </h4>
                   <div>
                     <div className="text-sm text-gray-600">Name</div>
-                    <div className="font-medium">{selectedBreakdown.contactName}</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.contactName}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Phone</div>
-                    <div className="font-medium">{selectedBreakdown.contactPhone}</div>
+                    <div className="font-medium">
+                      {selectedBreakdown.contactPhone}
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900">Problem Details</h4>
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Problem Details
+                  </h4>
                   {selectedBreakdown.problemDescription && (
                     <div>
                       <div className="text-sm text-gray-600">Description</div>
@@ -1343,7 +1430,9 @@ const CustomerDashboard = () => {
                   )}
                   {selectedBreakdown.additionalInfo && (
                     <div>
-                      <div className="text-sm text-gray-600">Additional Information</div>
+                      <div className="text-sm text-gray-600">
+                        Additional Information
+                      </div>
                       <div className="font-medium bg-gray-50 p-3 rounded-lg">
                         {selectedBreakdown.additionalInfo}
                       </div>

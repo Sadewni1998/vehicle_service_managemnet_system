@@ -142,6 +142,7 @@ export const serviceAdvisorAPI = {
     api.put(`/bookings/${bookingId}/assign-spare-parts`, { spareParts }),
   getJobcardsReadyForReview: () => api.get(`/jobcards/ready-for-review`),
   approveJobcard: (jobcardId) => api.put(`/jobcards/${jobcardId}/approve`),
+  getDashboardStats: () => api.get(`/jobcards/stats/service-advisor`),
 };
 
 // Mechanics API
@@ -161,7 +162,9 @@ export const jobcardAPI = {
   assignMechanics: (jobcardId, mechanicIds) =>
     api.put(`/jobcards/${jobcardId}/assign-mechanics`, { mechanicIds }),
   markMechanicCompleted: (jobcardId, mechanicId, notes) =>
-    api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/complete`, { notes }),
+    api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/complete`, {
+      notes,
+    }),
   updateMechanicNotes: (jobcardId, mechanicId, notes) =>
     api.put(`/jobcards/${jobcardId}/mechanics/${mechanicId}/notes`, { notes }),
 };
