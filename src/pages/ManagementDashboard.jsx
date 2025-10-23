@@ -11,6 +11,11 @@ import {
   XCircle,
   RefreshCw,
   FileText,
+  Plus,
+  Package,
+  Upload,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import {
   bookingsAPI,
@@ -66,6 +71,45 @@ const ManagementDashboard = () => {
     },
   });
   const [roleAvailability, setRoleAvailability] = useState({});
+
+  // E-shop management state
+  const [eShopItems, setEShopItems] = useState([]);
+  const [showEShopForm, setShowEShopForm] = useState(false);
+  const [editingEShopItemId, setEditingEShopItemId] = useState(null);
+  const [eShopForm, setEShopForm] = useState({
+    name: "",
+    description: "",
+    itemCode: "",
+    quantity: 0,
+    price: 0,
+    discount: 0,
+    image: null,
+    brand: "",
+    type: "",
+  });
+
+  // Services management state
+  const [services, setServices] = useState([]);
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState(null);
+  const [serviceForm, setServiceForm] = useState({
+    name: "",
+    charge: 0,
+    discount: 0,
+  });
+
+  // Spare parts management state
+  const [spareParts, setSpareParts] = useState([]);
+  const [showAddSparePartModal, setShowAddSparePartModal] = useState(false);
+  const [editingSparePartId, setEditingSparePartId] = useState(null);
+  const [sparePartForm, setSparePartForm] = useState({
+    partName: "",
+    partCode: "",
+    description: "",
+    price: "",
+    brand: "Any",
+    category: "Engine",
+  });
 
   // Load dashboard data
   useEffect(() => {
@@ -274,6 +318,200 @@ const ManagementDashboard = () => {
     }));
   };
 
+  // Handle e-shop form input changes
+  const handleEShopFormChange = (field, value) => {
+    setEShopForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Handle image upload
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setEShopForm((prev) => ({
+        ...prev,
+        image: file,
+      }));
+    }
+  };
+
+  // Handle service form input changes
+  const handleServiceFormChange = (field, value) => {
+    setServiceForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Submit service
+  const handleServiceSubmit = (e) => {
+    e.preventDefault();
+    
+    if (editingServiceId) {
+      // Update existing service
+      setServices((prev) =>
+        prev.map((service) =>
+          service.id === editingServiceId
+            ? {
+                ...service,
+                name: serviceForm.name,
+                charge: serviceForm.charge,
+                discount: serviceForm.discount,
+                updatedAt: new Date().toISOString(),
+              }
+            : service
+        )
+      );
+    } else {
+      // Create new service with unique ID
+      const newService = {
+        id: Date.now(), // Simple ID generation for demo
+        name: serviceForm.name,
+        charge: serviceForm.charge,
+        discount: serviceForm.discount,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Add to services list
+      setServices((prev) => [...prev, newService]);
+    }
+
+    // Reset form
+    setServiceForm({
+      name: "",
+      charge: 0,
+      discount: 0,
+    });
+
+    // Reset editing state
+    setEditingServiceId(null);
+
+    // Close modal
+    setShowServiceForm(false);
+  };
+
+  // Handle edit service
+  const handleEditService = (service) => {
+    setServiceForm({
+      name: service.name,
+      charge: service.charge,
+      discount: service.discount,
+    });
+    setShowServiceForm(true);
+    // Store the service ID for editing
+    setEditingServiceId(service.id);
+  };
+
+  // Handle delete service
+  const handleDeleteService = (serviceId) => {
+    if (window.confirm('Are you sure you want to delete this service?')) {
+      setServices((prev) => prev.filter((service) => service.id !== serviceId));
+    }
+  };
+
+  // Submit e-shop item
+  const handleEShopSubmit = (e) => {
+    e.preventDefault();
+    
+    if (editingEShopItemId) {
+      // Update existing item
+      setEShopItems((prev) =>
+        prev.map((item) =>
+          item.id === editingEShopItemId
+            ? {
+                ...item,
+                name: eShopForm.name,
+                description: eShopForm.description,
+                quantity: eShopForm.quantity,
+                price: eShopForm.price,
+                discount: eShopForm.discount,
+                image: eShopForm.image,
+                brand: eShopForm.brand,
+                type: eShopForm.type,
+                updatedAt: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+    } else {
+      // Create new item with unique ID
+      const newItem = {
+        id: Date.now(), // Simple ID generation for demo
+        name: eShopForm.name,
+        description: eShopForm.description,
+        itemCode: eShopForm.itemCode,
+        quantity: eShopForm.quantity,
+        price: eShopForm.price,
+        discount: eShopForm.discount,
+        image: eShopForm.image,
+        brand: eShopForm.brand,
+        type: eShopForm.type,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Add to items list
+      setEShopItems((prev) => [...prev, newItem]);
+    }
+
+    // Reset form
+    setEShopForm({
+      name: "",
+      description: "",
+      itemCode: "",
+      quantity: 0,
+      price: 0,
+      discount: 0,
+      image: null,
+      brand: "",
+      type: "",
+    });
+
+    // Reset editing state
+    setEditingEShopItemId(null);
+
+    // Close modal
+    setShowEShopForm(false);
+  };
+
+  // Handle image removal for e-shop
+  const handleImageRemove = () => {
+    setEShopForm((prev) => ({
+      ...prev,
+      image: null,
+    }));
+    // Reset the file input
+    const fileInput = document.getElementById('item-image');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  // Handle edit e-shop item
+  const handleEditEShopItem = (item) => {
+    setEShopForm({
+      name: item.name,
+      description: item.description,
+      itemCode: item.itemCode || "",
+      quantity: item.quantity,
+      price: item.price,
+      discount: item.discount,
+      image: item.image,
+      brand: item.brand,
+      type: item.type,
+    });
+    setShowEShopForm(true);
+    setEditingEShopItemId(item.id);
+  };
+
+  // Handle delete e-shop item
+  const handleDeleteEShopItem = (itemId) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      setEShopItems((prev) => prev.filter((item) => item.id !== itemId));
+    }
+  };
+
   // Submit staff registration
   const handleStaffSubmit = async (e) => {
     e.preventDefault();
@@ -333,6 +571,83 @@ const ManagementDashboard = () => {
     } catch (err) {
       console.error("Failed to create staff member:", err);
       setError(err.response?.data?.message || "Failed to create staff member");
+    }
+  };
+
+  // Handle add/edit spare part
+  const handleAddSparePart = (e) => {
+    e.preventDefault();
+    
+    if (editingSparePartId) {
+      // Update existing spare part
+      setSpareParts((prev) =>
+        prev.map((part) =>
+          part.id === editingSparePartId
+            ? {
+                ...part,
+                partName: sparePartForm.partName,
+                partCode: sparePartForm.partCode,
+                description: sparePartForm.description,
+                price: parseFloat(sparePartForm.price),
+                brand: sparePartForm.brand,
+                category: sparePartForm.category,
+                updatedAt: new Date().toISOString(),
+              }
+            : part
+        )
+      );
+    } else {
+      // Create new spare part object
+      const newSparePart = {
+        id: Date.now(), // Simple ID generation for demo
+        partName: sparePartForm.partName,
+        partCode: sparePartForm.partCode,
+        description: sparePartForm.description,
+        price: parseFloat(sparePartForm.price),
+        brand: sparePartForm.brand,
+        category: sparePartForm.category,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Add to spare parts list
+      setSpareParts(prev => [...prev, newSparePart]);
+    }
+
+    // Reset form
+    setSparePartForm({
+      partName: "",
+      partCode: "",
+      description: "",
+      price: "",
+      brand: "Any",
+      category: "Engine",
+    });
+
+    // Reset editing state
+    setEditingSparePartId(null);
+
+    // Close modal
+    setShowAddSparePartModal(false);
+  };
+
+  // Handle edit spare part
+  const handleEditSparePart = (part) => {
+    setSparePartForm({
+      partName: part.partName,
+      partCode: part.partCode,
+      description: part.description,
+      price: part.price.toString(),
+      brand: part.brand,
+      category: part.category,
+    });
+    setShowAddSparePartModal(true);
+    setEditingSparePartId(part.id);
+  };
+
+  // Handle delete spare part
+  const handleDeleteSparePart = (partId) => {
+    if (window.confirm('Are you sure you want to delete this spare part?')) {
+      setSpareParts((prev) => prev.filter((part) => part.id !== partId));
     }
   };
 
@@ -455,6 +770,8 @@ const ManagementDashboard = () => {
     { id: "staff", label: "Staff" },
     { id: "bookings", label: "Bookings" },
     { id: "breakdown-requests", label: "Breakdown Requests" },
+    { id: "services", label: "Services" },
+    { id: "spare-parts", label: "Spare Parts" },
     { id: "e-shop", label: "E-shop" },
   ];
 
@@ -776,7 +1093,7 @@ const ManagementDashboard = () => {
                       <thead>
                         <tr className="bg-gray-50">
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
-                            TIME SLOT
+                            DATE & TIME
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
                             VEHICLE NUMBER
@@ -810,7 +1127,18 @@ const ManagementDashboard = () => {
                             }`}
                           >
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {booking.timeSlot}
+                              <div className="flex flex-col">
+                                <span className="font-medium text-gray-900">
+                                  {new Date(booking.bookingDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                                <span className="text-gray-600 text-xs">
+                                  {booking.timeSlot}
+                                </span>
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {booking.vehicleNumber}
@@ -1129,17 +1457,330 @@ const ManagementDashboard = () => {
               </div>
             )}
 
+            {activeTab === "services" && (
+              <div>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Services Management
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Manage your service offerings and pricing
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowServiceForm(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Service
+                  </button>
+                </div>
+
+                {services.length === 0 ? (
+                  <div className="text-center py-12">
+                    <TrendingUp className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No services added yet</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Click "Add New Service" to get started
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            SERVICE NAME
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            SERVICE CHARGE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            DISCOUNT
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            FINAL PRICE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ACTIONS
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {services.map((service, index) => {
+                          const finalPrice = service.charge - (service.charge * service.discount / 100);
+                          return (
+                            <tr
+                              key={service.id}
+                              className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                                index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              }`}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {service.name}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                Rs. {service.charge.toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {service.discount > 0 ? `${service.discount}%` : "-"}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                Rs. {finalPrice.toLocaleString()}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => handleEditService(service)}
+                                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                                    title="Edit service"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteService(service.id)}
+                                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                    title="Delete service"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "spare-parts" && (
+              <div>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Spare Parts Management
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Manage your spare parts inventory and pricing
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddSparePartModal(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Spare Part
+                  </button>
+                </div>
+
+                {spareParts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No spare parts added yet</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Click "Add New Spare Part" to get started
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            PART CODE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            PART NAME
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            BRAND
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            CATEGORY
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            PRICE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ACTIONS
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {spareParts.map((part, index) => (
+                          <tr
+                            key={index}
+                            className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {part.partCode}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {part.partName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {part.brand}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {part.category}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                              Rs. {part.price.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEditSparePart(part)}
+                                  className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                                  title="Edit spare part"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSparePart(part.id)}
+                                  className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                  title="Delete spare part"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === "e-shop" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  E-Shop Management
-                </h3>
-                <div className="text-center py-12">
-                  <TrendingUp className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    E-Shop management features coming soon
-                  </p>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      E-Shop Management
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Manage your online store inventory
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowEShopForm(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add New Item
+                  </button>
                 </div>
+
+                {eShopItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No items in your e-shop yet</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Click "Add New Item" to get started
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ITEM CODE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ITEM NAME
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            QUANTITY
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            PRICE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            BRAND
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            TYPE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            DISCOUNT
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            FINAL PRICE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ACTIONS
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {eShopItems.map((item, index) => (
+                          <tr
+                            key={item.id}
+                            className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {item.itemCode || "-"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.quantity}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              Rs. {item.price.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.brand}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.type}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {item.discount > 0 ? `${item.discount}%` : "-"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                              Rs. {(item.price - (item.price * item.discount / 100)).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleEditEShopItem(item)}
+                                  className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                                  title="Edit item"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteEShopItem(item.id)}
+                                  className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                  title="Delete item"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1885,6 +2526,636 @@ const ManagementDashboard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Service Form Modal */}
+      {showServiceForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {editingServiceId ? "Edit Service" : "Add New Service"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowServiceForm(false);
+                    setEditingServiceId(null);
+                    setServiceForm({ name: "", charge: 0, discount: 0 });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleServiceSubmit} className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={serviceForm.name}
+                    onChange={(e) =>
+                      handleServiceFormChange("name", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Enter service name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service Charge (Rs.) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    value={serviceForm.charge}
+                    onChange={(e) =>
+                      handleServiceFormChange("charge", parseFloat(e.target.value) || 0)
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Discount (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={serviceForm.discount}
+                    onChange={(e) =>
+                      handleServiceFormChange("discount", parseInt(e.target.value) || 0)
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="0"
+                  />
+                </div>
+
+                {/* Price Preview */}
+                {serviceForm.charge > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600">
+                        Original Price:
+                      </span>
+                      <span className="text-sm text-gray-900">
+                        Rs. {serviceForm.charge.toLocaleString()}
+                      </span>
+                    </div>
+                    {serviceForm.discount > 0 && (
+                      <>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-sm font-medium text-gray-600">
+                            Discount ({serviceForm.discount}%):
+                          </span>
+                          <span className="text-sm text-red-600">
+                            -Rs. {(serviceForm.charge * serviceForm.discount / 100).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                          <span className="font-medium text-gray-900">
+                            Final Price:
+                          </span>
+                          <span className="font-bold text-green-600">
+                            Rs. {(serviceForm.charge - (serviceForm.charge * serviceForm.discount / 100)).toLocaleString()}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowServiceForm(false);
+                    setEditingServiceId(null);
+                    setServiceForm({ name: "", charge: 0, discount: 0 });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  {editingServiceId ? "Update Service" : "Create Service"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* E-Shop Item Form Modal */}
+      {showEShopForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {editingEShopItemId ? "Edit Item" : "Add New Item"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowEShopForm(false);
+                    setEditingEShopItemId(null);
+                    setEShopForm({
+                      name: "",
+                      description: "",
+                      itemCode: "",
+                      quantity: 0,
+                      price: 0,
+                      discount: 0,
+                      image: null,
+                      brand: "",
+                      type: "",
+                    });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleEShopSubmit} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Basic Information
+                  </h4>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Item Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={eShopForm.name}
+                      onChange={(e) =>
+                        handleEShopFormChange("name", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Enter item name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Item Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={eShopForm.itemCode}
+                      onChange={(e) =>
+                        handleEShopFormChange("itemCode", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Enter item code"
+                      onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
+                      onInput={(e) => e.target.setCustomValidity("")}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      required
+                      value={eShopForm.description}
+                      onChange={(e) =>
+                        handleEShopFormChange("description", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Enter item description"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={eShopForm.quantity}
+                      onChange={(e) =>
+                        handleEShopFormChange("quantity", parseInt(e.target.value) || 0)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="1"
+                      onInvalid={(e) => e.target.setCustomValidity("Please enter a quantity greater than 0")}
+                      onInput={(e) => e.target.setCustomValidity("")}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Price (Rs.) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0.01"
+                      step="0.01"
+                      value={eShopForm.price}
+                      onChange={(e) =>
+                        handleEShopFormChange("price", parseFloat(e.target.value) || 0)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="0.01"
+                      onInvalid={(e) => e.target.setCustomValidity("Please enter a price greater than 0")}
+                      onInput={(e) => e.target.setCustomValidity("")}
+                    />
+                  </div>
+                </div>
+
+                {/* Additional Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900">
+                    Additional Information
+                  </h4>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Discount (%)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={eShopForm.discount}
+                      onChange={(e) =>
+                        handleEShopFormChange("discount", parseInt(e.target.value) || 0)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Item Image
+                    </label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <div className="flex text-sm text-gray-600">
+                          <label
+                            htmlFor="item-image"
+                            className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-red-500"
+                          >
+                            <span>Upload a file</span>
+                            <input
+                              id="item-image"
+                              name="item-image"
+                              type="file"
+                              className="sr-only"
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                    </div>
+                    {eShopForm.image && (
+                      <div className="mt-2 flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-medium text-green-800">
+                              {eShopForm.image.name}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              {(eShopForm.image.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleImageRemove}
+                          className="ml-3 text-red-600 hover:text-red-800 transition-colors"
+                          title="Remove image"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand *
+                    </label>
+                    <select
+                      required
+                      value={eShopForm.brand}
+                      onChange={(e) =>
+                        handleEShopFormChange("brand", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
+                      onInput={(e) => e.target.setCustomValidity("")}
+                    >
+                      <option value="">Select a brand</option>
+                      <option value="Toyota">Toyota</option>
+                      <option value="Honda">Honda</option>
+                      <option value="Suzuki">Suzuki</option>
+                      <option value="Ford">Ford</option>
+                      <option value="Mazda">Mazda</option>
+                      <option value="Isuzu">Isuzu</option>
+                      <option value="Subaru">Subaru</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Item Type *
+                    </label>
+                    <select
+                      required
+                      value={eShopForm.type}
+                      onChange={(e) =>
+                        handleEShopFormChange("type", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
+                      onInput={(e) => e.target.setCustomValidity("")}
+                    >
+                      <option value="">Select item type</option>
+                      <option value="Engine Parts">Engine Parts</option>
+                      <option value="Brake Parts">Brake Parts</option>
+                      <option value="Suspension">Suspension</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Body Parts">Body Parts</option>
+                      <option value="Filters">Filters</option>
+                      <option value="Fluids">Fluids</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEShopForm(false);
+                    setEditingEShopItemId(null);
+                    setEShopForm({
+                      name: "",
+                      description: "",
+                      itemCode: "",
+                      quantity: 0,
+                      price: 0,
+                      discount: 0,
+                      image: null,
+                      brand: "",
+                      type: "",
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  {editingEShopItemId ? "Update Item" : "Create Item"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Spare Part Modal */}
+      {showAddSparePartModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {editingSparePartId ? "Edit Spare Part" : "Add New Spare Part"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowAddSparePartModal(false);
+                    setEditingSparePartId(null);
+                    setSparePartForm({
+                      partName: "",
+                      partCode: "",
+                      description: "",
+                      price: "",
+                      brand: "Any",
+                      category: "Engine",
+                    });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddSparePart} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Part Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Spare Part Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={sparePartForm.partName}
+                      onChange={(e) =>
+                        setSparePartForm({
+                          ...sparePartForm,
+                          partName: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter part name"
+                    />
+                  </div>
+
+                  {/* Part Code */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Spare Part Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={sparePartForm.partCode}
+                      onChange={(e) =>
+                        setSparePartForm({
+                          ...sparePartForm,
+                          partCode: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter part code"
+                    />
+                  </div>
+
+                  {/* Brand */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Brand *
+                    </label>
+                    <select
+                      required
+                      value={sparePartForm.brand}
+                      onChange={(e) =>
+                        setSparePartForm({
+                          ...sparePartForm,
+                          brand: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="Any">Any</option>
+                      <option value="Toyota">Toyota</option>
+                      <option value="Honda">Honda</option>
+                      <option value="Suzuki">Suzuki</option>
+                      <option value="Ford">Ford</option>
+                      <option value="Mazda">Mazda</option>
+                      <option value="Isuzu">Isuzu</option>
+                      <option value="Subaru">Subaru</option>
+                    </select>
+                  </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category *
+                    </label>
+                    <select
+                      required
+                      value={sparePartForm.category}
+                      onChange={(e) =>
+                        setSparePartForm({
+                          ...sparePartForm,
+                          category: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="Engine">Engine</option>
+                      <option value="Brake">Brake</option>
+                      <option value="Suspension">Suspension</option>
+                      <option value="Electrical">Electrical</option>
+                      <option value="Body Parts">Body Parts</option>
+                      <option value="Filters">Filters</option>
+                      <option value="Fluids">Fluids</option>
+                    </select>
+                  </div>
+
+                  {/* Price */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Price (Rs.) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="0.01"
+                      value={sparePartForm.price}
+                      onChange={(e) =>
+                        setSparePartForm({
+                          ...sparePartForm,
+                          price: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter price"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={sparePartForm.description}
+                    onChange={(e) =>
+                      setSparePartForm({
+                        ...sparePartForm,
+                        description: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter part description"
+                  />
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex justify-end space-x-3 pt-6 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddSparePartModal(false);
+                      setEditingSparePartId(null);
+                      setSparePartForm({
+                        partName: "",
+                        partCode: "",
+                        description: "",
+                        price: "",
+                        brand: "Any",
+                        category: "Engine",
+                      });
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+                  >
+                    {editingSparePartId ? "Update Spare Part" : "Create Spare Part"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

@@ -255,6 +255,37 @@ CREATE TABLE IF NOT EXISTS jobcardSparePart (
 );
 
 -- =======================================================
+-- E-SHOP TABLE
+-- =======================================================
+CREATE TABLE IF NOT EXISTS eshop (
+    itemId INT AUTO_INCREMENT PRIMARY KEY,
+    itemName VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    quantity INT NOT NULL DEFAULT 0,
+    discountPercentage DECIMAL(5, 2) DEFAULT 0.00,
+    itemImage VARCHAR(500),
+    itemBrand ENUM('Toyota', 'Honda', 'Suzuki', 'Ford', 'Mazda', 'Isuzu', 'Subaru') NOT NULL,
+    itemType ENUM('Engine Parts', 'Break Parts', 'Suspension', 'Electrical', 'Body Parts', 'Filters', 'Fluids') NOT NULL,
+    isActive BOOLEAN DEFAULT TRUE,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- =======================================================
+-- TEST E-SHOP DATA
+-- =======================================================
+INSERT INTO eshop (itemName, description, price, quantity, discountPercentage, itemImage, itemBrand, itemType)
+VALUES
+('Toyota Engine Oil Filter', 'High-quality oil filter for Toyota vehicles', 2500.00, 50, 5.00, 'images/eshop/toyota_oil_filter.jpg', 'Toyota', 'Filters'),
+('Honda Brake Pads Set', 'Premium brake pads for Honda models', 4500.00, 30, 0.00, 'images/eshop/honda_brake_pads.jpg', 'Honda', 'Break Parts'),
+('Suzuki Air Filter', 'OEM air filter for Suzuki engines', 1200.00, 40, 10.00, 'images/eshop/suzuki_air_filter.jpg', 'Suzuki', 'Filters'),
+('Ford Engine Mount', 'Heavy-duty engine mount for Ford trucks', 8500.00, 15, 0.00, 'images/eshop/ford_engine_mount.jpg', 'Ford', 'Engine Parts'),
+('Mazda Suspension Strut', 'Front suspension strut for Mazda sedans', 12000.00, 20, 15.00, 'images/eshop/mazda_strut.jpg', 'Mazda', 'Suspension'),
+('Isuzu Alternator', 'High-output alternator for Isuzu diesel engines', 18000.00, 10, 0.00, 'images/eshop/isuzu_alternator.jpg', 'Isuzu', 'Electrical'),
+('Subaru Timing Belt', 'OEM timing belt for Subaru boxer engines', 3500.00, 25, 5.00, 'images/eshop/subaru_timing_belt.jpg', 'Subaru', 'Engine Parts');
+
+-- =======================================================
 -- TEST BOOKINGS
 -- =======================================================
 INSERT INTO booking (
