@@ -192,6 +192,7 @@ export const vehicleAPI = {
   deleteVehicle: (id) => api.delete(`/vehicles/${id}`),
 };
 
+
 // General API
 export const generalAPI = {
   getServices: () => api.get("/users/services"),
