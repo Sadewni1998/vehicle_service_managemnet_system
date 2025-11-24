@@ -166,7 +166,7 @@ const Home = () => {
 
   const stats = [
     { number: "15", label: "Years Experience", icon: <Check className="w-8 h-8" /> },
-    { number: "30", label: "Expert Technicians", icon: <Users className="w-8 h-8" /> },
+    { number: "35", label: "Expert Technicians", icon: <Users className="w-8 h-8" /> },
     { number: "2000", label: "Satisfied Clients", icon: <Users className="w-8 h-8" /> },
     { number: "20000", label: "Complete Projects", icon: <Car className="w-8 h-8" /> }
   ]
