@@ -2880,6 +2880,7 @@ const ManagementDashboard = () => {
                       Brand *
                     </label>
                     <select
+                      defaultValue=""
                       required
                       value={eShopForm.brand}
                       onChange={(e) =>
@@ -2889,7 +2890,7 @@ const ManagementDashboard = () => {
                       onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
                       onInput={(e) => e.target.setCustomValidity("")}
                     >
-                      <option value="">Select a brand</option>
+                      <option value="" disabled hidden>Select Brand</option>
                       <option value="Toyota">Toyota</option>
                       <option value="Honda">Honda</option>
                       <option value="Suzuki">Suzuki</option>
@@ -2905,6 +2906,7 @@ const ManagementDashboard = () => {
                       Item Type *
                     </label>
                     <select
+                      defaultValue=""
                       required
                       value={eShopForm.type}
                       onChange={(e) =>
@@ -2914,7 +2916,7 @@ const ManagementDashboard = () => {
                       onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
                       onInput={(e) => e.target.setCustomValidity("")}
                     >
-                      <option value="">Select item type</option>
+                      <option value="" disabled hidden>Select Type</option>
                       <option value="Engine Parts">Engine Parts</option>
                       <option value="Brake Parts">Brake Parts</option>
                       <option value="Suspension">Suspension</option>

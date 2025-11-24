@@ -18,6 +18,8 @@ import ReceptionistDashboard from './pages/ReceptionistDashboard'
 import ServiceAdvisorDashboard from './pages/ServiceAdvisorDashboard'
 import MechanicDashboard from './pages/MechanicDashboard'
 import ManagementDashboard from './pages/ManagementDashboard'
+import ForgotPassword from './pages/ForgotPassword'
+import Validation from './pages/Validation'
 function App() {
   return (
     <AuthProvider>
@@ -41,6 +43,8 @@ function App() {
               <Route path="/parts" element={<Parts />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/validation" element={<Validation />} />
             </Routes>
           </main>
           <Footer />
