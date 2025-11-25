@@ -16,6 +16,7 @@ import {
   Upload,
   Edit,
   Trash2,
+  Search,
 } from "lucide-react";
 import {
   bookingsAPI,
@@ -54,12 +55,14 @@ const ManagementDashboard = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [bookingSearchQuery, setBookingSearchQuery] = useState("");
   // Breakdown requests state
   const [breakdownRequests, setBreakdownRequests] = useState([]);
   const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
   const [selectedBreakdown, setSelectedBreakdown] = useState(null);
   const [showBreakdownDetails, setShowBreakdownDetails] = useState(false);
   const [lastUpdatedBreakdowns, setLastUpdatedBreakdowns] = useState(null);
+  const [breakdownSearchQuery, setBreakdownSearchQuery] = useState("");
 
   // Staff management state
   const [staff, setStaff] = useState([]);
@@ -798,6 +801,25 @@ const ManagementDashboard = () => {
     { id: "e-shop", label: "E-shop" },
   ];
 
+  const normalizedBookingSearch = bookingSearchQuery.trim().toLowerCase();
+  const hasBookingSearch = normalizedBookingSearch.length > 0;
+  const noBookings = bookings.length === 0;
+  const filteredBookings = bookings.filter((booking) => {
+    if (!normalizedBookingSearch) return true;
+    return (booking.vehicleNumber || "")
+      .toLowerCase()
+      .includes(normalizedBookingSearch);
+  });
+
+  const normalizedBreakdownSearch = breakdownSearchQuery.trim().toLowerCase();
+  const noBreakdownRequests = breakdownRequests.length === 0;
+  const filteredBreakdownRequests = breakdownRequests.filter((request) => {
+    if (!normalizedBreakdownSearch) return true;
+    return (request.vehicleNumber || "")
+      .toLowerCase()
+      .includes(normalizedBreakdownSearch);
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
@@ -1082,7 +1104,7 @@ const ManagementDashboard = () => {
             {activeTab === "bookings" && (
               <div>
                 {/* Header */}
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">
                       All Bookings
@@ -1093,22 +1115,61 @@ const ManagementDashboard = () => {
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-3 w-full lg:w-auto">
                     <span className="text-sm text-gray-600">
-                      Total: {bookings.length} bookings
+                      Showing {filteredBookings.length} of {bookings.length} bookings
                     </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="relative w-full sm:w-64">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={bookingSearchQuery}
+                          onChange={(e) => setBookingSearchQuery(e.target.value)}
+                          placeholder="Search by vehicle number"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                          aria-label="Search bookings by vehicle number"
+                        />
+                      </div>
+                      {bookingSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setBookingSearchQuery("")}
+                          className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {loadingBookings && bookings.length === 0 ? (
+                {loadingBookings && noBookings ? (
                   <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
                     <p className="text-gray-600 mt-4">Loading bookings...</p>
                   </div>
-                ) : bookings.length === 0 ? (
+                ) : noBookings ? (
                   <div className="text-center py-12">
                     <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600">No bookings found</p>
+                  </div>
+                ) : filteredBookings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      No bookings found for vehicle number{" "}
+                      <span className="font-semibold text-gray-900">
+                        {bookingSearchQuery}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setBookingSearchQuery("")}
+                      className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors"
+                    >
+                      Clear search
+                    </button>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1142,7 +1203,7 @@ const ManagementDashboard = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white">
-                        {bookings.map((booking, index) => (
+                        {filteredBookings.map((booking, index) => (
                           <tr
                             key={booking.bookingId}
                             className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
@@ -1293,7 +1354,7 @@ const ManagementDashboard = () => {
 
             {activeTab === "breakdown-requests" && (
               <div>
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
                   <div>
                     <h3 className="text-xl font-bold text-gray-900">
                       Breakdown Requests
@@ -1305,24 +1366,64 @@ const ManagementDashboard = () => {
                       </p>
                     )}
                   </div>
-                  <div>
+                  <div className="flex flex-col gap-3 w-full lg:w-auto">
                     <span className="text-sm text-gray-600">
-                      Total: {breakdownRequests.length}
+                      Showing {filteredBreakdownRequests.length} of{" "}
+                      {breakdownRequests.length} requests
                     </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="relative w-full sm:w-64">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={breakdownSearchQuery}
+                          onChange={(e) => setBreakdownSearchQuery(e.target.value)}
+                          placeholder="Search by vehicle number"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                          aria-label="Search breakdown requests by vehicle number"
+                        />
+                      </div>
+                      {breakdownSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setBreakdownSearchQuery("")}
+                          className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {loadingBreakdowns && breakdownRequests.length === 0 ? (
+                {loadingBreakdowns && noBreakdownRequests ? (
                   <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
                     <p className="text-gray-600 mt-4">
                       Loading breakdown requests...
                     </p>
                   </div>
-                ) : breakdownRequests.length === 0 ? (
+                ) : noBreakdownRequests ? (
                   <div className="text-center py-12">
                     <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-600">No breakdown requests found</p>
+                  </div>
+                ) : filteredBreakdownRequests.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      No breakdown requests found for vehicle number{" "}
+                      <span className="font-semibold text-gray-900">
+                        {breakdownSearchQuery}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownSearchQuery("")}
+                      className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors"
+                    >
+                      Clear search
+                    </button>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -1353,7 +1454,7 @@ const ManagementDashboard = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white">
-                        {breakdownRequests.map((req, idx) => (
+                        {filteredBreakdownRequests.map((req, idx) => (
                           <tr
                             key={req.requestId}
                             className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
