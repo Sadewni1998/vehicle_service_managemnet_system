@@ -17,6 +17,24 @@ router.get(
   invoiceController.generateInvoice
 );
 
+// Route to get customer invoices
+// GET /api/invoices/customer
+router.get(
+  "/customer",
+  ensureAuthenticated,
+  checkRole(["customer"]),
+  invoiceController.getCustomerInvoices
+);
+
+// Route to download existing invoice PDF for customers
+// GET /api/invoices/:bookingId/download
+router.get(
+  "/:bookingId/download",
+  ensureAuthenticated,
+  checkRole(["customer"]),
+  invoiceController.downloadCustomerInvoice
+);
+
 // Route to finalize an invoice and mark booking as completed (after verification)
 // POST /api/invoices/:bookingId/finalize
 router.post(

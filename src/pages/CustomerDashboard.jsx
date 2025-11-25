@@ -14,9 +14,16 @@ import {
   X,
   Edit,
   Trash2,
+  XCircle,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { bookingsAPI, vehicleAPI, breakdownAPI } from "../utils/api";
+import {
+  bookingsAPI,
+  vehicleAPI,
+  breakdownAPI,
+  invoiceAPI,
+} from "../utils/api";
 import toast from "react-hot-toast";
 
 // Vehicle brand and model data structure
@@ -86,6 +93,10 @@ const CustomerDashboard = () => {
   const [loadingBreakdowns, setLoadingBreakdowns] = useState(false);
   const [selectedBreakdown, setSelectedBreakdown] = useState(null);
   const [showBreakdownDetails, setShowBreakdownDetails] = useState(false);
+  const [invoices, setInvoices] = useState([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const { user } = useAuth();
   // Keep URL in sync when tab changes (so refresh/deep-link works)
   useEffect(() => {
@@ -225,6 +236,28 @@ const CustomerDashboard = () => {
     fetchBreakdownRequests();
   }, [activeTab, user]);
 
+  // Fetch invoices when tab is active
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      if (activeTab === "bills" && user) {
+        setLoadingInvoices(true);
+        try {
+          const response = await invoiceAPI.getCustomerInvoices();
+          setInvoices(response.data?.data || response.data || []);
+          setError(null);
+        } catch (err) {
+          console.error("Error fetching invoices:", err);
+          setError("Failed to load invoices");
+          toast.error("Failed to load your invoices");
+        } finally {
+          setLoadingInvoices(false);
+        }
+      }
+    };
+
+    fetchInvoices();
+  }, [activeTab, user]);
+
   // Retry function for failed API calls
   const retryFetchBookings = () => {
     setRetryCount((prev) => prev + 1);
@@ -321,6 +354,38 @@ const CustomerDashboard = () => {
         console.error("Error deleting vehicle:", error);
         const errorMessage =
           error.response?.data?.message || "Failed to delete vehicle";
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  // Cancel booking
+  const cancelBooking = async (bookingId) => {
+    if (window.confirm("Are you sure you want to cancel this booking?")) {
+      try {
+        await bookingsAPI.cancel(bookingId);
+
+        // Update local state immediately
+        const updatedBookings = bookings.map((booking) =>
+          booking.bookingId === bookingId
+            ? { ...booking, status: "cancelled" }
+            : booking
+        );
+        setBookings(updatedBookings);
+
+        toast.success("Booking cancelled successfully!");
+
+        // Refresh bookings from API to ensure consistency
+        try {
+          const response = await bookingsAPI.getUserBookings();
+          setBookings(response.data || []);
+        } catch (refreshError) {
+          console.warn("Could not refresh bookings list:", refreshError);
+        }
+      } catch (error) {
+        console.error("Error cancelling booking:", error);
+        const errorMessage =
+          error.response?.data?.message || "Failed to cancel booking";
         toast.error(errorMessage);
       }
     }
@@ -463,6 +528,34 @@ const CustomerDashboard = () => {
     }
   };
 
+  // Download invoice PDF
+  const downloadInvoice = async (bookingId) => {
+    try {
+      const response = await invoiceAPI.downloadCustomerInvoice(bookingId);
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${bookingId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Invoice downloaded successfully!");
+    } catch (error) {
+      console.error("Error downloading invoice:", error);
+      if (error.response?.status === 404) {
+        toast.error(
+          "Invoice not found. Please contact support if you believe this is an error."
+        );
+      } else if (error.response?.status === 403) {
+        toast.error("You can only access invoices for your own bookings.");
+      } else {
+        toast.error("Failed to download invoice. Please try again.");
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
@@ -565,75 +658,98 @@ const CustomerDashboard = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {bookings.map((booking) => (
-                      <div
-                        key={booking.bookingId}
-                        className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="flex-1">
-                            <h4 className="font-bold text-gray-900 mb-2">
-                              {parseServiceTypes(booking.serviceTypes)} -{" "}
-                              {booking.vehicleNumber}
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                              <div>
-                                <p>
-                                  <span className="font-medium">Date:</span>{" "}
-                                  {formatDate(booking.bookingDate)}
-                                </p>
-                                <p>
-                                  <span className="font-medium">Time:</span>{" "}
-                                  {booking.timeSlot || "Not specified"}
-                                </p>
-                                <p>
-                                  <span className="font-medium">Vehicle:</span>{" "}
-                                  {booking.vehicleBrand}{" "}
-                                  {booking.vehicleBrandModel}
-                                </p>
+                    {bookings
+                      .filter(
+                        (booking) => booking.status?.toLowerCase() === "pending"
+                      )
+                      .map((booking) => (
+                        <div
+                          key={booking.bookingId}
+                          className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <h4 className="font-bold text-gray-900 mb-2">
+                                {parseServiceTypes(booking.serviceTypes)} -{" "}
+                                {booking.vehicleNumber}
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                                <div>
+                                  <p>
+                                    <span className="font-medium">Date:</span>{" "}
+                                    {formatDate(booking.bookingDate)}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">Time:</span>{" "}
+                                    {booking.timeSlot || "Not specified"}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">
+                                      Vehicle:
+                                    </span>{" "}
+                                    {booking.vehicleBrand}{" "}
+                                    {booking.vehicleBrandModel}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p>
+                                    <span className="font-medium">
+                                      Contact:
+                                    </span>{" "}
+                                    {booking.phone}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">Year:</span>{" "}
+                                    {booking.manufacturedYear ||
+                                      "Not specified"}
+                                  </p>
+                                  <p>
+                                    <span className="font-medium">
+                                      Fuel Type:
+                                    </span>{" "}
+                                    {booking.fuelType || "Not specified"}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p>
-                                  <span className="font-medium">Contact:</span>{" "}
-                                  {booking.phone}
-                                </p>
-                                <p>
-                                  <span className="font-medium">Year:</span>{" "}
-                                  {booking.manufacturedYear || "Not specified"}
-                                </p>
-                                <p>
-                                  <span className="font-medium">
-                                    Fuel Type:
-                                  </span>{" "}
-                                  {booking.fuelType || "Not specified"}
-                                </p>
-                              </div>
+                              {booking.specialRequests && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm">
+                                    <span className="font-medium">
+                                      Special Requests:
+                                    </span>{" "}
+                                    {booking.specialRequests}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                            {booking.specialRequests && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                <p className="text-sm">
-                                  <span className="font-medium">
-                                    Special Requests:
-                                  </span>{" "}
-                                  {booking.specialRequests}
-                                </p>
-                              </div>
-                            )}
+                            <div className="flex flex-col items-end space-y-2 ml-4">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                  booking.status
+                                )}`}
+                              >
+                                {booking.status}
+                              </span>
+                              {booking.status?.toLowerCase() === "pending" && (
+                                <button
+                                  onClick={() =>
+                                    cancelBooking(booking.bookingId)
+                                  }
+                                  className="text-red-600 hover:text-red-700 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors flex items-center space-x-1"
+                                  title="Cancel Booking"
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                  <span>Cancel</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                              booking.status
-                            )}`}
-                          >
-                            {booking.status}
-                          </span>
+                          <div className="text-xs text-gray-500">
+                            Booking ID: {booking.bookingId} • Created:{" "}
+                            {formatDate(booking.createdAt)}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          Booking ID: {booking.bookingId} • Created:{" "}
-                          {formatDate(booking.createdAt)}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 )}
               </div>
@@ -1195,11 +1311,11 @@ const CustomerDashboard = () => {
                   Service History
                 </h3>
                 {Array.isArray(bookings) &&
-                bookings.filter((b) => b?.status?.toLowerCase() === "verified")
+                bookings.filter((b) => b?.status?.toLowerCase() !== "pending")
                   .length > 0 ? (
                   <div className="space-y-4">
                     {bookings
-                      .filter((b) => b?.status?.toLowerCase() === "verified")
+                      .filter((b) => b?.status?.toLowerCase() !== "pending")
                       .map((booking) => (
                         <div
                           key={booking.bookingId}
@@ -1291,10 +1407,161 @@ const CustomerDashboard = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-6">
                   Bills & Invoices
                 </h3>
-                <div className="text-center py-12">
-                  <DollarSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No bills available</p>
-                </div>
+
+                {loadingInvoices ? (
+                  <div className="flex justify-center items-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+                    <span className="ml-2 text-gray-600">
+                      Loading your invoices...
+                    </span>
+                  </div>
+                ) : invoices.length === 0 ? (
+                  <div className="text-center py-12">
+                    <DollarSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No invoices available</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {invoices.map((invoice) => (
+                      <div
+                        key={invoice.invoiceId}
+                        className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-bold text-gray-900">
+                                Invoice #{invoice.invoiceNumber}
+                              </h4>
+                              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                Finalized
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
+                              <div>
+                                <p>
+                                  <span className="font-medium">Vehicle:</span>{" "}
+                                  {invoice.vehicleNumber} -{" "}
+                                  {invoice.vehicleBrand} {invoice.vehicleModel}
+                                </p>
+                                <p>
+                                  <span className="font-medium">
+                                    Service Date:
+                                  </span>{" "}
+                                  {formatDate(invoice.serviceDate)}
+                                </p>
+                                <p>
+                                  <span className="font-medium">Services:</span>{" "}
+                                  {parseServiceTypes(invoice.serviceTypes)}
+                                </p>
+                              </div>
+                              <div>
+                                <p>
+                                  <span className="font-medium">
+                                    Total Amount:
+                                  </span>{" "}
+                                  <span className="text-lg font-bold text-red-600">
+                                    Rs.{" "}
+                                    {invoice.totalAmount?.toLocaleString() ||
+                                      "N/A"}
+                                  </span>
+                                </p>
+                                <p>
+                                  <span className="font-medium">
+                                    Invoice Date:
+                                  </span>{" "}
+                                  {formatDate(invoice.createdAt)}
+                                </p>
+                                <p>
+                                  <span className="font-medium">
+                                    Booking ID:
+                                  </span>{" "}
+                                  {invoice.bookingId}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Cost Breakdown */}
+                            {invoice.invoiceData && (
+                              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                                <h5 className="font-medium text-gray-900 mb-2">
+                                  Cost Breakdown
+                                </h5>
+                                <div className="space-y-1 text-sm">
+                                  {invoice.invoiceData?.pricing?.laborCost && (
+                                    <div className="flex justify-between">
+                                      <span>Labor Cost:</span>
+                                      <span>
+                                        Rs.{" "}
+                                        {invoice.invoiceData.pricing.laborCost.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {invoice.invoiceData?.pricing?.partsCost && (
+                                    <div className="flex justify-between">
+                                      <span>Parts Cost:</span>
+                                      <span>
+                                        Rs.{" "}
+                                        {invoice.invoiceData.pricing.partsCost.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {invoice.invoiceData?.pricing?.subtotal && (
+                                    <div className="flex justify-between">
+                                      <span>Subtotal:</span>
+                                      <span>
+                                        Rs.{" "}
+                                        {invoice.invoiceData.pricing.subtotal.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {invoice.invoiceData?.pricing?.tax > 0 && (
+                                    <div className="flex justify-between">
+                                      <span>Tax:</span>
+                                      <span>
+                                        Rs.{" "}
+                                        {invoice.invoiceData.pricing.tax.toLocaleString()}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="border-t pt-1 flex justify-between font-medium">
+                                    <span>Total:</span>
+                                    <span>
+                                      Rs.{" "}
+                                      {invoice.totalAmount?.toLocaleString() ||
+                                        "N/A"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col space-y-2 ml-4">
+                            <button
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setShowInvoiceDetails(true);
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View</span>
+                            </button>
+                            <button
+                              onClick={() => downloadInvoice(invoice.bookingId)}
+                              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                            >
+                              <DollarSign className="w-4 h-4" />
+                              <span>View Invoice</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1317,17 +1584,17 @@ const CustomerDashboard = () => {
         </div>
       </div>
 
-      {/* Breakdown Details Modal */}
-      {showBreakdownDetails && selectedBreakdown && (
+      {/* Invoice Details Modal */}
+      {showInvoiceDetails && selectedInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-gray-900">
-                  Breakdown Request Details
+                  Invoice Details - #{selectedInvoice.invoiceNumber}
                 </h3>
                 <button
-                  onClick={() => setShowBreakdownDetails(false)}
+                  onClick={() => setShowInvoiceDetails(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -1336,40 +1603,34 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-gray-900">
-                    Request Information
+                    Invoice Information
                   </h4>
                   <div>
-                    <div className="text-sm text-gray-600">Request ID</div>
-                    <div className="font-medium">
-                      #{selectedBreakdown.requestId}
+                    <div className="text-sm text-gray-600">Invoice Number</div>
+                    <div className="font-mono font-medium">
+                      #{selectedInvoice.invoiceNumber}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600">Emergency Type</div>
+                    <div className="text-sm text-gray-600">Booking ID</div>
                     <div className="font-medium">
-                      {selectedBreakdown.emergencyType}
+                      {selectedInvoice.bookingId}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Invoice Date</div>
+                    <div className="font-medium">
+                      {formatDate(selectedInvoice.createdAt)}
                     </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Status</div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
-                        getCustomerFriendlyStatus(selectedBreakdown.status)
-                      )}`}
-                    >
-                      {getCustomerFriendlyStatus(selectedBreakdown.status)}
+                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                      Finalized
                     </span>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Requested At</div>
-                    <div className="font-medium">
-                      {selectedBreakdown.createdAt
-                        ? new Date(selectedBreakdown.createdAt).toLocaleString()
-                        : "Unknown"}
-                    </div>
                   </div>
                 </div>
 
@@ -1380,75 +1641,107 @@ const CustomerDashboard = () => {
                   <div>
                     <div className="text-sm text-gray-600">Vehicle Number</div>
                     <div className="font-mono font-medium">
-                      {selectedBreakdown.vehicleNumber}
+                      {selectedInvoice.vehicleNumber}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600">Vehicle Type</div>
+                    <div className="text-sm text-gray-600">Vehicle</div>
                     <div className="font-medium">
-                      {selectedBreakdown.vehicleType || "Not specified"}
+                      {selectedInvoice.vehicleBrand}{" "}
+                      {selectedInvoice.vehicleModel}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600">Location</div>
+                    <div className="text-sm text-gray-600">Service Date</div>
                     <div className="font-medium">
-                      {selectedBreakdown.latitude},{" "}
-                      {selectedBreakdown.longitude}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900">
-                    Contact Information
-                  </h4>
-                  <div>
-                    <div className="text-sm text-gray-600">Name</div>
-                    <div className="font-medium">
-                      {selectedBreakdown.contactName}
+                      {formatDate(selectedInvoice.serviceDate)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600">Phone</div>
+                    <div className="text-sm text-gray-600">Services</div>
                     <div className="font-medium">
-                      {selectedBreakdown.contactPhone}
+                      {parseServiceTypes(selectedInvoice.serviceTypes)}
                     </div>
                   </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900">
-                    Problem Details
-                  </h4>
-                  {selectedBreakdown.problemDescription && (
-                    <div>
-                      <div className="text-sm text-gray-600">Description</div>
-                      <div className="font-medium bg-gray-50 p-3 rounded-lg">
-                        {selectedBreakdown.problemDescription}
-                      </div>
-                    </div>
-                  )}
-                  {selectedBreakdown.additionalInfo && (
-                    <div>
-                      <div className="text-sm text-gray-600">
-                        Additional Information
-                      </div>
-                      <div className="font-medium bg-gray-50 p-3 rounded-lg">
-                        {selectedBreakdown.additionalInfo}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
 
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setShowBreakdownDetails(false)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Close
-              </button>
+              {/* Cost Breakdown */}
+              {selectedInvoice.invoiceData && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                    Cost Breakdown
+                  </h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="space-y-2 text-sm">
+                      {selectedInvoice.invoiceData?.pricing?.laborCost && (
+                        <div className="flex justify-between">
+                          <span>Labor Cost:</span>
+                          <span>
+                            Rs.{" "}
+                            {selectedInvoice.invoiceData.pricing.laborCost.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {selectedInvoice.invoiceData?.pricing?.partsCost && (
+                        <div className="flex justify-between">
+                          <span>Parts Cost:</span>
+                          <span>
+                            Rs.{" "}
+                            {selectedInvoice.invoiceData.pricing.partsCost.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {selectedInvoice.invoiceData?.pricing?.subtotal && (
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span>
+                            Rs.{" "}
+                            {selectedInvoice.invoiceData.pricing.subtotal.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {selectedInvoice.invoiceData?.pricing?.tax > 0 && (
+                        <div className="flex justify-between">
+                          <span>Tax:</span>
+                          <span>
+                            Rs.{" "}
+                            {selectedInvoice.invoiceData.pricing.tax.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                        <span>Total Amount:</span>
+                        <span className="text-red-600">
+                          Rs.{" "}
+                          {selectedInvoice.totalAmount?.toLocaleString() ||
+                            "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowInvoiceDetails(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    downloadInvoice(selectedInvoice.bookingId);
+                    setShowInvoiceDetails(false);
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

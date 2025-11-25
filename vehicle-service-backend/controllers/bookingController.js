@@ -346,6 +346,50 @@ const deleteBooking = async (req, res) => {
 };
 
 /**
+ * Cancel a booking (customer can cancel their own pending bookings)
+ */
+const cancelBooking = async (req, res) => {
+  const { bookingId } = req.params;
+  const customerId = req.user.customerId;
+
+  try {
+    // First check if the booking exists and belongs to the customer
+    const [existing] = await db.query(
+      "SELECT status FROM booking WHERE bookingId = ? AND customerId = ?",
+      [bookingId, customerId]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    const currentStatus = existing[0].status;
+
+    // Only allow cancellation of pending bookings
+    if (currentStatus !== "pending") {
+      return res.status(400).json({
+        message: `Cannot cancel booking with status '${currentStatus}'. Only pending bookings can be cancelled.`,
+      });
+    }
+
+    // Update the booking status to cancelled
+    const [result] = await db.query(
+      "UPDATE booking SET status = 'cancelled' WHERE bookingId = ? AND customerId = ?",
+      [bookingId, customerId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Booking not found" });
+    }
+
+    res.json({ message: "Booking cancelled successfully" });
+  } catch (error) {
+    console.error("Error cancelling booking:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
  * Get booking statistics
  */
 const getBookingStats = async (req, res) => {
@@ -1222,6 +1266,7 @@ module.exports = {
   getUserBookings,
   updateBookingStatus,
   deleteBooking,
+  cancelBooking,
   getBookingStats,
   checkBookingAvailability,
   getAvailableTimeSlots,
