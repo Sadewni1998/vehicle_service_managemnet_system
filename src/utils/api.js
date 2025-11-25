@@ -75,6 +75,7 @@ export const bookingsAPI = {
   getUserBookings: (params) => api.get("/bookings/user", { params }),
   getBookingById: (id) => api.get(`/bookings/${id}`),
   updateStatus: (id, status) => api.put(`/bookings/${id}/status`, { status }),
+  cancel: (id) => api.put(`/bookings/${id}/cancel`),
   delete: (id) => api.delete(`/bookings/${id}`),
   getStats: () => api.get("/bookings/stats"),
 };
@@ -181,6 +182,11 @@ export const invoiceAPI = {
     api.get(`/invoices/${bookingId}/generate`, {
       responseType: "blob", // Important for PDF download
     }),
+  getCustomerInvoices: () => api.get("/invoices/customer"),
+  downloadCustomerInvoice: (bookingId) =>
+    api.get(`/invoices/${bookingId}/download`, {
+      responseType: "blob", // Important for PDF download
+    }),
 };
 
 // Vehicle API
@@ -191,7 +197,6 @@ export const vehicleAPI = {
   updateVehicle: (id, vehicleData) => api.put(`/vehicles/${id}`, vehicleData),
   deleteVehicle: (id) => api.delete(`/vehicles/${id}`),
 };
-
 
 // General API
 export const generalAPI = {

@@ -24,6 +24,12 @@ import {
   invoiceAPI,
   breakdownAPI,
 } from "../utils/api";
+import {
+  fetchEshopItems,
+  addEshopItem,
+  updateEshopItem,
+  deleteEshopItem,
+} from "../utils/eshopApi";
 
 const ManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -247,6 +253,23 @@ const ManagementDashboard = () => {
     loadStaff();
   }, [activeTab]);
 
+  // Load e-shop items when the tab is active
+  useEffect(() => {
+    const loadEShopItems = async () => {
+      if (activeTab === "e-shop") {
+        try {
+          const response = await fetchEshopItems();
+          setEShopItems(response || []);
+        } catch (err) {
+          console.error("Error loading e-shop items:", err);
+          setError("Failed to load e-shop items");
+        }
+      }
+    };
+
+    loadEShopItems();
+  }, [activeTab]);
+
   // Manual refresh function for bookings
   const refreshBookings = async () => {
     setLoadingBookings(true);
@@ -348,7 +371,7 @@ const ManagementDashboard = () => {
   // Submit service
   const handleServiceSubmit = (e) => {
     e.preventDefault();
-    
+
     if (editingServiceId) {
       // Update existing service
       setServices((prev) =>
@@ -406,73 +429,65 @@ const ManagementDashboard = () => {
 
   // Handle delete service
   const handleDeleteService = (serviceId) => {
-    if (window.confirm('Are you sure you want to delete this service?')) {
+    if (window.confirm("Are you sure you want to delete this service?")) {
       setServices((prev) => prev.filter((service) => service.id !== serviceId));
     }
   };
 
   // Submit e-shop item
-  const handleEShopSubmit = (e) => {
+  const handleEShopSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingEShopItemId) {
-      // Update existing item
-      setEShopItems((prev) =>
-        prev.map((item) =>
-          item.id === editingEShopItemId
-            ? {
-                ...item,
-                name: eShopForm.name,
-                description: eShopForm.description,
-                quantity: eShopForm.quantity,
-                price: eShopForm.price,
-                discount: eShopForm.discount,
-                image: eShopForm.image,
-                brand: eShopForm.brand,
-                type: eShopForm.type,
-                updatedAt: new Date().toISOString(),
-              }
-            : item
-        )
-      );
-    } else {
-      // Create new item with unique ID
-      const newItem = {
-        id: Date.now(), // Simple ID generation for demo
-        name: eShopForm.name,
-        description: eShopForm.description,
+
+    try {
+      setError(null);
+      const itemData = {
         itemCode: eShopForm.itemCode,
-        quantity: eShopForm.quantity,
-        price: eShopForm.price,
-        discount: eShopForm.discount,
-        image: eShopForm.image,
-        brand: eShopForm.brand,
-        type: eShopForm.type,
-        createdAt: new Date().toISOString(),
+        itemName: eShopForm.name,
+        description: eShopForm.description,
+        price: parseFloat(eShopForm.price),
+        quantity: parseInt(eShopForm.quantity),
+        discountPercentage: parseFloat(eShopForm.discount) || 0,
+        itemImage: eShopForm.image,
+        itemBrand: eShopForm.brand,
+        itemType: eShopForm.type,
       };
 
-      // Add to items list
-      setEShopItems((prev) => [...prev, newItem]);
+      if (editingEShopItemId) {
+        // Update existing item
+        await updateEshopItem(editingEShopItemId, itemData);
+        // Refresh the list
+        const response = await fetchEshopItems();
+        setEShopItems(response || []);
+      } else {
+        // Create new item
+        await addEshopItem(itemData);
+        // Refresh the list
+        const response = await fetchEshopItems();
+        setEShopItems(response || []);
+      }
+
+      // Reset form
+      setEShopForm({
+        name: "",
+        description: "",
+        itemCode: "",
+        quantity: 0,
+        price: 0,
+        discount: 0,
+        image: null,
+        brand: "",
+        type: "",
+      });
+
+      // Reset editing state
+      setEditingEShopItemId(null);
+
+      // Close modal
+      setShowEShopForm(false);
+    } catch (err) {
+      console.error("Error submitting e-shop item:", err);
+      setError(err.response?.data?.message || "Failed to save e-shop item");
     }
-
-    // Reset form
-    setEShopForm({
-      name: "",
-      description: "",
-      itemCode: "",
-      quantity: 0,
-      price: 0,
-      discount: 0,
-      image: null,
-      brand: "",
-      type: "",
-    });
-
-    // Reset editing state
-    setEditingEShopItemId(null);
-
-    // Close modal
-    setShowEShopForm(false);
   };
 
   // Handle image removal for e-shop
@@ -482,33 +497,41 @@ const ManagementDashboard = () => {
       image: null,
     }));
     // Reset the file input
-    const fileInput = document.getElementById('item-image');
+    const fileInput = document.getElementById("item-image");
     if (fileInput) {
-      fileInput.value = '';
+      fileInput.value = "";
     }
   };
 
   // Handle edit e-shop item
   const handleEditEShopItem = (item) => {
     setEShopForm({
-      name: item.name,
+      name: item.itemName,
       description: item.description,
       itemCode: item.itemCode || "",
       quantity: item.quantity,
       price: item.price,
-      discount: item.discount,
-      image: item.image,
-      brand: item.brand,
-      type: item.type,
+      discount: item.discountPercentage,
+      image: item.itemImage,
+      brand: item.itemBrand,
+      type: item.itemType,
     });
     setShowEShopForm(true);
-    setEditingEShopItemId(item.id);
+    setEditingEShopItemId(item.itemId);
   };
 
   // Handle delete e-shop item
-  const handleDeleteEShopItem = (itemId) => {
-    if (window.confirm('Are you sure you want to delete this item?')) {
-      setEShopItems((prev) => prev.filter((item) => item.id !== itemId));
+  const handleDeleteEShopItem = async (itemId) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      try {
+        await deleteEshopItem(itemId);
+        // Refresh the list
+        const response = await fetchEshopItems();
+        setEShopItems(response || []);
+      } catch (err) {
+        console.error("Error deleting e-shop item:", err);
+        setError("Failed to delete e-shop item");
+      }
     }
   };
 
@@ -577,7 +600,7 @@ const ManagementDashboard = () => {
   // Handle add/edit spare part
   const handleAddSparePart = (e) => {
     e.preventDefault();
-    
+
     if (editingSparePartId) {
       // Update existing spare part
       setSpareParts((prev) =>
@@ -610,7 +633,7 @@ const ManagementDashboard = () => {
       };
 
       // Add to spare parts list
-      setSpareParts(prev => [...prev, newSparePart]);
+      setSpareParts((prev) => [...prev, newSparePart]);
     }
 
     // Reset form
@@ -646,7 +669,7 @@ const ManagementDashboard = () => {
 
   // Handle delete spare part
   const handleDeleteSparePart = (partId) => {
-    if (window.confirm('Are you sure you want to delete this spare part?')) {
+    if (window.confirm("Are you sure you want to delete this spare part?")) {
       setSpareParts((prev) => prev.filter((part) => part.id !== partId));
     }
   };
@@ -1129,10 +1152,12 @@ const ManagementDashboard = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               <div className="flex flex-col">
                                 <span className="font-medium text-gray-900">
-                                  {new Date(booking.bookingDate).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
+                                  {new Date(
+                                    booking.bookingDate
+                                  ).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
                                   })}
                                 </span>
                                 <span className="text-gray-600 text-xs">
@@ -1510,7 +1535,9 @@ const ManagementDashboard = () => {
                       </thead>
                       <tbody className="bg-white">
                         {services.map((service, index) => {
-                          const finalPrice = service.charge - (service.charge * service.discount / 100);
+                          const finalPrice =
+                            service.charge -
+                            (service.charge * service.discount) / 100;
                           return (
                             <tr
                               key={service.id}
@@ -1525,7 +1552,9 @@ const ManagementDashboard = () => {
                                 Rs. {service.charge.toLocaleString()}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {service.discount > 0 ? `${service.discount}%` : "-"}
+                                {service.discount > 0
+                                  ? `${service.discount}%`
+                                  : "-"}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
                                 Rs. {finalPrice.toLocaleString()}
@@ -1540,7 +1569,9 @@ const ManagementDashboard = () => {
                                     <Edit className="h-4 w-4" />
                                   </button>
                                   <button
-                                    onClick={() => handleDeleteService(service.id)}
+                                    onClick={() =>
+                                      handleDeleteService(service.id)
+                                    }
                                     className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
                                     title="Delete service"
                                   >
@@ -1728,7 +1759,7 @@ const ManagementDashboard = () => {
                       <tbody className="bg-white">
                         {eShopItems.map((item, index) => (
                           <tr
-                            key={item.id}
+                            key={item.itemId}
                             className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
                               index % 2 === 0 ? "bg-white" : "bg-gray-50"
                             }`}
@@ -1737,7 +1768,7 @@ const ManagementDashboard = () => {
                               {item.itemCode || "-"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.name}
+                              {item.itemName}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {item.quantity}
@@ -1746,16 +1777,22 @@ const ManagementDashboard = () => {
                               Rs. {item.price.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.brand}
+                              {item.itemBrand}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.type}
+                              {item.itemType}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.discount > 0 ? `${item.discount}%` : "-"}
+                              {item.discountPercentage > 0
+                                ? `${item.discountPercentage}%`
+                                : "-"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                              Rs. {(item.price - (item.price * item.discount / 100)).toLocaleString()}
+                              Rs.{" "}
+                              {(
+                                item.price -
+                                (item.price * item.discountPercentage) / 100
+                              ).toLocaleString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <div className="flex space-x-2">
@@ -1767,7 +1804,9 @@ const ManagementDashboard = () => {
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteEShopItem(item.id)}
+                                  onClick={() =>
+                                    handleDeleteEShopItem(item.itemId)
+                                  }
                                   className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
                                   title="Delete item"
                                 >
@@ -2581,7 +2620,10 @@ const ManagementDashboard = () => {
                     step="0.01"
                     value={serviceForm.charge}
                     onChange={(e) =>
-                      handleServiceFormChange("charge", parseFloat(e.target.value) || 0)
+                      handleServiceFormChange(
+                        "charge",
+                        parseFloat(e.target.value) || 0
+                      )
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="0.00"
@@ -2598,7 +2640,10 @@ const ManagementDashboard = () => {
                     max="100"
                     value={serviceForm.discount}
                     onChange={(e) =>
-                      handleServiceFormChange("discount", parseInt(e.target.value) || 0)
+                      handleServiceFormChange(
+                        "discount",
+                        parseInt(e.target.value) || 0
+                      )
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="0"
@@ -2623,7 +2668,11 @@ const ManagementDashboard = () => {
                             Discount ({serviceForm.discount}%):
                           </span>
                           <span className="text-sm text-red-600">
-                            -Rs. {(serviceForm.charge * serviceForm.discount / 100).toLocaleString()}
+                            -Rs.{" "}
+                            {(
+                              (serviceForm.charge * serviceForm.discount) /
+                              100
+                            ).toLocaleString()}
                           </span>
                         </div>
                         <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
@@ -2631,7 +2680,11 @@ const ManagementDashboard = () => {
                             Final Price:
                           </span>
                           <span className="font-bold text-green-600">
-                            Rs. {(serviceForm.charge - (serviceForm.charge * serviceForm.discount / 100)).toLocaleString()}
+                            Rs.{" "}
+                            {(
+                              serviceForm.charge -
+                              (serviceForm.charge * serviceForm.discount) / 100
+                            ).toLocaleString()}
                           </span>
                         </div>
                       </>
@@ -2733,7 +2786,9 @@ const ManagementDashboard = () => {
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       placeholder="Enter item code"
-                      onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
+                      onInvalid={(e) =>
+                        e.target.setCustomValidity("Please fill out this field")
+                      }
                       onInput={(e) => e.target.setCustomValidity("")}
                     />
                   </div>
@@ -2764,11 +2819,18 @@ const ManagementDashboard = () => {
                       min="1"
                       value={eShopForm.quantity}
                       onChange={(e) =>
-                        handleEShopFormChange("quantity", parseInt(e.target.value) || 0)
+                        handleEShopFormChange(
+                          "quantity",
+                          parseInt(e.target.value) || 0
+                        )
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       placeholder="1"
-                      onInvalid={(e) => e.target.setCustomValidity("Please enter a quantity greater than 0")}
+                      onInvalid={(e) =>
+                        e.target.setCustomValidity(
+                          "Please enter a quantity greater than 0"
+                        )
+                      }
                       onInput={(e) => e.target.setCustomValidity("")}
                     />
                   </div>
@@ -2784,11 +2846,18 @@ const ManagementDashboard = () => {
                       step="0.01"
                       value={eShopForm.price}
                       onChange={(e) =>
-                        handleEShopFormChange("price", parseFloat(e.target.value) || 0)
+                        handleEShopFormChange(
+                          "price",
+                          parseFloat(e.target.value) || 0
+                        )
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       placeholder="0.01"
-                      onInvalid={(e) => e.target.setCustomValidity("Please enter a price greater than 0")}
+                      onInvalid={(e) =>
+                        e.target.setCustomValidity(
+                          "Please enter a price greater than 0"
+                        )
+                      }
                       onInput={(e) => e.target.setCustomValidity("")}
                     />
                   </div>
@@ -2810,7 +2879,10 @@ const ManagementDashboard = () => {
                       max="100"
                       value={eShopForm.discount}
                       onChange={(e) =>
-                        handleEShopFormChange("discount", parseInt(e.target.value) || 0)
+                        handleEShopFormChange(
+                          "discount",
+                          parseInt(e.target.value) || 0
+                        )
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       placeholder="0"
@@ -2841,15 +2913,25 @@ const ManagementDashboard = () => {
                           </label>
                           <p className="pl-1">or drag and drop</p>
                         </div>
-                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                        <p className="text-xs text-gray-500">
+                          PNG, JPG, GIF up to 10MB
+                        </p>
                       </div>
                     </div>
                     {eShopForm.image && (
                       <div className="mt-2 flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            <svg
+                              className="h-5 w-5 text-green-400"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           </div>
                           <div className="ml-3">
@@ -2857,7 +2939,8 @@ const ManagementDashboard = () => {
                               {eShopForm.image.name}
                             </p>
                             <p className="text-xs text-green-600">
-                              {(eShopForm.image.size / 1024 / 1024).toFixed(2)} MB
+                              {(eShopForm.image.size / 1024 / 1024).toFixed(2)}{" "}
+                              MB
                             </p>
                           </div>
                         </div>
@@ -2867,8 +2950,18 @@ const ManagementDashboard = () => {
                           className="ml-3 text-red-600 hover:text-red-800 transition-colors"
                           title="Remove image"
                         >
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                         </button>
                       </div>
@@ -2887,10 +2980,14 @@ const ManagementDashboard = () => {
                         handleEShopFormChange("brand", e.target.value)
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
+                      onInvalid={(e) =>
+                        e.target.setCustomValidity("Please fill out this field")
+                      }
                       onInput={(e) => e.target.setCustomValidity("")}
                     >
-                      <option value="" disabled hidden>Select Brand</option>
+                      <option value="" disabled hidden>
+                        Select Brand
+                      </option>
                       <option value="Toyota">Toyota</option>
                       <option value="Honda">Honda</option>
                       <option value="Suzuki">Suzuki</option>
@@ -2913,10 +3010,14 @@ const ManagementDashboard = () => {
                         handleEShopFormChange("type", e.target.value)
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      onInvalid={(e) => e.target.setCustomValidity("Please fill out this field")}
+                      onInvalid={(e) =>
+                        e.target.setCustomValidity("Please fill out this field")
+                      }
                       onInput={(e) => e.target.setCustomValidity("")}
                     >
-                      <option value="" disabled hidden>Select Type</option>
+                      <option value="" disabled hidden>
+                        Select Type
+                      </option>
                       <option value="Engine Parts">Engine Parts</option>
                       <option value="Brake Parts">Brake Parts</option>
                       <option value="Suspension">Suspension</option>
@@ -2970,7 +3071,9 @@ const ManagementDashboard = () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-900">
-                  {editingSparePartId ? "Edit Spare Part" : "Add New Spare Part"}
+                  {editingSparePartId
+                    ? "Edit Spare Part"
+                    : "Add New Spare Part"}
                 </h3>
                 <button
                   onClick={() => {
@@ -3153,7 +3256,9 @@ const ManagementDashboard = () => {
                     type="submit"
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
                   >
-                    {editingSparePartId ? "Update Spare Part" : "Create Spare Part"}
+                    {editingSparePartId
+                      ? "Update Spare Part"
+                      : "Create Spare Part"}
                   </button>
                 </div>
               </form>

@@ -218,6 +218,30 @@ const generateInvoice = async (req, res) => {
 
     console.log("Invoice data prepared:", invoiceData);
 
+    // Store invoice data in database
+    try {
+      await db.query(
+        `INSERT INTO invoices (invoiceNumber, bookingId, customerId, invoiceDate, currency, totalAmount, laborCost, partsCost, tax, status, invoiceData)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated', ?)`,
+        [
+          invoiceData.invoiceNumber,
+          bookingId,
+          booking.customerId,
+          invoiceData.invoiceDate,
+          invoiceData.currency,
+          invoiceData.pricing.total,
+          invoiceData.pricing.laborCost,
+          invoiceData.pricing.partsCost,
+          invoiceData.pricing.tax,
+          JSON.stringify(invoiceData),
+        ]
+      );
+      console.log("Invoice stored in database");
+    } catch (dbError) {
+      console.error("Error storing invoice in database:", dbError);
+      // Continue with PDF generation even if DB storage fails
+    }
+
     // Generate HTML for the invoice
     const htmlContent = generateInvoiceHTML(invoiceData);
 
@@ -579,76 +603,239 @@ const getFontFaceCSS = () => {
   }
 };
 
-module.exports = {
-  generateInvoice,
-  /**
-   * Finalize an invoice for a booking: transitions booking from 'verified' to 'completed'.
-   * Preconditions:
-   * - Booking exists and is currently 'verified'
-   * - Related jobcard exists and is 'completed'
-   */
-  finalizeInvoice: async (req, res) => {
-    try {
-      const { bookingId } = req.params;
+/**
+ * Get all invoices for a customer
+ */
+const getCustomerInvoices = async (req, res) => {
+  try {
+    const customerId = req.user.id; // Assuming user is authenticated and has id
 
-      // Load booking
-      const [bookings] = await db.query(
-        "SELECT bookingId, status FROM booking WHERE bookingId = ?",
-        [bookingId]
-      );
-      if (bookings.length === 0) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Booking not found" });
-      }
-      const booking = bookings[0];
+    const [invoices] = await db.query(
+      `SELECT i.invoiceId, i.invoiceNumber, i.bookingId, i.invoiceDate, i.currency, i.totalAmount, i.laborCost, i.partsCost, i.tax, i.status, i.createdAt, i.invoiceData,
+              b.vehicleNumber, b.vehicleBrand, b.vehicleBrandModel, b.serviceTypes, b.bookingDate as serviceDate
+       FROM invoices i
+       LEFT JOIN booking b ON i.bookingId = b.bookingId
+       WHERE i.customerId = ?
+       ORDER BY i.createdAt DESC`,
+      [customerId]
+    );
 
-      if (booking.status !== "verified") {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Booking must be 'verified' before it can be finalized to 'completed'.",
-          currentStatus: booking.status,
-        });
-      }
+    res.status(200).json({
+      success: true,
+      data: invoices,
+    });
+  } catch (error) {
+    console.error("Error fetching customer invoices:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching invoices",
+      error: error.message,
+    });
+  }
+};
 
-      // Ensure related jobcard exists and is completed
-      const [jcRows] = await db.query(
-        "SELECT jobcardId, status FROM jobcard WHERE bookingId = ? LIMIT 1",
-        [bookingId]
-      );
-      if (jcRows.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "No jobcard found for this booking.",
-        });
-      }
-      if (jcRows[0].status !== "completed") {
-        return res.status(400).json({
-          success: false,
-          message: "Jobcard must be completed before finalizing the invoice.",
-          jobcardStatus: jcRows[0].status,
-        });
-      }
+/**
+ * Finalize an invoice for a booking: transitions booking from 'verified' to 'completed'.
+ * Preconditions:
+ * - Booking exists and is currently 'verified'
+ * - Related jobcard exists and is 'completed'
+ */
+const finalizeInvoice = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
 
-      // Transition booking to completed
-      await db.query(
-        "UPDATE booking SET status = 'completed' WHERE bookingId = ?",
-        [bookingId]
-      );
+    // Load booking
+    const [bookings] = await db.query(
+      "SELECT bookingId, status FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+    if (bookings.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Booking not found" });
+    }
+    const booking = bookings[0];
 
-      return res.status(200).json({
-        success: true,
-        message: "Invoice finalized and booking marked as 'completed'",
-        bookingId: Number(bookingId),
-      });
-    } catch (error) {
-      console.error("❌ Error finalizing invoice:", error);
-      return res.status(500).json({
+    if (booking.status !== "verified") {
+      return res.status(400).json({
         success: false,
-        message: "Error finalizing invoice",
-        error: error.message,
+        message:
+          "Booking must be 'verified' before it can be finalized to 'completed'.",
+        currentStatus: booking.status,
       });
     }
-  },
+
+    // Ensure related jobcard exists and is completed
+    const [jcRows] = await db.query(
+      "SELECT jobcardId, status FROM jobcard WHERE bookingId = ? LIMIT 1",
+      [bookingId]
+    );
+    if (jcRows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No jobcard found for this booking.",
+      });
+    }
+    if (jcRows[0].status !== "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Jobcard must be completed before finalizing the invoice.",
+        jobcardStatus: jcRows[0].status,
+      });
+    }
+
+    // Transition booking to completed
+    await db.query(
+      "UPDATE booking SET status = 'completed' WHERE bookingId = ?",
+      [bookingId]
+    );
+
+    // Update invoice status to finalized if it exists
+    try {
+      await db.query(
+        "UPDATE invoices SET status = 'finalized' WHERE bookingId = ?",
+        [bookingId]
+      );
+    } catch (invoiceError) {
+      console.warn("Could not update invoice status:", invoiceError);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Invoice finalized and booking marked as 'completed'",
+      bookingId: Number(bookingId),
+    });
+  } catch (error) {
+    console.error("❌ Error finalizing invoice:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error finalizing invoice",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Download existing invoice PDF for customers
+ * Only allows download if invoice exists for the customer's booking
+ */
+const downloadCustomerInvoice = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const customerId = req.user.id;
+
+    console.log(
+      `Customer ${customerId} requesting invoice download for booking ${bookingId}`
+    );
+
+    // First, check if the booking belongs to this customer
+    const [bookings] = await db.query(
+      "SELECT bookingId, customerId FROM booking WHERE bookingId = ?",
+      [bookingId]
+    );
+
+    if (bookings.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    const booking = bookings[0];
+
+    // Verify the booking belongs to the authenticated customer
+    if (booking.customerId !== customerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only access invoices for your own bookings",
+      });
+    }
+
+    // Check if invoice exists for this booking
+    const [invoices] = await db.query(
+      "SELECT invoiceData FROM invoices WHERE bookingId = ? AND customerId = ?",
+      [bookingId, customerId]
+    );
+
+    if (invoices.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "No invoice found for this booking. Invoice may not have been generated yet.",
+      });
+    }
+
+    const invoiceData = JSON.parse(invoices[0].invoiceData);
+
+    console.log("Retrieved stored invoice data for regeneration");
+
+    // Generate PDF using the stored invoice data
+    const htmlContent = generateInvoiceHTML(invoiceData);
+
+    // Generate PDF using Puppeteer
+    console.log("Regenerating PDF from stored invoice data...");
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
+    // Wait for web fonts to be fully loaded
+    try {
+      await page.evaluateHandle("document.fonts.ready");
+    } catch (_) {}
+
+    // Calculate dynamic scale to fit content into one A4 page height
+    const contentHeight = await page.evaluate(() => document.body.scrollHeight);
+    const mmToPx = (mm) => (mm * 96) / 25.4;
+    const a4HeightPx = mmToPx(297);
+    const marginMm = 12.7;
+    const availableHeightPx = a4HeightPx - 2 * mmToPx(marginMm);
+    let scale = 1;
+    if (contentHeight > availableHeightPx) {
+      scale = Math.max(0.1, Math.min(1, availableHeightPx / contentHeight));
+    }
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+      scale,
+      margin: {
+        top: `${marginMm}mm`,
+        right: `${marginMm}mm`,
+        bottom: `${marginMm}mm`,
+        left: `${marginMm}mm`,
+      },
+    });
+
+    await browser.close();
+    console.log("PDF regenerated successfully, size:", pdfBuffer.length);
+
+    // Set response headers for PDF download
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="invoice-${bookingId}.pdf"`
+    );
+    res.setHeader("Content-Length", pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error downloading customer invoice:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error downloading invoice",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = {
+  generateInvoice,
+  getCustomerInvoices,
+  downloadCustomerInvoice,
+  finalizeInvoice,
 };

@@ -116,6 +116,14 @@ router.delete(
   bookingController.deleteBooking
 );
 
+// Route to cancel a booking (customer can cancel their own pending bookings)
+// PUT /api/bookings/12/cancel
+router.put(
+  "/:bookingId/cancel",
+  ensureAuthenticated,
+  bookingController.cancelBooking
+);
+
 // Route to update booking status (staff only)
 // PUT /api/bookings/12/status
 // Temporarily made public for testing - should be protected in production

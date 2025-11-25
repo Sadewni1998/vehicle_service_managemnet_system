@@ -259,6 +259,7 @@ CREATE TABLE IF NOT EXISTS jobcardSparePart (
 -- =======================================================
 CREATE TABLE IF NOT EXISTS eshop (
     itemId INT AUTO_INCREMENT PRIMARY KEY,
+    itemCode VARCHAR(50) NOT NULL UNIQUE,
     itemName VARCHAR(255) NOT NULL,
     description TEXT,
     price DECIMAL(10, 2) NOT NULL,
@@ -273,17 +274,39 @@ CREATE TABLE IF NOT EXISTS eshop (
 );
 
 -- =======================================================
+-- INVOICES TABLE
+-- =======================================================
+CREATE TABLE IF NOT EXISTS invoices (
+    invoiceId INT AUTO_INCREMENT PRIMARY KEY,
+    invoiceNumber VARCHAR(100) NOT NULL UNIQUE,
+    bookingId INT NOT NULL,
+    customerId INT NOT NULL,
+    invoiceDate DATE NOT NULL,
+    currency VARCHAR(10) DEFAULT 'LKR',
+    totalAmount DECIMAL(10, 2) NOT NULL,
+    laborCost DECIMAL(10, 2) DEFAULT 0,
+    partsCost DECIMAL(10, 2) DEFAULT 0,
+    tax DECIMAL(10, 2) DEFAULT 0,
+    status ENUM('generated', 'finalized') DEFAULT 'generated',
+    invoiceData JSON NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE CASCADE,
+    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE CASCADE
+);
+
+-- =======================================================
 -- TEST E-SHOP DATA
 -- =======================================================
-INSERT INTO eshop (itemName, description, price, quantity, discountPercentage, itemImage, itemBrand, itemType)
+INSERT INTO eshop (itemCode, itemName, description, price, quantity, discountPercentage, itemImage, itemBrand, itemType)
 VALUES
-('Toyota Engine Oil Filter', 'High-quality oil filter for Toyota vehicles', 2500.00, 50, 5.00, 'images/eshop/toyota_oil_filter.jpg', 'Toyota', 'Filters'),
-('Honda Brake Pads Set', 'Premium brake pads for Honda models', 4500.00, 30, 0.00, 'images/eshop/honda_brake_pads.jpg', 'Honda', 'Break Parts'),
-('Suzuki Air Filter', 'OEM air filter for Suzuki engines', 1200.00, 40, 10.00, 'images/eshop/suzuki_air_filter.jpg', 'Suzuki', 'Filters'),
-('Ford Engine Mount', 'Heavy-duty engine mount for Ford trucks', 8500.00, 15, 0.00, 'images/eshop/ford_engine_mount.jpg', 'Ford', 'Engine Parts'),
-('Mazda Suspension Strut', 'Front suspension strut for Mazda sedans', 12000.00, 20, 15.00, 'images/eshop/mazda_strut.jpg', 'Mazda', 'Suspension'),
-('Isuzu Alternator', 'High-output alternator for Isuzu diesel engines', 18000.00, 10, 0.00, 'images/eshop/isuzu_alternator.jpg', 'Isuzu', 'Electrical'),
-('Subaru Timing Belt', 'OEM timing belt for Subaru boxer engines', 3500.00, 25, 5.00, 'images/eshop/subaru_timing_belt.jpg', 'Subaru', 'Engine Parts');
+('TOY-ENG-001', 'Toyota Engine Oil Filter', 'High-quality oil filter for Toyota vehicles', 2500.00, 50, 5.00, 'images/eshop/toyota_oil_filter.jpg', 'Toyota', 'Filters'),
+('HON-BRK-002', 'Honda Brake Pads Set', 'Premium brake pads for Honda models', 4500.00, 30, 0.00, 'images/eshop/honda_brake_pads.jpg', 'Honda', 'Break Parts'),
+('SUZ-FLT-003', 'Suzuki Air Filter', 'OEM air filter for Suzuki engines', 1200.00, 40, 10.00, 'images/eshop/suzuki_air_filter.jpg', 'Suzuki', 'Filters'),
+('FOR-ENG-004', 'Ford Engine Mount', 'Heavy-duty engine mount for Ford trucks', 8500.00, 15, 0.00, 'images/eshop/ford_engine_mount.jpg', 'Ford', 'Engine Parts'),
+('MAZ-SUS-005', 'Mazda Suspension Strut', 'Front suspension strut for Mazda sedans', 12000.00, 20, 15.00, 'images/eshop/mazda_strut.jpg', 'Mazda', 'Suspension'),
+('ISU-ELE-006', 'Isuzu Alternator', 'High-output alternator for Isuzu diesel engines', 18000.00, 10, 0.00, 'images/eshop/isuzu_alternator.jpg', 'Isuzu', 'Electrical'),
+('SUB-ENG-007', 'Subaru Timing Belt', 'OEM timing belt for Subaru boxer engines', 3500.00, 25, 5.00, 'images/eshop/subaru_timing_belt.jpg', 'Subaru', 'Engine Parts');
 
 -- =======================================================
 -- TEST BOOKINGS

@@ -256,7 +256,7 @@ const ReceptionistDashboard = () => {
     }
   };
 
-  // Get action button
+  // Get action button (previous option)
   const getActionButton = (vehicle) => {
     if (vehicle.status === "pending") {
       return (
