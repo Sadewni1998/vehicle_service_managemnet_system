@@ -74,19 +74,9 @@ const Footer = () => {
           <div>
             <h4 className="text-lg font-semibold mb-4 text-white">Newsletter</h4>
             <p className="text-gray-300 mb-4">
-              "Hybrid Lanka Summer Special: Beat the heat with our Summer Service Special! 
+              "Hybrid Lanka Christmas Special: Enjoy the holiday season with our Christmas Service Special! 
               A/C check, coolant inspection, tire rotation, fluid top-off."
             </p>
-            <div className="flex max-w-md">
-              <input
-                type="email"
-                placeholder="Your email"
-                className="flex-1 px-4 py-3 bg-gray-800 border-0 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-              <button className="bg-primary-600 hover:bg-primary-700 px-6 py-3 transition-colors btn">
-                SignUp
-              </button>
-            </div>
           </div>
         </div>
       </div>

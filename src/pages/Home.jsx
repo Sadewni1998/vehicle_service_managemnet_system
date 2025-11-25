@@ -2,10 +2,35 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Check, Users, Wrench, Award, Car } from 'lucide-react'
 
+const SNOWFLAKE_COUNT = 60
+
+const isSnowSeason = () => {
+  const today = new Date()
+  const month = today.getMonth()
+  const day = today.getDate()
+  return (month === 10 && day >= 20) || (month === 11 && day <= 30)
+}
+
+const SNOW_CHARACTERS = ["❅", "❆"]
+
+const createSnowflakes = (count = SNOWFLAKE_COUNT) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: index,
+    left: Math.random() * 100,
+    delay: Math.random() * 5,
+    duration: 6 + Math.random() * 6,
+    size: 6 + Math.random() * 10,
+    opacity: 0.4 + Math.random() * 0.5,
+    blur: Math.random() * 1.5,
+    drift: Math.random() * 40 - 20,
+    character: SNOW_CHARACTERS[Math.floor(Math.random() * SNOW_CHARACTERS.length)]
+  }))
+
 const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
-
-      const [currentTestimonial, setCurrentTestimonial] = useState(0)
+  const [currentTestimonial, setCurrentTestimonial] = useState(0)
+  const [showSnow, setShowSnow] = useState(false)
+  const [snowflakes, setSnowflakes] = useState([])
 
   const testimonials = [
     {
@@ -29,6 +54,12 @@ const Home = () => {
       text: "I always recommend Hybrid Lanka to friends and family. They provide reliable service and go above and beyond to ensure customer satisfaction."
     }
   ]
+
+  useEffect(() => {
+    const activeSeason = isSnowSeason()
+    setShowSnow(activeSeason)
+    setSnowflakes(activeSeason ? createSnowflakes() : [])
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -135,7 +166,7 @@ const Home = () => {
 
   const stats = [
     { number: "15", label: "Years Experience", icon: <Check className="w-8 h-8" /> },
-    { number: "30", label: "Expert Technicians", icon: <Users className="w-8 h-8" /> },
+    { number: "35", label: "Expert Technicians", icon: <Users className="w-8 h-8" /> },
     { number: "2000", label: "Satisfied Clients", icon: <Users className="w-8 h-8" /> },
     { number: "20000", label: "Complete Projects", icon: <Car className="w-8 h-8" /> }
   ]
@@ -189,7 +220,28 @@ const Home = () => {
   }
 
   return (
-    <div>
+    <div className="relative">
+      {showSnow && (
+        <div className="snow-overlay fixed inset-0 pointer-events-none overflow-hidden">
+          {snowflakes.map((flake) => (
+            <span
+              key={flake.id}
+              className="snowflake"
+              style={{
+                left: `${flake.left}%`,
+                animationDelay: `${flake.delay}s`,
+                animationDuration: `${flake.duration}s`,
+                fontSize: `${flake.size}px`,
+                opacity: flake.opacity,
+                filter: `blur(${flake.blur}px)`,
+                '--snowflake-drift': `${flake.drift}px`
+              }}
+            >
+              {flake.character}
+            </span>
+          ))}
+        </div>
+      )}
       {/* Hero Carousel */}
       <div className="relative h-screen overflow-hidden">
         {carouselData.map((slide, index) => (
