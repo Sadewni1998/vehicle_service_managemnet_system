@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Filter, ShoppingCart, Star } from "lucide-react";
 import { fetchEshopItems } from "../utils/eshopApi";
+import toast from "react-hot-toast";
 
 const Parts = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,9 +27,8 @@ const Parts = () => {
           name: item.itemName,
           category: item.itemType,
           brand: item.itemBrand,
-          price: item.price,
-          originalPrice: item.price / (1 - item.discountPercentage / 100), // Calculate original price
-          rating: 4.5, // Default rating since not in API
+          price: item.price - (item.price*item.discountPercentage / 100), // Calculate new price
+          originalPrice: item.price, 
           image: item.itemImage || "/img/service-1.jpg", // Default image if not provided
           inStock: item.quantity > 0,
           description: item.description || "High-quality auto part",
@@ -278,12 +278,6 @@ const Parts = () => {
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-lg font-semibold">{part.name}</h3>
-                    <div className="flex items-center">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="ml-1 text-sm text-gray-600">
-                        {part.rating}
-                      </span>
-                    </div>
                   </div>
 
                   <p className="text-gray-600 text-sm mb-4">
@@ -304,6 +298,33 @@ const Parts = () => {
 
                   <button
                     disabled={!part.inStock}
+                    onClick={() => {
+                      if (!part.inStock) return;
+                      try {
+                        const stored = localStorage.getItem("eshopCart") || "[]";
+                        const cart = JSON.parse(stored);
+                        const existingIndex = cart.findIndex((i) => i.id === part.id);
+                        if (existingIndex > -1) {
+                          cart[existingIndex].quantity = (cart[existingIndex].quantity || 1) + 1;
+                        } else {
+                          cart.push({
+                            id: part.id,
+                            name: part.name,
+                            price: part.price,
+                            brand: part.brand,
+                            image: part.image,
+                            description: part.description,
+                            quantity: 1,
+                          });
+                        }
+                        localStorage.setItem("eshopCart", JSON.stringify(cart));
+                        try { window.dispatchEvent(new CustomEvent("eshopCartUpdated")); } catch (e) {}
+                        toast.success(`${part.name} added to cart`);
+                      } catch (err) {
+                        console.error("Failed to add to cart", err);
+                        toast.error("Failed to add item to cart");
+                      }
+                    }}
                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center ${
                       part.inStock
                         ? "bg-primary-600 hover:bg-primary-700 text-white"
