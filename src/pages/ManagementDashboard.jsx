@@ -24,6 +24,7 @@ import {
   customerAPI,
   invoiceAPI,
   breakdownAPI,
+  sparePartsAPI,
 } from "../utils/api";
 import {
   fetchEshopItems,
@@ -116,6 +117,7 @@ const ManagementDashboard = () => {
     partCode: "",
     description: "",
     price: "",
+    quantity: "",
     brand: "Any",
     category: "Engine",
   });
@@ -271,6 +273,24 @@ const ManagementDashboard = () => {
     };
 
     loadEShopItems();
+  }, [activeTab]);
+
+  // Load spare parts when the tab is active
+  useEffect(() => {
+    const loadSpareParts = async () => {
+      if (activeTab === "spare-parts") {
+        try {
+          const response = await sparePartsAPI.getAllSpareParts();
+          // The API returns { success: true, data: [...] }
+          setSpareParts(response.data.data || []);
+        } catch (err) {
+          console.error("Error loading spare parts:", err);
+          setError("Failed to load spare parts");
+        }
+      }
+    };
+
+    loadSpareParts();
   }, [activeTab]);
 
   // Manual refresh function for bookings
@@ -601,59 +621,52 @@ const ManagementDashboard = () => {
   };
 
   // Handle add/edit spare part
-  const handleAddSparePart = (e) => {
+  const handleAddSparePart = async (e) => {
     e.preventDefault();
 
-    if (editingSparePartId) {
-      // Update existing spare part
-      setSpareParts((prev) =>
-        prev.map((part) =>
-          part.id === editingSparePartId
-            ? {
-                ...part,
-                partName: sparePartForm.partName,
-                partCode: sparePartForm.partCode,
-                description: sparePartForm.description,
-                price: parseFloat(sparePartForm.price),
-                brand: sparePartForm.brand,
-                category: sparePartForm.category,
-                updatedAt: new Date().toISOString(),
-              }
-            : part
-        )
-      );
-    } else {
-      // Create new spare part object
-      const newSparePart = {
-        id: Date.now(), // Simple ID generation for demo
-        partName: sparePartForm.partName,
+    try {
+      setError(null);
+      const sparePartData = {
         partCode: sparePartForm.partCode,
+        partName: sparePartForm.partName,
         description: sparePartForm.description,
-        price: parseFloat(sparePartForm.price),
-        brand: sparePartForm.brand,
         category: sparePartForm.category,
-        createdAt: new Date().toISOString(),
+        unitPrice: parseFloat(sparePartForm.price),
+        stockQuantity: parseInt(sparePartForm.quantity) || 0,
       };
 
-      // Add to spare parts list
-      setSpareParts((prev) => [...prev, newSparePart]);
+      if (editingSparePartId) {
+        // Update existing spare part
+        await sparePartsAPI.updateSparePart(editingSparePartId, sparePartData);
+      } else {
+        // Create new spare part
+        await sparePartsAPI.createSparePart(sparePartData);
+      }
+
+      // Refresh the spare parts list
+      const response = await sparePartsAPI.getAllSpareParts();
+      setSpareParts(response.data.data || []);
+
+      // Reset form
+      setSparePartForm({
+        partName: "",
+        partCode: "",
+        description: "",
+        price: "",
+        quantity: "",
+        brand: "Any",
+        category: "Engine",
+      });
+
+      // Reset editing state
+      setEditingSparePartId(null);
+
+      // Close modal
+      setShowAddSparePartModal(false);
+    } catch (err) {
+      console.error("Error saving spare part:", err);
+      setError(err.response?.data?.message || "Failed to save spare part");
     }
-
-    // Reset form
-    setSparePartForm({
-      partName: "",
-      partCode: "",
-      description: "",
-      price: "",
-      brand: "Any",
-      category: "Engine",
-    });
-
-    // Reset editing state
-    setEditingSparePartId(null);
-
-    // Close modal
-    setShowAddSparePartModal(false);
   };
 
   // Handle edit spare part
@@ -662,18 +675,28 @@ const ManagementDashboard = () => {
       partName: part.partName,
       partCode: part.partCode,
       description: part.description,
-      price: part.price.toString(),
-      brand: part.brand,
+      price: part.unitPrice?.toString() || part.price?.toString() || "",
+      quantity:
+        part.stockQuantity?.toString() || part.quantity?.toString() || "",
+      brand: part.brand || "Any",
       category: part.category,
     });
     setShowAddSparePartModal(true);
-    setEditingSparePartId(part.id);
+    setEditingSparePartId(part.partId || part.id);
   };
 
   // Handle delete spare part
-  const handleDeleteSparePart = (partId) => {
+  const handleDeleteSparePart = async (partId) => {
     if (window.confirm("Are you sure you want to delete this spare part?")) {
-      setSpareParts((prev) => prev.filter((part) => part.id !== partId));
+      try {
+        await sparePartsAPI.deleteSparePart(partId);
+        // Refresh the spare parts list
+        const response = await sparePartsAPI.getAllSpareParts();
+        setSpareParts(response.data.data || []);
+      } catch (err) {
+        console.error("Error deleting spare part:", err);
+        setError("Failed to delete spare part");
+      }
     }
   };
 
@@ -867,8 +890,8 @@ const ManagementDashboard = () => {
         </div>
 
         {/* Tabbed Navigation */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
-          <div className="flex border-b border-gray-200">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 overflow-hidden">
+          <div className="flex border-b border-gray-200 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1117,7 +1140,8 @@ const ManagementDashboard = () => {
                   </div>
                   <div className="flex flex-col gap-3 w-full lg:w-auto">
                     <span className="text-sm text-gray-600">
-                      Showing {filteredBookings.length} of {bookings.length} bookings
+                      Showing {filteredBookings.length} of {bookings.length}{" "}
+                      bookings
                     </span>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="relative w-full sm:w-64">
@@ -1125,7 +1149,9 @@ const ManagementDashboard = () => {
                         <input
                           type="text"
                           value={bookingSearchQuery}
-                          onChange={(e) => setBookingSearchQuery(e.target.value)}
+                          onChange={(e) =>
+                            setBookingSearchQuery(e.target.value)
+                          }
                           placeholder="Search by vehicle number"
                           className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
                           aria-label="Search bookings by vehicle number"
@@ -1377,7 +1403,9 @@ const ManagementDashboard = () => {
                         <input
                           type="text"
                           value={breakdownSearchQuery}
-                          onChange={(e) => setBreakdownSearchQuery(e.target.value)}
+                          onChange={(e) =>
+                            setBreakdownSearchQuery(e.target.value)
+                          }
                           placeholder="Search by vehicle number"
                           className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
                           aria-label="Search breakdown requests by vehicle number"
@@ -1737,6 +1765,9 @@ const ManagementDashboard = () => {
                             CATEGORY
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            QUANTITY
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
                             PRICE
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
@@ -1747,7 +1778,7 @@ const ManagementDashboard = () => {
                       <tbody className="bg-white">
                         {spareParts.map((part, index) => (
                           <tr
-                            key={index}
+                            key={part.partId || index}
                             className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
                               index % 2 === 0 ? "bg-white" : "bg-gray-50"
                             }`}
@@ -1759,13 +1790,19 @@ const ManagementDashboard = () => {
                               {part.partName}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {part.brand}
+                              {part.brand || "Any"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {part.category}
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {part.stockQuantity || 0}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-                              Rs. {part.price.toLocaleString()}
+                              Rs.{" "}
+                              {part.unitPrice?.toLocaleString() ||
+                                part.price?.toLocaleString() ||
+                                "0"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <div className="flex space-x-2">
@@ -1777,7 +1814,11 @@ const ManagementDashboard = () => {
                                   <Edit className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteSparePart(part.id)}
+                                  onClick={() =>
+                                    handleDeleteSparePart(
+                                      part.partId || part.id
+                                    )
+                                  }
                                   className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
                                   title="Delete spare part"
                                 >
@@ -3185,6 +3226,7 @@ const ManagementDashboard = () => {
                       partCode: "",
                       description: "",
                       price: "",
+                      quantity: "",
                       brand: "Any",
                       category: "Engine",
                     });
@@ -3281,12 +3323,15 @@ const ManagementDashboard = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="Engine">Engine</option>
-                      <option value="Brake">Brake</option>
+                      <option value="Brakes">Brakes</option>
                       <option value="Suspension">Suspension</option>
                       <option value="Electrical">Electrical</option>
-                      <option value="Body Parts">Body Parts</option>
-                      <option value="Filters">Filters</option>
-                      <option value="Fluids">Fluids</option>
+                      <option value="Body">Body</option>
+                      <option value="Cooling">Cooling</option>
+                      <option value="Transmission">Transmission</option>
+                      <option value="Interior">Interior</option>
+                      <option value="Exterior">Exterior</option>
+                      <option value="Accessories">Accessories</option>
                     </select>
                   </div>
 
@@ -3309,6 +3354,27 @@ const ManagementDashboard = () => {
                       }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter price"
+                    />
+                  </div>
+
+                  {/* Quantity */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={sparePartForm.quantity}
+                      onChange={(e) =>
+                        setSparePartForm({
+                          ...sparePartForm,
+                          quantity: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter stock quantity"
                     />
                   </div>
                 </div>
@@ -3345,6 +3411,7 @@ const ManagementDashboard = () => {
                         partCode: "",
                         description: "",
                         price: "",
+                        quantity: "",
                         brand: "Any",
                         category: "Engine",
                       });

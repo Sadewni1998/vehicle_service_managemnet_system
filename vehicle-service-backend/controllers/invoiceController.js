@@ -374,8 +374,7 @@ const generateInvoiceHTML = (data) => {
     ${getFontFaceCSS()}
   body { background-color: #ffffff; font-family: 'Aptos', 'Segoe UI', Calibri, Arial, Helvetica, sans-serif; color: #333; margin: 0; padding: 0; font-size: 12pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   /* Remove internal padding to rely on 0.5in PDF margins */
-  .invoice-page { background: #fff; width: 100%; max-width: 100%; margin: 0; padding: 0; box-shadow: none; }
-  /* Header */
+.invoice-page { background: #fff; width: 100%; max-width: 100%; margin: 0; padding: 0 30px; box-shadow: none; box-sizing: border-box; }  /* Header */
   .header-section { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding-bottom: 6px; }
   .logo { grid-column: 1 / 2; justify-self: start; }
   .logo img { height: 64px; width: auto; display: block; }

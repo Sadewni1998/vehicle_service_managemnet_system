@@ -174,6 +174,16 @@ export const jobcardAPI = {
 export const sparePartsAPI = {
   getAllSpareParts: (params) => api.get("/spareparts", { params }),
   getSparePartsCategories: () => api.get("/spareparts/categories"),
+  createSparePart: (sparePartData) => api.post("/spareparts", sparePartData),
+  updateSparePart: (id, sparePartData) =>
+    api.put(`/spareparts/${id}`, sparePartData),
+  deleteSparePart: (id) => api.delete(`/spareparts/${id}`),
+  updateStockQuantity: (id, stockQuantity) =>
+    api.put(`/spareparts/${id}/stock`, { stockQuantity }),
+  assignMechanic: (id, mechanicId) =>
+    api.put(`/spareparts/${id}/assign-mechanic`, { mechanicId }),
+  getMechanicSpareParts: (mechanicId, params) =>
+    api.get(`/spareparts/mechanic/${mechanicId}`, { params }),
 };
 
 // Invoice API

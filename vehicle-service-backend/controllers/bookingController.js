@@ -290,7 +290,81 @@ const getBookingById = async (req, res) => {
     if (!booking) {
       return res.status(404).json({ message: "Booking not found." });
     }
-    res.status(200).json(booking);
+
+    // Enhance booking with detailed assignment information
+    const enhancedBooking = { ...booking };
+
+    // Parse assigned mechanics and get detailed information
+    if (booking.assignedMechanics) {
+      try {
+        const mechanicIds = JSON.parse(booking.assignedMechanics);
+        if (Array.isArray(mechanicIds) && mechanicIds.length > 0) {
+          const placeholders = mechanicIds.map(() => "?").join(",");
+          const [mechanics] = await db.query(
+            `SELECT m.mechanicId, m.mechanicCode, s.name as mechanicName, m.specialization, m.experienceYears, m.hourlyRate, m.availability
+             FROM mechanic m 
+             JOIN staff s ON m.staffId = s.staffId 
+             WHERE m.mechanicId IN (${placeholders})`,
+            mechanicIds
+          );
+          enhancedBooking.assignedMechanicsDetails = mechanics;
+        }
+      } catch (error) {
+        console.error("Error parsing assigned mechanics:", error);
+        enhancedBooking.assignedMechanicsDetails = [];
+      }
+    } else {
+      enhancedBooking.assignedMechanicsDetails = [];
+    }
+
+    // Parse assigned spare parts and get detailed information
+    if (booking.assignedSpareParts) {
+      try {
+        const spareParts = JSON.parse(booking.assignedSpareParts);
+        if (Array.isArray(spareParts) && spareParts.length > 0) {
+          const partIds = spareParts.map((sp) => sp.partId);
+          const placeholders = partIds.map(() => "?").join(",");
+          const [parts] = await db.query(
+            `SELECT partId, partName, partCode, category, unitPrice 
+             FROM spareparts 
+             WHERE partId IN (${placeholders})`,
+            partIds
+          );
+
+          // Combine with quantities from assignment
+          enhancedBooking.assignedSparePartsDetails = parts.map((part) => {
+            const assignedPart = spareParts.find(
+              (sp) => sp.partId === part.partId
+            );
+            return {
+              ...part,
+              assignedQuantity: assignedPart ? assignedPart.quantity : 1,
+              totalPrice:
+                part.unitPrice * (assignedPart ? assignedPart.quantity : 1),
+            };
+          });
+        }
+      } catch (error) {
+        console.error("Error parsing assigned spare parts:", error);
+        enhancedBooking.assignedSparePartsDetails = [];
+      }
+    } else {
+      enhancedBooking.assignedSparePartsDetails = [];
+    }
+
+    // Parse service types if it's a JSON string
+    if (booking.serviceTypes && typeof booking.serviceTypes === "string") {
+      try {
+        enhancedBooking.serviceTypes = JSON.parse(booking.serviceTypes);
+      } catch (error) {
+        // If parsing fails, treat as comma-separated string
+        enhancedBooking.serviceTypes = booking.serviceTypes
+          .split(",")
+          .map((s) => s.trim());
+      }
+    }
+
+    res.status(200).json(enhancedBooking);
   } catch (error) {
     console.error("Error fetching booking:", error);
     res.status(500).json({ message: "Server error while fetching booking." });

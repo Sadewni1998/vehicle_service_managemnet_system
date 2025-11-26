@@ -16,6 +16,8 @@ import {
   Trash2,
   XCircle,
   Eye,
+  User,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -99,6 +101,9 @@ const CustomerDashboard = () => {
   const [showInvoiceDetails, setShowInvoiceDetails] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [showInvoiceMenu, setShowInvoiceMenu] = useState(false);
+  const [selectedBookingForInvoice, setSelectedBookingForInvoice] =
+    useState(null);
   const { user } = useAuth();
   // Keep URL in sync when tab changes (so refresh/deep-link works)
   useEffect(() => {
@@ -249,8 +254,8 @@ const CustomerDashboard = () => {
           setError(null);
         } catch (err) {
           console.error("Error fetching invoices:", err);
-          setError("Failed to load invoices");
-          toast.error("Failed to load your invoices");
+          setError("Failed to load bills");
+          toast.error("Failed to load your bills");
         } finally {
           setLoadingInvoices(false);
         }
@@ -551,6 +556,37 @@ const CustomerDashboard = () => {
     } catch (err) {
       console.error("Error viewing booking details:", err);
       setError("Failed to load booking details. Please try again.");
+    }
+  };
+
+  // Handle invoice click - fetch fresh booking data and open invoice modal
+  const handleInvoiceClick = async (booking) => {
+    try {
+      // Fetch fresh booking data with detailed mechanic and parts information
+      const response = await bookingsAPI.getBookingById(booking.bookingId);
+      setSelectedBookingForInvoice(response.data);
+      setShowInvoiceMenu(true);
+    } catch (error) {
+      console.error("Error fetching booking details for invoice:", error);
+      toast.error("Failed to load bill details. Please try again.");
+    }
+  };
+
+  // Download invoice
+  const downloadInvoice = async (bookingId) => {
+    try {
+      const response = await invoiceAPI.downloadCustomerInvoice(bookingId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `invoice_${bookingId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Invoice downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading invoice:", error);
+      toast.error("Failed to download invoice");
     }
   };
 
@@ -1374,35 +1410,24 @@ const CustomerDashboard = () => {
                                 </div>
                               )}
                             </div>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex space-x-2 ml-4">
                               <button
                                 onClick={() =>
                                   viewBookingDetails(booking.bookingId)
                                 }
                                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors flex items-center gap-2"
                               >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                  />
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                  />
-                                </svg>
+                                <Eye className="w-4 h-4" />
                                 View Details
                               </button>
-                            </td>
+                              <button
+                                onClick={() => handleInvoiceClick(booking)}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors flex items-center gap-2"
+                              >
+                                <DollarSign className="w-4 h-4" />
+                                Bill
+                              </button>
+                            </div>
                           </div>
                           <div className="text-xs text-gray-500">
                             Booking ID: {booking.bookingId} • Created:{" "}
@@ -1424,21 +1449,19 @@ const CustomerDashboard = () => {
 
             {activeTab === "bills" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Bills & Invoices
-                </h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Bills</h3>
 
                 {loadingInvoices ? (
                   <div className="flex justify-center items-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-red-600" />
                     <span className="ml-2 text-gray-600">
-                      Loading your invoices...
+                      Loading your bills...
                     </span>
                   </div>
                 ) : invoices.length === 0 ? (
                   <div className="text-center py-12">
                     <DollarSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No invoices available</p>
+                    <p className="text-gray-600">No bills available</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1451,7 +1474,7 @@ const CustomerDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="font-bold text-gray-900">
-                                Invoice #{invoice.invoiceNumber}
+                                Bill #{invoice.invoiceNumber}
                               </h4>
                               <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                                 Finalized
@@ -1489,7 +1512,7 @@ const CustomerDashboard = () => {
                                 </p>
                                 <p>
                                   <span className="font-medium">
-                                    Invoice Date:
+                                    Bill Date:
                                   </span>{" "}
                                   {formatDate(invoice.createdAt)}
                                 </p>
@@ -1574,7 +1597,7 @@ const CustomerDashboard = () => {
                               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
                             >
                               <DollarSign className="w-4 h-4" />
-                              <span>View Invoice</span>
+                              <span>View Bill</span>
                             </button>
                           </div>
                         </div>
@@ -1611,7 +1634,7 @@ const CustomerDashboard = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-gray-900">
-                  Invoice Details - #{selectedInvoice.invoiceNumber}
+                  Bill Details - #{selectedInvoice.invoiceNumber}
                 </h3>
                 <button
                   onClick={() => setShowInvoiceDetails(false)}
@@ -1626,10 +1649,10 @@ const CustomerDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-4">
                   <h4 className="text-lg font-semibold text-gray-900">
-                    Invoice Information
+                    Bill Information
                   </h4>
                   <div>
-                    <div className="text-sm text-gray-600">Invoice Number</div>
+                    <div className="text-sm text-gray-600">Bill Number</div>
                     <div className="font-mono font-medium">
                       #{selectedInvoice.invoiceNumber}
                     </div>
@@ -1641,7 +1664,7 @@ const CustomerDashboard = () => {
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600">Invoice Date</div>
+                    <div className="text-sm text-gray-600">Bill Date</div>
                     <div className="font-medium">
                       {formatDate(selectedInvoice.createdAt)}
                     </div>
@@ -2154,6 +2177,331 @@ const CustomerDashboard = () => {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Menu Modal */}
+      {showInvoiceMenu && selectedBookingForInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Bill Details
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowInvoiceMenu(false);
+                    setSelectedBookingForInvoice(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                Booking ID: {selectedBookingForInvoice.bookingId} •{" "}
+                {selectedBookingForInvoice.vehicleNumber}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Labor Charges Section */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  Labor Charges
+                </h4>
+                {selectedBookingForInvoice.assignedMechanics &&
+                selectedBookingForInvoice.assignedMechanics.length > 0 ? (
+                  <div className="space-y-3">
+                    {JSON.parse(
+                      selectedBookingForInvoice.assignedMechanics
+                    ).map((mechanicId, index) => {
+                      // Find mechanic details from the assignedMechanicsDetails if available
+                      const mechanicDetails =
+                        selectedBookingForInvoice.assignedMechanicsDetails?.find(
+                          (m) => m.mechanicId === mechanicId
+                        );
+                      return (
+                        <div
+                          key={mechanicId}
+                          className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200"
+                        >
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {mechanicDetails
+                                ? mechanicDetails.mechanicName
+                                : `Mechanic ${index + 1}`}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {mechanicDetails
+                                ? mechanicDetails.specialization
+                                : "Specialization not available"}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold text-blue-600">
+                              Rs.{" "}
+                              {mechanicDetails
+                                ? mechanicDetails.hourlyRate?.toLocaleString()
+                                : "N/A"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              per hour
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="border-t border-blue-200 pt-3 mt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-900">
+                          Total Labor Cost:
+                        </span>
+                        <span className="font-bold text-lg text-blue-600">
+                          Rs.{" "}
+                          {selectedBookingForInvoice.assignedMechanicsDetails
+                            ?.reduce(
+                              (total, mechanic) =>
+                                total + (parseFloat(mechanic.hourlyRate) || 0),
+                              0
+                            )
+                            .toLocaleString() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg
+                      className="w-12 h-12 mx-auto mb-3 text-gray-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <p>No mechanics assigned to this booking</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Spare Parts Charges Section */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                  Spare Parts Charges
+                </h4>
+                {selectedBookingForInvoice.assignedSpareParts &&
+                selectedBookingForInvoice.assignedSpareParts.length > 0 ? (
+                  <div className="space-y-3">
+                    {JSON.parse(
+                      selectedBookingForInvoice.assignedSpareParts
+                    ).map((part, index) => {
+                      // Find part details from the assignedSparePartsDetails if available
+                      const partDetails =
+                        selectedBookingForInvoice.assignedSparePartsDetails?.find(
+                          (p) => p.partId === part.partId
+                        );
+                      return (
+                        <div
+                          key={part.partId || index}
+                          className="p-3 bg-green-50 rounded-lg border border-green-200"
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">
+                                {partDetails
+                                  ? partDetails.partName
+                                  : `Part ${index + 1}`}
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {partDetails
+                                  ? `${partDetails.category} • ${partDetails.partCode}`
+                                  : "Details not available"}
+                              </div>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className="font-bold text-green-600">
+                                Rs.{" "}
+                                {partDetails
+                                  ? partDetails.totalPrice?.toLocaleString()
+                                  : "N/A"}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Qty: {parseInt(part.quantity) || 1}
+                              </div>
+                            </div>
+                          </div>
+                          {partDetails && (
+                            <div className="text-xs text-gray-500 mt-2">
+                              Unit Price: Rs.{" "}
+                              {parseFloat(
+                                partDetails.unitPrice
+                              )?.toLocaleString()}{" "}
+                              × {parseInt(part.quantity) || 1} = Rs.{" "}
+                              {parseFloat(
+                                partDetails.totalPrice
+                              )?.toLocaleString()}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="border-t border-green-200 pt-3 mt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-900">
+                          Total Parts Cost:
+                        </span>
+                        <span className="font-bold text-lg text-green-600">
+                          Rs.{" "}
+                          {selectedBookingForInvoice.assignedSparePartsDetails
+                            ?.reduce(
+                              (total, part) =>
+                                total + (parseFloat(part.totalPrice) || 0),
+                              0
+                            )
+                            .toLocaleString() || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg
+                      className="w-12 h-12 mx-auto mb-3 text-gray-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    <p>No spare parts assigned to this booking</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Total Cost Summary */}
+              {(selectedBookingForInvoice.assignedMechanicsDetails?.length >
+                0 ||
+                selectedBookingForInvoice.assignedSparePartsDetails?.length >
+                  0) && (
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-semibold text-gray-900 mb-3">
+                      Cost Summary
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Labor Cost:</span>
+                        <span className="font-medium">
+                          Rs.{" "}
+                          {selectedBookingForInvoice.assignedMechanicsDetails
+                            ?.reduce(
+                              (total, mechanic) =>
+                                total + (parseFloat(mechanic.hourlyRate) || 0),
+                              0
+                            )
+                            .toLocaleString() || "0"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Parts Cost:</span>
+                        <span className="font-medium">
+                          Rs.{" "}
+                          {selectedBookingForInvoice.assignedSparePartsDetails
+                            ?.reduce(
+                              (total, part) =>
+                                total + (parseFloat(part.totalPrice) || 0),
+                              0
+                            )
+                            .toLocaleString() || "0"}
+                        </span>
+                      </div>
+                      <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-lg">
+                        <span>Total Amount:</span>
+                        <span className="text-red-600">
+                          Rs.{" "}
+                          {(
+                            selectedBookingForInvoice.assignedMechanicsDetails?.reduce(
+                              (total, mechanic) =>
+                                total + (parseFloat(mechanic.hourlyRate) || 0),
+                              0
+                            ) +
+                              selectedBookingForInvoice.assignedSparePartsDetails?.reduce(
+                                (total, part) =>
+                                  total + (parseFloat(part.totalPrice) || 0),
+                                0
+                              ) || 0
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowInvoiceMenu(false);
+                    setSelectedBookingForInvoice(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
