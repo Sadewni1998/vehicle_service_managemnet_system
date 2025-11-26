@@ -16,7 +16,7 @@ import {
   Trash2,
   XCircle,
   Eye,
-  User,
+  Users,
   FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -268,6 +268,49 @@ const CustomerDashboard = () => {
   // Retry function for failed API calls
   const retryFetchBookings = () => {
     setRetryCount((prev) => prev + 1);
+  };
+
+  // E-Shop cart state and helpers (stored in localStorage)
+  const [eshopCart, setEshopCart] = useState([]);
+
+  const loadEshopCart = () => {
+    try {
+      const stored = localStorage.getItem("eshopCart") || "[]";
+      const parsed = JSON.parse(stored);
+      setEshopCart(Array.isArray(parsed) ? parsed : []);
+    } catch (err) {
+      console.error("Failed to load eshop cart", err);
+      setEshopCart([]);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "e-shop") loadEshopCart();
+    const handler = () => loadEshopCart();
+    window.addEventListener("eshopCartUpdated", handler);
+    return () => window.removeEventListener("eshopCartUpdated", handler);
+  }, [activeTab]);
+
+  const persistCart = (cart) => {
+    try {
+      localStorage.setItem("eshopCart", JSON.stringify(cart));
+      setEshopCart(cart);
+      try { window.dispatchEvent(new CustomEvent("eshopCartUpdated")); } catch (e) {}
+    } catch (err) {
+      console.error("Failed to persist eshop cart", err);
+    }
+  };
+
+  const removeFromCart = (id) => {
+    const updated = eshopCart.filter((i) => i.id !== id);
+    persistCart(updated);
+    toast.success("Removed from cart");
+  };
+
+  const updateQuantity = (id, qty) => {
+    if (qty < 1) return;
+    const updated = eshopCart.map((i) => (i.id === id ? { ...i, quantity: qty } : i));
+    persistCart(updated);
   };
 
   // Handle brand selection and reset model
@@ -1189,9 +1232,6 @@ const CustomerDashboard = () => {
                     <h3 className="text-xl font-bold text-gray-900">
                       My Breakdown Requests
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Track the status of your emergency breakdown requests
-                    </p>
                   </div>
                   <Link
                     to="/request"
@@ -1249,13 +1289,6 @@ const CustomerDashboard = () => {
                                     {request.vehicleType || "Unknown Type"})
                                   </p>
                                 </div>
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
-                                    customerStatus
-                                  )}`}
-                                >
-                                  {customerStatus}
-                                </span>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1321,15 +1354,13 @@ const CustomerDashboard = () => {
                               )}
                             </div>
 
-                            <button
-                              onClick={() => {
-                                setSelectedBreakdown(request);
-                                setShowBreakdownDetails(true);
-                              }}
-                              className="ml-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
+                              customerStatus
+                              )}`}
                             >
-                              View Details
-                            </button>
+                              {customerStatus}
+                            </span>
                           </div>
                         </div>
                       );
@@ -1610,17 +1641,86 @@ const CustomerDashboard = () => {
 
             {activeTab === "e-shop" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">E-Shop</h3>
-                <div className="text-center py-12">
-                  <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">E-Shop coming soon</p>
-                  <Link
-                    to="/parts"
-                    className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
-                  >
-                    Browse Parts
-                  </Link>
-                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-6">Cart</h3>
+                {Array.isArray(eshopCart) && eshopCart.length > 0 ? (
+                  <div>
+                    <div className="space-y-4">
+                      {eshopCart.map((item) => (
+                        <div
+                          key={item.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 flex items-center"
+                        >
+                          <img
+                            src={item.image || "/img/service-1.jpg"}
+                            alt={item.name}
+                            className="w-24 h-24 object-cover rounded"
+                          />
+                          <div className="ml-4 flex-1">
+                            <h4 className="font-semibold text-gray-900">
+                              {item.name}
+                            </h4>
+                            <p className="text-sm text-gray-500">{item.brand}</p>
+                            <p className="text-sm text-gray-600 mt-2">{item.description}</p>
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="font-bold text-red-600">
+                              Rs. {(item.price * (item.quantity || 1)).toLocaleString()}
+                            </div>
+                            <div className="mt-2 flex items-center justify-end">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity || 1}
+                                onChange={(e) => updateQuantity(item.id, Number(e.target.value))}
+                                className="w-20 px-2 py-1 border rounded text-sm"
+                              />
+                              <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="ml-3 text-red-600 hover:underline text-sm"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 flex justify-between items-center">
+                      <div>
+                        <span className="font-medium">Total:</span>
+                        <span className="font-bold ml-2 text-lg text-red-600">
+                          Rs. {eshopCart.reduce((t, i) => t + (i.price * (i.quantity || 1)), 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Link
+                          to="/parts"
+                          className="px-4 py-2 border border-gray-300 rounded text-sm"
+                        >
+                          Continue Shopping
+                        </Link>
+                        <button
+                          onClick={() => toast.success('Checkout not implemented')}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
+                        >
+                          Checkout
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">Add your first item to the cart</p>
+                    <Link
+                      to="/parts"
+                      className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
+                    >
+                      Browse Parts
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </div>
