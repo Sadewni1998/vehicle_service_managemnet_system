@@ -4,7 +4,10 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
-const { ensureAuthenticated } = require("../middleware/authMiddleware");
+const {
+  ensureAuthenticated,
+  checkRole,
+} = require("../middleware/authMiddleware");
 
 // Define the registration route
 // POST /api/auth/register
@@ -33,5 +36,15 @@ router.post("/google", authController.googleSignIn);
 // @desc    Get customer statistics
 // @access  Public (or Protected if needed)
 router.get("/stats", authController.getCustomerStats);
+
+// @route   GET /api/auth/customers
+// @desc    Get all customers
+// @access  Protected (Manager only)
+router.get(
+  "/customers",
+  ensureAuthenticated,
+  checkRole(["manager"]),
+  authController.getAllCustomers
+);
 
 module.exports = router;

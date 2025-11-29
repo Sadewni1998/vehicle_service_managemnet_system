@@ -26,6 +26,7 @@ import {
   breakdownAPI,
   invoiceAPI,
 } from "../utils/api";
+import { checkoutOrder } from "../utils/eshopApi";
 import toast from "react-hot-toast";
 
 // Vehicle brand and model data structure
@@ -272,6 +273,21 @@ const CustomerDashboard = () => {
 
   // E-Shop cart state and helpers (stored in localStorage)
   const [eshopCart, setEshopCart] = useState([]);
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("visa"); // 'paypal', 'visa', 'mastercard'
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentFormData, setPaymentFormData] = useState({
+    email: "",
+    password: "",
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+    cardholderName: "",
+    streetAddress: "",
+    city: "",
+    postalCode: "",
+  });
 
   const loadEshopCart = () => {
     try {
@@ -285,7 +301,11 @@ const CustomerDashboard = () => {
   };
 
   useEffect(() => {
-    if (activeTab === "e-shop") loadEshopCart();
+    if (activeTab === "e-shop") {
+      loadEshopCart();
+      // Reset selected items when switching to e-shop tab
+      setSelectedItems(new Set());
+    }
     const handler = () => loadEshopCart();
     window.addEventListener("eshopCartUpdated", handler);
     return () => window.removeEventListener("eshopCartUpdated", handler);
@@ -304,6 +324,12 @@ const CustomerDashboard = () => {
   const removeFromCart = (id) => {
     const updated = eshopCart.filter((i) => i.id !== id);
     persistCart(updated);
+    // Remove from selected items if it was selected
+    setSelectedItems((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(id);
+      return newSet;
+    });
     toast.success("Removed from cart");
   };
 
@@ -311,6 +337,141 @@ const CustomerDashboard = () => {
     if (qty < 1) return;
     const updated = eshopCart.map((i) => (i.id === id ? { ...i, quantity: qty } : i));
     persistCart(updated);
+  };
+
+  // Checkbox selection handlers
+  const toggleItemSelection = (id) => {
+    setSelectedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === eshopCart.length) {
+      // Deselect all
+      setSelectedItems(new Set());
+    } else {
+      // Select all
+      setSelectedItems(new Set(eshopCart.map((item) => item.id)));
+    }
+  };
+
+  // Get selected items for checkout
+  const getSelectedItems = () => {
+    return eshopCart.filter((item) => selectedItems.has(item.id));
+  };
+
+  // Calculate total for selected items only
+  const getSelectedTotal = () => {
+    return getSelectedItems().reduce(
+      (total, item) => total + item.price * (item.quantity || 1),
+      0
+    );
+  };
+
+  // Handle checkout
+  const handleCheckout = () => {
+    if (selectedItems.size === 0) {
+      toast.error("Please select at least one item to checkout");
+      return;
+    }
+    setShowPaymentModal(true);
+  };
+
+  // Process payment
+  const processPayment = async () => {
+    setIsProcessingPayment(true);
+    try {
+      const selected = getSelectedItems();
+      const total = getSelectedTotal();
+
+      // Validate payment form based on method
+      if (paymentMethod === "paypal") {
+        if (!paymentFormData.email || !paymentFormData.password) {
+          toast.error("Please fill in all PayPal fields");
+          setIsProcessingPayment(false);
+          return;
+        }
+      } else {
+        if (
+          !paymentFormData.cardNumber ||
+          !paymentFormData.expiryDate ||
+          !paymentFormData.cvv ||
+          !paymentFormData.cardholderName
+        ) {
+          toast.error("Please fill in all card details");
+          setIsProcessingPayment(false);
+          return;
+        }
+      }
+
+      // Prepare billing address
+      const billingAddress = {
+        streetAddress: paymentFormData.streetAddress,
+        city: paymentFormData.city,
+        postalCode: paymentFormData.postalCode,
+      };
+
+      // Prepare checkout data
+      const checkoutData = {
+        items: selected.map((item) => ({
+          id: item.id || item.itemId,
+          itemId: item.id || item.itemId,
+          name: item.name || item.itemName,
+          quantity: item.quantity || 1,
+          price: item.price,
+        })),
+        paymentMethod: paymentMethod,
+        totalAmount: total,
+        billingAddress: billingAddress,
+      };
+
+      // Call checkout API
+      const response = await checkoutOrder(checkoutData);
+
+      if (response.success) {
+        // Remove selected items from cart after successful payment
+        const remainingItems = eshopCart.filter(
+          (item) => !selectedItems.has(item.id)
+        );
+        persistCart(remainingItems);
+        setSelectedItems(new Set());
+        setShowPaymentModal(false);
+        // Reset form
+        setPaymentFormData({
+          email: "",
+          password: "",
+          cardNumber: "",
+          expiryDate: "",
+          cvv: "",
+          cardholderName: "",
+          streetAddress: "",
+          city: "",
+          postalCode: "",
+        });
+
+        toast.success(
+          `Payment successful! Order #${response.data.orderNumber} placed for ${selected.length} item${selected.length !== 1 ? "s" : ""}`
+        );
+      } else {
+        throw new Error(response.message || "Payment failed");
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Payment failed. Please try again."
+      );
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   // Handle brand selection and reset model
@@ -1644,12 +1805,38 @@ const CustomerDashboard = () => {
                 <h3 className="text-xl font-bold text-gray-900 mb-6">Cart</h3>
                 {Array.isArray(eshopCart) && eshopCart.length > 0 ? (
                   <div>
+                    {/* Select All Checkbox */}
+                    <div className="mb-4 flex items-center">
+                      <input
+                        type="checkbox"
+                        id="select-all"
+                        checked={selectedItems.size === eshopCart.length && eshopCart.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                      />
+                      <label htmlFor="select-all" className="ml-2 text-sm font-medium text-gray-700">
+                        Select All ({selectedItems.size} of {eshopCart.length} selected)
+                      </label>
+                    </div>
+
                     <div className="space-y-4">
                       {eshopCart.map((item) => (
                         <div
                           key={item.id}
-                          className="bg-white border border-gray-200 rounded-lg p-4 flex items-center"
+                          className={`bg-white border rounded-lg p-4 flex items-center ${
+                            selectedItems.has(item.id)
+                              ? "border-red-500 shadow-md"
+                              : "border-gray-200"
+                          }`}
                         >
+                          {/* Checkbox */}
+                          <input
+                            type="checkbox"
+                            id={`item-${item.id}`}
+                            checked={selectedItems.has(item.id)}
+                            onChange={() => toggleItemSelection(item.id)}
+                            className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 mr-4"
+                          />
                           <img
                             src={item.image || "/img/service-1.jpg"}
                             alt={item.name}
@@ -1688,10 +1875,27 @@ const CustomerDashboard = () => {
 
                     <div className="mt-6 flex justify-between items-center">
                       <div>
-                        <span className="font-medium">Total:</span>
-                        <span className="font-bold ml-2 text-lg text-red-600">
-                          Rs. {eshopCart.reduce((t, i) => t + (i.price * (i.quantity || 1)), 0).toLocaleString()}
+                        <span className="font-medium">
+                          {selectedItems.size > 0
+                            ? `Selected Items Total:`
+                            : `Total:`}
                         </span>
+                        <span className="font-bold ml-2 text-lg text-red-600">
+                          Rs.{" "}
+                          {selectedItems.size > 0
+                            ? getSelectedTotal().toLocaleString()
+                            : eshopCart
+                                .reduce(
+                                  (t, i) => t + i.price * (i.quantity || 1),
+                                  0
+                                )
+                                .toLocaleString()}
+                        </span>
+                        {selectedItems.size > 0 && (
+                          <span className="text-sm text-gray-500 ml-2">
+                            ({selectedItems.size} item{selectedItems.size !== 1 ? "s" : ""} selected)
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <Link
@@ -1701,10 +1905,15 @@ const CustomerDashboard = () => {
                           Continue Shopping
                         </Link>
                         <button
-                          onClick={() => toast.success('Checkout not implemented')}
-                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm"
+                          onClick={handleCheckout}
+                          disabled={selectedItems.size === 0}
+                          className={`px-4 py-2 rounded text-sm ${
+                            selectedItems.size === 0
+                              ? "bg-gray-400 cursor-not-allowed text-white"
+                              : "bg-red-600 hover:bg-red-700 text-white"
+                          }`}
                         >
-                          Checkout
+                          Checkout {selectedItems.size > 0 && `(${selectedItems.size})`}
                         </button>
                       </div>
                     </div>
@@ -2600,6 +2809,312 @@ const CustomerDashboard = () => {
                   className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-2xl font-bold text-gray-900">Payment</h3>
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Order Summary */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  {getSelectedItems().map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex justify-between items-center text-sm"
+                    >
+                      <span className="text-gray-700">
+                        {item.name} × {item.quantity || 1}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        Rs. {(item.price * (item.quantity || 1)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="border-t border-gray-300 pt-2 mt-2 flex justify-between font-bold text-lg">
+                    <span>Total:</span>
+                    <span className="text-red-600">
+                      Rs. {getSelectedTotal().toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Method Selection */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Select Payment Method
+                </h4>
+                <div className="grid grid-cols-3 gap-4">
+                  {/* PayPal */}
+                  <button
+                    onClick={() => setPaymentMethod("paypal")}
+                    className={`p-2 border-2 rounded-lg transition-all ${
+                      paymentMethod === "paypal"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="text-center">
+                    <img src="./public/img/paypal.png" alt="PayPal" className="w-15 h-10 mx-auto"/>
+                    </div>
+                  </button>
+
+                  {/* Visa */}
+                  <button
+                    onClick={() => setPaymentMethod("visa")}
+                    className={`p-4 border-2 rounded-lg transition-all ${
+                      paymentMethod === "visa"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="text-center">
+                    <img src="./public/img/visa.png" alt="Visa" className="w-20 h-13 mx-auto"/>
+                    </div>
+                  </button>
+
+                  {/* Mastercard */}
+                  <button
+                    onClick={() => setPaymentMethod("mastercard")}
+                    className={`p-4 border-2 rounded-lg transition-all ${
+                      paymentMethod === "mastercard"
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="text-center">
+                    <img src="./public/img/mastercard.png" alt="MasterCard" className="w-20 h-13 mx-auto"/>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Payment Form */}
+              <div className="mb-6">
+                {paymentMethod === "paypal" ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        PayPal Email
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="your.email@example.com"
+                        value={paymentFormData.email}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            email: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="Enter your PayPal password"
+                        value={paymentFormData.password}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            password: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Card Number
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="1234 5678 9012 3456"
+                        maxLength="19"
+                        value={paymentFormData.cardNumber}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            cardNumber: e.target.value.replace(/\s/g, "").replace(/(.{4})/g, "$1 ").trim(),
+                          })
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Expiry Date
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="MM/YY"
+                          maxLength="5"
+                          value={paymentFormData.expiryDate}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, "");
+                            if (value.length >= 2) {
+                              value = value.slice(0, 2) + "/" + value.slice(2, 4);
+                            }
+                            setPaymentFormData({
+                              ...paymentFormData,
+                              expiryDate: value,
+                            });
+                          }}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          CVV
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="123"
+                          maxLength="4"
+                          value={paymentFormData.cvv}
+                          onChange={(e) =>
+                            setPaymentFormData({
+                              ...paymentFormData,
+                              cvv: e.target.value.replace(/\D/g, ""),
+                            })
+                          }
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Cardholder Name
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="John Doe"
+                        value={paymentFormData.cardholderName}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            cardholderName: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Billing Address (Optional) */}
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Billing Address
+                </h4>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Street Address
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="123 Main Street"
+                      value={paymentFormData.streetAddress}
+                      onChange={(e) =>
+                        setPaymentFormData({
+                          ...paymentFormData,
+                          streetAddress: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        City
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Colombo"
+                        value={paymentFormData.city}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            city: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Postal Code
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="00000"
+                        value={paymentFormData.postalCode}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            postalCode: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  disabled={isProcessingPayment}
+                  className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={processPayment}
+                  disabled={isProcessingPayment}
+                  className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    `Pay Rs. ${getSelectedTotal().toLocaleString()}`
+                  )}
                 </button>
               </div>
             </div>
