@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { ensureAuthenticated } = require("../middleware/authMiddleware");
 
 // GET /api/eshop - Get all items from eshop
 router.get("/", async (req, res) => {
@@ -237,6 +238,123 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error deleting item from eShop",
+      error: error.message,
+    });
+  }
+});
+
+// POST /api/eshop/checkout - Create an order from cart items
+router.post("/checkout", ensureAuthenticated, async (req, res) => {
+  try {
+    const { items, paymentMethod, billingAddress, totalAmount } = req.body;
+    const customerId = req.user.userId || req.user.customerId;
+
+    // Validate required fields
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Items array is required and cannot be empty",
+      });
+    }
+
+    if (!paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment method is required",
+      });
+    }
+
+    if (!totalAmount || totalAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Total amount is required and must be greater than 0",
+      });
+    }
+
+    // Start transaction
+    await db.execute("START TRANSACTION");
+
+    try {
+      // Generate order number
+      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+      // Create order
+      const [orderResult] = await db.execute(
+        `INSERT INTO eshop_orders (orderNumber, customerId, items, totalAmount, paymentMethod, billingAddress, status, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW(), NOW())`,
+        [
+          orderNumber,
+          customerId,
+          JSON.stringify(items),
+          totalAmount,
+          paymentMethod,
+          billingAddress ? JSON.stringify(billingAddress) : null,
+        ]
+      );
+
+      const orderId = orderResult.insertId;
+
+      // Update item quantities in eshop table
+      for (const item of items) {
+        await db.execute(
+          `UPDATE eshop SET quantity = quantity - ? WHERE itemId = ? AND quantity >= ?`,
+          [item.quantity || 1, item.id || item.itemId, item.quantity || 1]
+        );
+      }
+
+      // Commit transaction
+      await db.execute("COMMIT");
+
+      // Fetch the created order
+      const [order] = await db.execute(
+        "SELECT * FROM eshop_orders WHERE orderId = ?",
+        [orderId]
+      );
+
+      res.status(201).json({
+        success: true,
+        message: "Order placed successfully",
+        data: {
+          orderId: order[0].orderId,
+          orderNumber: order[0].orderNumber,
+          totalAmount: order[0].totalAmount,
+          status: order[0].status,
+        },
+      });
+    } catch (error) {
+      // Rollback transaction on error
+      await db.execute("ROLLBACK");
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error processing checkout:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error processing checkout",
+      error: error.message,
+    });
+  }
+});
+
+// GET /api/eshop/orders - Get customer's orders
+router.get("/orders", ensureAuthenticated, async (req, res) => {
+  try {
+    const customerId = req.user.userId || req.user.customerId;
+
+    const [orders] = await db.execute(
+      "SELECT * FROM eshop_orders WHERE customerId = ? ORDER BY createdAt DESC",
+      [customerId]
+    );
+
+    res.json({
+      success: true,
+      data: orders,
+    });
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching orders",
       error: error.message,
     });
   }

@@ -115,6 +115,7 @@ export const staffAPI = {
 // Customer API
 export const customerAPI = {
   getStats: () => api.get("/auth/stats"),
+  getAll: () => api.get("/auth/customers"),
 };
 
 // Receptionist API

@@ -526,6 +526,28 @@ const getCustomerStats = async (req, res) => {
   }
 };
 
+/**
+ * Get all customers
+ * @route GET /api/auth/customers
+ * @access Protected (Manager only)
+ */
+const getAllCustomers = async (req, res) => {
+  try {
+    const [customers] = await db.query(
+      "SELECT customerId, name, email, phone, address, createdAt FROM customer ORDER BY createdAt DESC"
+    );
+
+    res.json(customers);
+  } catch (error) {
+    console.error("Error fetching customers:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching customers",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -534,4 +556,5 @@ module.exports = {
   changePassword,
   googleSignIn,
   getCustomerStats,
+  getAllCustomers,
 };
