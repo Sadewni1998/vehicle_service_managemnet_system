@@ -122,6 +122,11 @@ const ManagementDashboard = () => {
     category: "Engine",
   });
 
+  // Customer management state
+  const [customers, setCustomers] = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+
   // Load dashboard data
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -291,6 +296,26 @@ const ManagementDashboard = () => {
     };
 
     loadSpareParts();
+  }, [activeTab]);
+
+  // Load customers when the tab is active
+  useEffect(() => {
+    const loadCustomers = async () => {
+      if (activeTab === "customers") {
+        setLoadingCustomers(true);
+        try {
+          const response = await customerAPI.getAll();
+          setCustomers(response.data || []);
+        } catch (err) {
+          console.error("Error loading customers:", err);
+          setError("Failed to load customers");
+        } finally {
+          setLoadingCustomers(false);
+        }
+      }
+    };
+
+    loadCustomers();
   }, [activeTab]);
 
   // Manual refresh function for bookings
@@ -843,6 +868,21 @@ const ManagementDashboard = () => {
       .includes(normalizedBreakdownSearch);
   });
 
+  const normalizedCustomerSearch = customerSearchQuery.trim().toLowerCase();
+  const noCustomers = customers.length === 0;
+  const filteredCustomers = customers.filter((customer) => {
+    if (!normalizedCustomerSearch) return true;
+    const searchFields = [
+      customer.name || "",
+      customer.email || "",
+      customer.phone || "",
+      customer.address || "",
+    ];
+    return searchFields.some((field) =>
+      field.toLowerCase().includes(normalizedCustomerSearch)
+    );
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
@@ -996,15 +1036,143 @@ const ManagementDashboard = () => {
 
             {activeTab === "customers" && (
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Customer Management
-                </h3>
-                <div className="text-center py-12">
-                  <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    Customer management features coming soon
-                  </p>
+                {/* Header */}
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Customer Management
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      View and manage all registered customers
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 w-full lg:w-auto">
+                    <span className="text-sm text-gray-600">
+                      Showing {filteredCustomers.length} of {customers.length}{" "}
+                      customers
+                    </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="relative w-full sm:w-64">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={customerSearchQuery}
+                          onChange={(e) =>
+                            setCustomerSearchQuery(e.target.value)
+                          }
+                          placeholder="Search by name, email, phone, or address"
+                          className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                          aria-label="Search customers"
+                        />
+                      </div>
+                      {customerSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomerSearchQuery("")}
+                          className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
+
+                {loadingCustomers && noCustomers ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    <p className="text-gray-600 mt-4">Loading customers...</p>
+                  </div>
+                ) : noCustomers ? (
+                  <div className="text-center py-12">
+                    <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">No customers found</p>
+                  </div>
+                ) : filteredCustomers.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600">
+                      No customers found for{" "}
+                      <span className="font-semibold text-gray-900">
+                        {customerSearchQuery}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerSearchQuery("")}
+                      className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full bg-white border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            CUSTOMER ID
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            NAME
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            EMAIL
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            PHONE
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            ADDRESS
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            REGISTERED DATE
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {filteredCustomers.map((customer, index) => (
+                          <tr
+                            key={customer.customerId}
+                            className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                              index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                            }`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              #{customer.customerId}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {customer.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {customer.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {customer.phone}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {customer.address || (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {customer.createdAt
+                                ? new Date(customer.createdAt).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    }
+                                  )
+                                : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3439,3 +3607,4 @@ const ManagementDashboard = () => {
 };
 
 export default ManagementDashboard;
+
