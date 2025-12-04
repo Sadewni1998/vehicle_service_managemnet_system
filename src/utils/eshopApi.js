@@ -31,12 +31,44 @@ export const fetchEshopItems = async () => {
 };
 
 export const addEshopItem = async (itemData) => {
-  const res = await axios.post("/api/eshop", itemData);
+  // Check if itemData contains a file object in itemImage
+  if (itemData.itemImage instanceof File) {
+    const formData = new FormData();
+    // Append all fields to FormData
+    Object.keys(itemData).forEach((key) => {
+      formData.append(key, itemData[key]);
+    });
+
+    const res = await eshopApi.post("/eshop", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data.data;
+  }
+
+  const res = await eshopApi.post("/eshop", itemData);
   return res.data.data;
 };
 
 export const updateEshopItem = async (id, itemData) => {
-  const res = await axios.put(`/api/eshop/${id}`, itemData);
+  // Check if itemData contains a file object in itemImage
+  if (itemData.itemImage instanceof File) {
+    const formData = new FormData();
+    // Append all fields to FormData
+    Object.keys(itemData).forEach((key) => {
+      formData.append(key, itemData[key]);
+    });
+
+    const res = await eshopApi.put(`/eshop/${id}`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data.data;
+  }
+
+  const res = await eshopApi.put(`/eshop/${id}`, itemData);
   return res.data.data;
 };
 

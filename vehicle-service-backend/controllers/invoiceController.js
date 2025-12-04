@@ -6,286 +6,304 @@ const fs = require("fs");
 const path = require("path");
 
 /**
+ * Core logic to generate PDF invoice for a booking
+ * Returns { pdfBuffer, invoiceData }
+ */
+const createInvoicePdf = async (bookingId) => {
+  console.log(
+    `[createInvoicePdf] Starting generation for booking ID: ${bookingId}`
+  );
+
+  // Get booking details with all related information
+  const [bookings] = await db.query(
+    `SELECT b.*, c.name as customerName, c.phone as customerPhone, c.email as customerEmail, c.address as customerAddress
+     FROM booking b
+     LEFT JOIN customer c ON b.customerId = c.customerId
+     WHERE b.bookingId = ?`,
+    [bookingId]
+  );
+
+  if (bookings.length === 0) {
+    console.error(`[createInvoicePdf] Booking ${bookingId} not found`);
+    throw new Error("Booking not found");
+  }
+
+  const booking = bookings[0];
+  console.log(
+    `[createInvoicePdf] Booking found: ${booking.bookingId}, Status: ${booking.status}`
+  );
+
+  // Enforce precondition: Invoice can be generated only after Service Advisor verifies the job (booking.status = 'verified').
+  if (booking.status !== "verified") {
+    console.error(
+      `[createInvoicePdf] Booking status is '${booking.status}', expected 'verified'`
+    );
+    const error = new Error(
+      "Invoice can be generated only after jobcard approval. Please have the Service Advisor approve the jobcard to verify the booking."
+    );
+    error.statusCode = 400;
+    error.bookingStatus = booking.status;
+    throw error;
+  }
+
+  // Get assigned mechanics details
+  let assignedMechanicsDetails = [];
+  if (booking.assignedMechanics) {
+    try {
+      const mechanicIds = JSON.parse(booking.assignedMechanics);
+      if (Array.isArray(mechanicIds) && mechanicIds.length > 0) {
+        const placeholders = mechanicIds.map(() => "?").join(",");
+        const [mechanics] = await db.query(
+          `SELECT m.mechanicId, m.mechanicCode, s.name as mechanicName, m.specialization, m.experienceYears, m.hourlyRate
+           FROM mechanic m 
+           JOIN staff s ON m.staffId = s.staffId 
+           WHERE m.mechanicId IN (${placeholders})`,
+          mechanicIds
+        );
+        assignedMechanicsDetails = mechanics;
+      }
+    } catch (error) {
+      console.error("Error parsing assigned mechanics:", error);
+    }
+  }
+
+  // Get assigned spare parts details
+  let assignedSparePartsDetails = [];
+  if (booking.assignedSpareParts) {
+    try {
+      const spareParts = JSON.parse(booking.assignedSpareParts);
+      if (Array.isArray(spareParts) && spareParts.length > 0) {
+        const partIds = spareParts.map((sp) => sp.partId);
+        const placeholders = partIds.map(() => "?").join(",");
+        const [parts] = await db.query(
+          `SELECT partId, partName, partCode, category, unitPrice 
+           FROM spareparts 
+           WHERE partId IN (${placeholders})`,
+          partIds
+        );
+
+        assignedSparePartsDetails = parts.map((part) => {
+          const assignedPart = spareParts.find(
+            (sp) => sp.partId === part.partId
+          );
+          return {
+            ...part,
+            assignedQuantity: assignedPart ? assignedPart.quantity : 1,
+            totalPrice:
+              part.unitPrice * (assignedPart ? assignedPart.quantity : 1),
+          };
+        });
+      }
+    } catch (error) {
+      console.error("Error parsing assigned spare parts:", error);
+    }
+  }
+
+  // Parse service types
+  let serviceTypes = [];
+  if (booking.serviceTypes) {
+    try {
+      serviceTypes = JSON.parse(booking.serviceTypes);
+    } catch (error) {
+      serviceTypes = booking.serviceTypes.split(",").map((s) => s.trim());
+    }
+  }
+
+  // Calculate totals (ensure numeric math: MySQL DECIMAL fields arrive as strings)
+  const toNum = (v) => {
+    const n = typeof v === "string" ? parseFloat(v) : v;
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  // Normalize parts pricing where unitPrice may be DECIMAL string
+  assignedSparePartsDetails = assignedSparePartsDetails.map((part) => {
+    const qty = toNum(part.assignedQuantity || 1);
+    const unit = toNum(part.unitPrice);
+    const totalPrice = unit * qty;
+    return { ...part, assignedQuantity: qty, unitPrice: unit, totalPrice };
+  });
+
+  const laborCost = assignedMechanicsDetails.reduce((total, mechanic) => {
+    return total + toNum(mechanic.hourlyRate);
+  }, 0);
+
+  const partsCost = assignedSparePartsDetails.reduce((total, part) => {
+    return total + toNum(part.totalPrice);
+  }, 0);
+
+  const subtotal = laborCost + partsCost;
+  // As per latest requirement, remove tax from total calculation
+  const taxRate = 0; // Previously 0.15 (15%)
+  const tax = 0; // No tax applied
+  const total = +subtotal.toFixed(2);
+
+  // Helper: format a date with Sri Lankan timezone
+  const formatSLDate = (value) => {
+    try {
+      if (!value) return "-";
+      const d =
+        typeof value === "string" || typeof value === "number"
+          ? new Date(value)
+          : value;
+      return d.toLocaleDateString("en-GB", {
+        timeZone: "Asia/Colombo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }); // DD/MM/YYYY
+    } catch (_) {
+      return String(value);
+    }
+  };
+
+  // Fetch jobcard summary for this booking (for template fields)
+  let jobcardInfo = { jobcardId: null, completedAt: null };
+  try {
+    const [jcRows] = await db.query(
+      "SELECT jobcardId, completedAt FROM jobcard WHERE bookingId = ? ORDER BY jobcardId DESC LIMIT 1",
+      [bookingId]
+    );
+    if (jcRows && jcRows.length > 0) {
+      jobcardInfo.jobcardId = jcRows[0].jobcardId;
+      jobcardInfo.completedAt = jcRows[0].completedAt;
+    }
+  } catch (_) {}
+
+  // Prepare invoice data
+  const invoiceData = {
+    invoiceNumber: `INV-${bookingId}-${Date.now()}`,
+    // Use booking date from DB for invoice date as requested, formatted for Sri Lanka
+    invoiceDate: booking.bookingDate
+      ? formatSLDate(booking.bookingDate)
+      : formatSLDate(new Date()),
+    bookingId: bookingId,
+    currency: "LKR",
+    customer: {
+      name: booking.customerName || booking.name,
+      phone: booking.customerPhone || booking.phone,
+      email: booking.customerEmail || "N/A",
+      id: booking.customerId || null,
+      address: booking.customerAddress || "N/A",
+    },
+    vehicle: {
+      number: booking.vehicleNumber,
+      type: booking.vehicleType,
+      brand: booking.vehicleBrand,
+      model: booking.vehicleBrandModel,
+      year: booking.manufacturedYear,
+      fuelType: booking.fuelType,
+      transmission: booking.transmissionType,
+    },
+    service: {
+      date: formatSLDate(booking.bookingDate),
+      timeSlot: booking.timeSlot,
+      types: serviceTypes,
+      specialRequests: booking.specialRequests,
+      bookingCreatedAt: booking.createdAt
+        ? new Date(booking.createdAt).toLocaleString("en-GB", {
+            timeZone: "Asia/Colombo",
+          })
+        : "-",
+      jobcardId: jobcardInfo.jobcardId || "-",
+      completedAt: jobcardInfo.completedAt
+        ? new Date(jobcardInfo.completedAt).toLocaleString("en-GB", {
+            timeZone: "Asia/Colombo",
+          })
+        : "-",
+      serviceAdvisor: "-",
+    },
+    mechanics: assignedMechanicsDetails,
+    parts: assignedSparePartsDetails,
+    pricing: {
+      laborCost: laborCost,
+      partsCost: partsCost,
+      subtotal: subtotal,
+      tax: tax,
+      total: total,
+    },
+  };
+
+  console.log("Invoice data prepared:", invoiceData);
+
+  // Store invoice data in database
+  try {
+    await db.query(
+      `INSERT INTO invoices (invoiceNumber, bookingId, customerId, invoiceDate, currency, totalAmount, laborCost, partsCost, tax, status, invoiceData)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated', ?)`,
+      [
+        invoiceData.invoiceNumber,
+        bookingId,
+        booking.customerId,
+        invoiceData.invoiceDate,
+        invoiceData.currency,
+        invoiceData.pricing.total,
+        invoiceData.pricing.laborCost,
+        invoiceData.pricing.partsCost,
+        invoiceData.pricing.tax,
+        JSON.stringify(invoiceData),
+      ]
+    );
+    console.log("Invoice stored in database");
+  } catch (dbError) {
+    console.error("Error storing invoice in database:", dbError);
+    // Continue with PDF generation even if DB storage fails
+  }
+
+  // Generate HTML for the invoice
+  const htmlContent = generateInvoiceHTML(invoiceData);
+
+  // Generate PDF using Puppeteer
+  console.log("Starting PDF generation with Puppeteer...");
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+
+  const page = await browser.newPage();
+  await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+  // Wait for web fonts to be fully loaded to ensure exact rendering
+  try {
+    await page.evaluateHandle("document.fonts.ready");
+  } catch (_) {}
+
+  // Calculate dynamic scale to fit content into one A4 page height
+  const contentHeight = await page.evaluate(() => document.body.scrollHeight);
+  const mmToPx = (mm) => (mm * 96) / 25.4;
+  const a4HeightPx = mmToPx(297);
+  // 0.5 inch margins (12.7mm) on all sides
+  const marginMm = 12.7;
+  const availableHeightPx = a4HeightPx - 2 * mmToPx(marginMm);
+  let scale = 1;
+  if (contentHeight > availableHeightPx) {
+    scale = Math.max(0.1, Math.min(1, availableHeightPx / contentHeight));
+  }
+
+  const pdfBuffer = await page.pdf({
+    format: "A4",
+    printBackground: true,
+    preferCSSPageSize: true,
+    scale,
+    margin: {
+      top: `${marginMm}mm`,
+      right: `${marginMm}mm`,
+      bottom: `${marginMm}mm`,
+      left: `${marginMm}mm`,
+    },
+  });
+
+  await browser.close();
+  console.log("PDF generated successfully, size:", pdfBuffer.length);
+
+  return { pdfBuffer, invoiceData };
+};
+
+/**
  * Generate PDF invoice for a booking
  */
 const generateInvoice = async (req, res) => {
   try {
     const { bookingId } = req.params;
-
-    console.log(`Generating invoice for booking ID: ${bookingId}`);
-
-    // Get booking details with all related information
-    const [bookings] = await db.query(
-      `SELECT b.*, c.name as customerName, c.phone as customerPhone, c.email as customerEmail, c.address as customerAddress
-       FROM booking b
-       LEFT JOIN customer c ON b.customerId = c.customerId
-       WHERE b.bookingId = ?`,
-      [bookingId]
-    );
-
-    if (bookings.length === 0) {
-      return res.status(404).json({ message: "Booking not found" });
-    }
-
-    const booking = bookings[0];
-    console.log("Booking found:", booking.bookingId);
-
-    // Enforce precondition: Invoice can be generated only after Service Advisor verifies the job (booking.status = 'verified').
-    if (booking.status !== "verified") {
-      return res.status(400).json({
-        message:
-          "Invoice can be generated only after jobcard approval. Please have the Service Advisor approve the jobcard to verify the booking.",
-        bookingStatus: booking.status,
-      });
-    }
-
-    // Get assigned mechanics details
-    let assignedMechanicsDetails = [];
-    if (booking.assignedMechanics) {
-      try {
-        const mechanicIds = JSON.parse(booking.assignedMechanics);
-        if (Array.isArray(mechanicIds) && mechanicIds.length > 0) {
-          const placeholders = mechanicIds.map(() => "?").join(",");
-          const [mechanics] = await db.query(
-            `SELECT m.mechanicId, m.mechanicCode, s.name as mechanicName, m.specialization, m.experienceYears, m.hourlyRate
-             FROM mechanic m 
-             JOIN staff s ON m.staffId = s.staffId 
-             WHERE m.mechanicId IN (${placeholders})`,
-            mechanicIds
-          );
-          assignedMechanicsDetails = mechanics;
-        }
-      } catch (error) {
-        console.error("Error parsing assigned mechanics:", error);
-      }
-    }
-
-    // Get assigned spare parts details
-    let assignedSparePartsDetails = [];
-    if (booking.assignedSpareParts) {
-      try {
-        const spareParts = JSON.parse(booking.assignedSpareParts);
-        if (Array.isArray(spareParts) && spareParts.length > 0) {
-          const partIds = spareParts.map((sp) => sp.partId);
-          const placeholders = partIds.map(() => "?").join(",");
-          const [parts] = await db.query(
-            `SELECT partId, partName, partCode, category, unitPrice 
-             FROM spareparts 
-             WHERE partId IN (${placeholders})`,
-            partIds
-          );
-
-          assignedSparePartsDetails = parts.map((part) => {
-            const assignedPart = spareParts.find(
-              (sp) => sp.partId === part.partId
-            );
-            return {
-              ...part,
-              assignedQuantity: assignedPart ? assignedPart.quantity : 1,
-              totalPrice:
-                part.unitPrice * (assignedPart ? assignedPart.quantity : 1),
-            };
-          });
-        }
-      } catch (error) {
-        console.error("Error parsing assigned spare parts:", error);
-      }
-    }
-
-    // Parse service types
-    let serviceTypes = [];
-    if (booking.serviceTypes) {
-      try {
-        serviceTypes = JSON.parse(booking.serviceTypes);
-      } catch (error) {
-        serviceTypes = booking.serviceTypes.split(",").map((s) => s.trim());
-      }
-    }
-
-    // Calculate totals (ensure numeric math: MySQL DECIMAL fields arrive as strings)
-    const toNum = (v) => {
-      const n = typeof v === "string" ? parseFloat(v) : v;
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    // Normalize parts pricing where unitPrice may be DECIMAL string
-    assignedSparePartsDetails = assignedSparePartsDetails.map((part) => {
-      const qty = toNum(part.assignedQuantity || 1);
-      const unit = toNum(part.unitPrice);
-      const totalPrice = unit * qty;
-      return { ...part, assignedQuantity: qty, unitPrice: unit, totalPrice };
-    });
-
-    const laborCost = assignedMechanicsDetails.reduce((total, mechanic) => {
-      return total + toNum(mechanic.hourlyRate);
-    }, 0);
-
-    const partsCost = assignedSparePartsDetails.reduce((total, part) => {
-      return total + toNum(part.totalPrice);
-    }, 0);
-
-    const subtotal = laborCost + partsCost;
-    // As per latest requirement, remove tax from total calculation
-    const taxRate = 0; // Previously 0.15 (15%)
-    const tax = 0; // No tax applied
-    const total = +subtotal.toFixed(2);
-
-    // Helper: format a date with Sri Lankan timezone
-    const formatSLDate = (value) => {
-      try {
-        if (!value) return "-";
-        const d =
-          typeof value === "string" || typeof value === "number"
-            ? new Date(value)
-            : value;
-        return d.toLocaleDateString("en-GB", {
-          timeZone: "Asia/Colombo",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        }); // DD/MM/YYYY
-      } catch (_) {
-        return String(value);
-      }
-    };
-
-    // Fetch jobcard summary for this booking (for template fields)
-    let jobcardInfo = { jobcardId: null, completedAt: null };
-    try {
-      const [jcRows] = await db.query(
-        "SELECT jobcardId, completedAt FROM jobcard WHERE bookingId = ? ORDER BY jobcardId DESC LIMIT 1",
-        [bookingId]
-      );
-      if (jcRows && jcRows.length > 0) {
-        jobcardInfo.jobcardId = jcRows[0].jobcardId;
-        jobcardInfo.completedAt = jcRows[0].completedAt;
-      }
-    } catch (_) {}
-
-    // Prepare invoice data
-    const invoiceData = {
-      invoiceNumber: `INV-${bookingId}-${Date.now()}`,
-      // Use booking date from DB for invoice date as requested, formatted for Sri Lanka
-      invoiceDate: booking.bookingDate
-        ? formatSLDate(booking.bookingDate)
-        : formatSLDate(new Date()),
-      bookingId: bookingId,
-      currency: "LKR",
-      customer: {
-        name: booking.customerName || booking.name,
-        phone: booking.customerPhone || booking.phone,
-        email: booking.customerEmail || "N/A",
-        id: booking.customerId || null,
-        address: booking.customerAddress || "N/A",
-      },
-      vehicle: {
-        number: booking.vehicleNumber,
-        type: booking.vehicleType,
-        brand: booking.vehicleBrand,
-        model: booking.vehicleBrandModel,
-        year: booking.manufacturedYear,
-        fuelType: booking.fuelType,
-        transmission: booking.transmissionType,
-      },
-      service: {
-        date: formatSLDate(booking.bookingDate),
-        timeSlot: booking.timeSlot,
-        types: serviceTypes,
-        specialRequests: booking.specialRequests,
-        bookingCreatedAt: booking.createdAt
-          ? new Date(booking.createdAt).toLocaleString("en-GB", {
-              timeZone: "Asia/Colombo",
-            })
-          : "-",
-        jobcardId: jobcardInfo.jobcardId || "-",
-        completedAt: jobcardInfo.completedAt
-          ? new Date(jobcardInfo.completedAt).toLocaleString("en-GB", {
-              timeZone: "Asia/Colombo",
-            })
-          : "-",
-        serviceAdvisor: "-",
-      },
-      mechanics: assignedMechanicsDetails,
-      parts: assignedSparePartsDetails,
-      pricing: {
-        laborCost: laborCost,
-        partsCost: partsCost,
-        subtotal: subtotal,
-        tax: tax,
-        total: total,
-      },
-    };
-
-    console.log("Invoice data prepared:", invoiceData);
-
-    // Store invoice data in database
-    try {
-      await db.query(
-        `INSERT INTO invoices (invoiceNumber, bookingId, customerId, invoiceDate, currency, totalAmount, laborCost, partsCost, tax, status, invoiceData)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated', ?)`,
-        [
-          invoiceData.invoiceNumber,
-          bookingId,
-          booking.customerId,
-          invoiceData.invoiceDate,
-          invoiceData.currency,
-          invoiceData.pricing.total,
-          invoiceData.pricing.laborCost,
-          invoiceData.pricing.partsCost,
-          invoiceData.pricing.tax,
-          JSON.stringify(invoiceData),
-        ]
-      );
-      console.log("Invoice stored in database");
-    } catch (dbError) {
-      console.error("Error storing invoice in database:", dbError);
-      // Continue with PDF generation even if DB storage fails
-    }
-
-    // Generate HTML for the invoice
-    const htmlContent = generateInvoiceHTML(invoiceData);
-
-    // Generate PDF using Puppeteer
-    console.log("Starting PDF generation with Puppeteer...");
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-    // Wait for web fonts to be fully loaded to ensure exact rendering
-    try {
-      await page.evaluateHandle("document.fonts.ready");
-    } catch (_) {}
-
-    // Calculate dynamic scale to fit content into one A4 page height
-    const contentHeight = await page.evaluate(() => document.body.scrollHeight);
-    const mmToPx = (mm) => (mm * 96) / 25.4;
-    const a4HeightPx = mmToPx(297);
-    // 0.5 inch margins (12.7mm) on all sides
-    const marginMm = 12.7;
-    const availableHeightPx = a4HeightPx - 2 * mmToPx(marginMm);
-    let scale = 1;
-    if (contentHeight > availableHeightPx) {
-      scale = Math.max(0.1, Math.min(1, availableHeightPx / contentHeight));
-    }
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      scale,
-      margin: {
-        top: `${marginMm}mm`,
-        right: `${marginMm}mm`,
-        bottom: `${marginMm}mm`,
-        left: `${marginMm}mm`,
-      },
-    });
-
-    await browser.close();
-    console.log("PDF generated successfully, size:", pdfBuffer.length);
+    const { pdfBuffer } = await createInvoicePdf(bookingId);
 
     // Set response headers for PDF download
     res.setHeader("Content-Type", "application/pdf");
@@ -298,6 +316,15 @@ const generateInvoice = async (req, res) => {
     res.send(pdfBuffer);
   } catch (error) {
     console.error("Error generating invoice:", error);
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message,
+        bookingStatus: error.bookingStatus,
+      });
+    }
+    if (error.message === "Booking not found") {
+      return res.status(404).json({ message: "Booking not found" });
+    }
     res.status(500).json({
       message: "Error generating invoice",
       error: error.message,
@@ -837,4 +864,5 @@ module.exports = {
   getCustomerInvoices,
   downloadCustomerInvoice,
   finalizeInvoice,
+  createInvoicePdf,
 };

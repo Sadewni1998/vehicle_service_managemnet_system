@@ -2,12 +2,65 @@ const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
 const { ensureAuthenticated } = require("../middleware/authMiddleware");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, "../uploads/eshop");
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Create unique filename: timestamp-originalname
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: function (req, file, cb) {
+    const filetypes = /jpeg|jpg|png|gif|webp/;
+    const mimetype = filetypes.test(file.mimetype);
+    const extname = filetypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    }
+    cb(new Error("Only image files are allowed!"));
+  },
+});
 
 // GET /api/eshop - Get all items from eshop
 router.get("/", async (req, res) => {
   try {
     const [items] = await db.execute("SELECT * FROM eshop");
-    res.json({ success: true, data: items });
+
+    // Add full URL to image path
+    const itemsWithImageUrl = items.map((item) => {
+      if (item.itemImage && !item.itemImage.startsWith("http")) {
+        // Assuming the server is running on the same host, construct the URL
+        // In production, you might want to use an environment variable for the base URL
+        const protocol = req.protocol;
+        const host = req.get("host");
+        return {
+          ...item,
+          itemImage: `${protocol}://${host}/${item.itemImage}`,
+        };
+      }
+      return item;
+    });
+
+    res.json({ success: true, data: itemsWithImageUrl });
   } catch (error) {
     console.error("Error fetching eshop items:", error);
     res.status(500).json({
@@ -19,7 +72,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/eshop - Add a new item to eshop
-router.post("/", async (req, res) => {
+router.post("/", upload.single("itemImage"), async (req, res) => {
   try {
     const {
       itemCode,
@@ -28,23 +81,22 @@ router.post("/", async (req, res) => {
       price,
       quantity,
       discountPercentage,
-      itemImage,
       itemBrand,
       itemType,
     } = req.body;
 
+    // Get image path from uploaded file
+    let itemImage = null;
+    if (req.file) {
+      // Store relative path
+      itemImage = "uploads/eshop/" + req.file.filename;
+    } else if (req.body.itemImage) {
+      // Fallback if image URL is provided as string
+      itemImage = req.body.itemImage;
+    }
+
     console.log("POST request body:", req.body);
-    console.log("Extracted values:", {
-      itemCode,
-      itemName,
-      description,
-      price,
-      quantity,
-      discountPercentage,
-      itemImage,
-      itemBrand,
-      itemType,
-    });
+    console.log("Uploaded file:", req.file);
 
     // Validate required fields
     if (
@@ -85,7 +137,7 @@ router.post("/", async (req, res) => {
         price,
         quantity,
         discountPercentage || 0,
-        itemImage || null,
+        itemImage,
         itemBrand,
         itemType,
         true,
@@ -115,7 +167,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/eshop/:id - Update an item in eshop
-router.put("/:id", async (req, res) => {
+router.put("/:id", upload.single("itemImage"), async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -125,10 +177,18 @@ router.put("/:id", async (req, res) => {
       price,
       quantity,
       discountPercentage,
-      itemImage,
       itemBrand,
       itemType,
     } = req.body;
+
+    // Get image path from uploaded file
+    let itemImage = undefined;
+    if (req.file) {
+      itemImage = "uploads/eshop/" + req.file.filename;
+    } else if (req.body.itemImage) {
+      // If a string is passed (e.g. existing URL), use it
+      itemImage = req.body.itemImage;
+    }
 
     // Validate required fields
     if (
@@ -170,23 +230,29 @@ router.put("/:id", async (req, res) => {
       });
     }
 
+    // Construct update query dynamically based on whether image is updated
+    let query = `UPDATE eshop SET itemCode = ?, itemName = ?, description = ?, price = ?, quantity = ?, discountPercentage = ?, itemBrand = ?, itemType = ?, updatedAt = CURRENT_TIMESTAMP`;
+    const params = [
+      itemCode,
+      itemName,
+      description || null,
+      price,
+      quantity,
+      discountPercentage || 0,
+      itemBrand,
+      itemType,
+    ];
+
+    if (itemImage !== undefined) {
+      query += `, itemImage = ?`;
+      params.push(itemImage);
+    }
+
+    query += ` WHERE itemId = ?`;
+    params.push(id);
+
     // Update item in eshop table
-    await db.execute(
-      `UPDATE eshop SET itemCode = ?, itemName = ?, description = ?, price = ?, quantity = ?, discountPercentage = ?, itemImage = ?, itemBrand = ?, itemType = ?, updatedAt = CURRENT_TIMESTAMP
-       WHERE itemId = ?`,
-      [
-        itemCode,
-        itemName,
-        description || null,
-        price,
-        quantity,
-        discountPercentage || 0,
-        itemImage || null,
-        itemBrand,
-        itemType,
-        id,
-      ]
-    );
+    await db.execute(query, params);
 
     // Fetch the updated item
     const [updatedItem] = await db.execute(
@@ -276,7 +342,10 @@ router.post("/checkout", ensureAuthenticated, async (req, res) => {
 
     try {
       // Generate order number
-      const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const orderNumber = `ORD-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)
+        .toUpperCase()}`;
 
       // Create order
       const [orderResult] = await db.execute(

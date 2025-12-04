@@ -5,6 +5,8 @@ const {
   ensureAuthenticated,
   checkRole,
 } = require("../middleware/authMiddleware");
+const { createInvoicePdf } = require("../controllers/invoiceController");
+const sendEmail = require("../utils/emailService");
 
 /**
  * PUT /api/jobcards/:jobcardId/assign-mechanics
@@ -826,6 +828,41 @@ router.put(
         "UPDATE booking SET status = 'verified' WHERE bookingId = ?",
         [jobcard.bookingId]
       );
+
+      // Automatically generate and send invoice email
+      try {
+        console.log(
+          `Jobcard approved. Status changed to verified for booking ${jobcard.bookingId}. Generating invoice...`
+        );
+        const { pdfBuffer, invoiceData } = await createInvoicePdf(
+          jobcard.bookingId
+        );
+
+        const customerEmail = invoiceData.customer.email;
+        console.log(
+          `Customer email for booking ${jobcard.bookingId}: ${customerEmail}`
+        );
+
+        if (customerEmail && customerEmail !== "N/A") {
+          const subject = `Invoice for Booking #${jobcard.bookingId} - Hybrid Lanka`;
+          const text = `Dear ${invoiceData.customer.name},\n\nYour booking #${jobcard.bookingId} has been verified. Please find the attached invoice.\n\nThank you,\nHybrid Lanka`;
+          const attachments = [
+            {
+              filename: `invoice-${jobcard.bookingId}.pdf`,
+              content: pdfBuffer,
+            },
+          ];
+
+          console.log(`Attempting to send email to ${customerEmail}...`);
+          await sendEmail(customerEmail, subject, text, attachments);
+          console.log(`Invoice sent successfully to ${customerEmail}`);
+        } else {
+          console.log("Customer email not found or is 'N/A', skipping email.");
+        }
+      } catch (emailError) {
+        console.error("Error generating/sending invoice email:", emailError);
+        // Don't fail the request if email fails, just log it.
+      }
 
       return res.status(200).json({
         success: true,

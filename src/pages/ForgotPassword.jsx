@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { authAPI } from "../utils/api";
 
 const ForgotPassword = () => {
   const {
@@ -15,12 +16,14 @@ const ForgotPassword = () => {
   const onSubmit = async ({ email }) => {
     setIsSubmitting(true);
     try {
-      // Placeholder for future API integration
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      await authAPI.forgotPassword(email);
       toast.success(
-        "If an account exists for this email, reset instructions are on the way."
+        "If an account exists for this email, a temporary password has been sent."
       );
-      navigate("/validation");
+      // Redirect to login after a short delay so user can read the message
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     } catch (error) {
       toast.error("Unable to process request right now. Please try again.");
       console.error("Forgot password error:", error);
@@ -35,14 +38,17 @@ const ForgotPassword = () => {
         <div className="flex justify-center">
           <div className="flex items-center space-x-3">
             <img src="/logo.png" alt="Hybrid Lanka" className="w-24.5 h-12" />
-            <h2 className="text-4xl font-bold text-primary-600">Hybrid Lanka</h2>
+            <h2 className="text-4xl font-bold text-primary-600">
+              Hybrid Lanka
+            </h2>
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
           Reset your password
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Enter the email linked to your account and we&apos;ll send a reset link.
+          Enter the email linked to your account and we&apos;ll send a reset
+          link.
         </p>
       </div>
 
@@ -104,5 +110,3 @@ const ForgotPassword = () => {
 };
 
 export default ForgotPassword;
-
-

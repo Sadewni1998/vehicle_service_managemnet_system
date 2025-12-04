@@ -2,6 +2,8 @@
 
 const db = require("../config/db");
 const { isTenDigitPhone } = require("../utils/validators");
+const { createInvoicePdf } = require("./invoiceController");
+const sendEmail = require("../utils/emailService");
 
 /**
  * Get current date in Sri Lankan timezone (UTC+5:30)
@@ -162,6 +164,25 @@ const updateBooking = async (req, res) => {
   }
 
   try {
+    // Check if status is being updated to 'verified'
+    let statusChangedToVerified = false;
+    if (fieldsToUpdate.status === "verified") {
+      const [currentBooking] = await db.query(
+        "SELECT status FROM booking WHERE bookingId = ?",
+        [bookingId]
+      );
+      if (
+        currentBooking.length > 0 &&
+        currentBooking[0].status !== "verified"
+      ) {
+        statusChangedToVerified = true;
+      } else {
+        console.log(
+          `[updateBooking] Status update to 'verified' requested, but current status is '${currentBooking[0]?.status}'. Skipping email trigger.`
+        );
+      }
+    }
+
     const sql = "UPDATE booking SET ? WHERE bookingId = ?";
 
     const [result] = await db.query(sql, [fieldsToUpdate, bookingId]);
@@ -170,6 +191,41 @@ const updateBooking = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Booking not found or no new data to update." });
+    }
+
+    // If status changed to verified, generate and send invoice
+    if (statusChangedToVerified) {
+      try {
+        console.log(
+          `Status changed to verified for booking ${bookingId}. Generating invoice...`
+        );
+        const { pdfBuffer, invoiceData } = await createInvoicePdf(bookingId);
+
+        const customerEmail = invoiceData.customer.email;
+        console.log(
+          `Customer email for booking ${bookingId}: ${customerEmail}`
+        );
+
+        if (customerEmail && customerEmail !== "N/A") {
+          const subject = `Invoice for Booking #${bookingId} - Hybrid Lanka`;
+          const text = `Dear ${invoiceData.customer.name},\n\nYour booking #${bookingId} has been verified. Please find the attached invoice.\n\nThank you,\nHybrid Lanka`;
+          const attachments = [
+            {
+              filename: `invoice-${bookingId}.pdf`,
+              content: pdfBuffer,
+            },
+          ];
+
+          console.log(`Attempting to send email to ${customerEmail}...`);
+          await sendEmail(customerEmail, subject, text, attachments);
+          console.log(`Invoice sent successfully to ${customerEmail}`);
+        } else {
+          console.log("Customer email not found or is 'N/A', skipping email.");
+        }
+      } catch (emailError) {
+        console.error("Error generating/sending invoice email:", emailError);
+        // Don't fail the request if email fails, just log it.
+      }
     }
 
     res.status(200).json({ message: "Booking updated successfully!" });
@@ -599,6 +655,10 @@ const updateBookingStatus = async (req, res) => {
   const { bookingId } = req.params;
   const { status } = req.body;
 
+  console.log(
+    `[updateBookingStatus] Request to update booking ${bookingId} to status: ${status}`
+  );
+
   // Validate the status
   const allowedStatuses = [
     "pending",
@@ -623,6 +683,9 @@ const updateBookingStatus = async (req, res) => {
       return res.status(404).json({ message: "Booking not found." });
     }
     const currentStatus = existing[0].status;
+    console.log(
+      `[updateBookingStatus] Current status: ${currentStatus}, New status: ${status}`
+    );
 
     // Prevent skipping verification: only allow completed if currently verified
     if (status === "completed" && currentStatus !== "verified") {
@@ -654,6 +717,52 @@ const updateBookingStatus = async (req, res) => {
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Booking not found." });
+    }
+
+    // If status changed to verified, generate and send invoice
+    // Note: We check if status is 'verified' OR if it was already verified but we want to re-send?
+    // For now, strictly follow "if status BECOMES verified".
+    // But to help debugging, let's log if we are skipping it.
+    if (status === "verified") {
+      if (currentStatus !== "verified") {
+        try {
+          console.log(
+            `Status changed to verified for booking ${bookingId} (via updateBookingStatus). Generating invoice...`
+          );
+          const { pdfBuffer, invoiceData } = await createInvoicePdf(bookingId);
+
+          const customerEmail = invoiceData.customer.email;
+          console.log(
+            `Customer email for booking ${bookingId}: ${customerEmail}`
+          );
+
+          if (customerEmail && customerEmail !== "N/A") {
+            const subject = `Invoice for Booking #${bookingId} - Hybrid Lanka`;
+            const text = `Dear ${invoiceData.customer.name},\n\nYour booking #${bookingId} has been verified. Please find the attached invoice.\n\nThank you,\nHybrid Lanka`;
+            const attachments = [
+              {
+                filename: `invoice-${bookingId}.pdf`,
+                content: pdfBuffer,
+              },
+            ];
+
+            console.log(`Attempting to send email to ${customerEmail}...`);
+            await sendEmail(customerEmail, subject, text, attachments);
+            console.log(`Invoice sent successfully to ${customerEmail}`);
+          } else {
+            console.log(
+              "Customer email not found or is 'N/A', skipping email."
+            );
+          }
+        } catch (emailError) {
+          console.error("Error generating/sending invoice email:", emailError);
+          // Don't fail the request if email fails, just log it.
+        }
+      } else {
+        console.log(
+          `[updateBookingStatus] Status is 'verified' but current status was already '${currentStatus}'. Skipping email.`
+        );
+      }
     }
 
     // If status changed to 'arrived', ensure a single jobcard exists (create once)

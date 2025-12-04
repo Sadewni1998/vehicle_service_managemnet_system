@@ -315,7 +315,9 @@ const CustomerDashboard = () => {
     try {
       localStorage.setItem("eshopCart", JSON.stringify(cart));
       setEshopCart(cart);
-      try { window.dispatchEvent(new CustomEvent("eshopCartUpdated")); } catch (e) {}
+      try {
+        window.dispatchEvent(new CustomEvent("eshopCartUpdated"));
+      } catch (e) {}
     } catch (err) {
       console.error("Failed to persist eshop cart", err);
     }
@@ -335,7 +337,9 @@ const CustomerDashboard = () => {
 
   const updateQuantity = (id, qty) => {
     if (qty < 1) return;
-    const updated = eshopCart.map((i) => (i.id === id ? { ...i, quantity: qty } : i));
+    const updated = eshopCart.map((i) =>
+      i.id === id ? { ...i, quantity: qty } : i
+    );
     persistCart(updated);
   };
 
@@ -457,7 +461,9 @@ const CustomerDashboard = () => {
         });
 
         toast.success(
-          `Payment successful! Order #${response.data.orderNumber} placed for ${selected.length} item${selected.length !== 1 ? "s" : ""}`
+          `Payment successful! Order #${response.data.orderNumber} placed for ${
+            selected.length
+          } item${selected.length !== 1 ? "s" : ""}`
         );
       } else {
         throw new Error(response.message || "Payment failed");
@@ -1517,7 +1523,7 @@ const CustomerDashboard = () => {
 
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
-                              customerStatus
+                                customerStatus
                               )}`}
                             >
                               {customerStatus}
@@ -1810,12 +1816,19 @@ const CustomerDashboard = () => {
                       <input
                         type="checkbox"
                         id="select-all"
-                        checked={selectedItems.size === eshopCart.length && eshopCart.length > 0}
+                        checked={
+                          selectedItems.size === eshopCart.length &&
+                          eshopCart.length > 0
+                        }
                         onChange={toggleSelectAll}
                         className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
                       />
-                      <label htmlFor="select-all" className="ml-2 text-sm font-medium text-gray-700">
-                        Select All ({selectedItems.size} of {eshopCart.length} selected)
+                      <label
+                        htmlFor="select-all"
+                        className="ml-2 text-sm font-medium text-gray-700"
+                      >
+                        Select All ({selectedItems.size} of {eshopCart.length}{" "}
+                        selected)
                       </label>
                     </div>
 
@@ -1846,19 +1859,31 @@ const CustomerDashboard = () => {
                             <h4 className="font-semibold text-gray-900">
                               {item.name}
                             </h4>
-                            <p className="text-sm text-gray-500">{item.brand}</p>
-                            <p className="text-sm text-gray-600 mt-2">{item.description}</p>
+                            <p className="text-sm text-gray-500">
+                              {item.brand}
+                            </p>
+                            <p className="text-sm text-gray-600 mt-2">
+                              {item.description}
+                            </p>
                           </div>
                           <div className="text-right ml-4">
                             <div className="font-bold text-red-600">
-                              Rs. {(item.price * (item.quantity || 1)).toLocaleString()}
+                              Rs.{" "}
+                              {(
+                                item.price * (item.quantity || 1)
+                              ).toLocaleString()}
                             </div>
                             <div className="mt-2 flex items-center justify-end">
                               <input
                                 type="number"
                                 min="1"
                                 value={item.quantity || 1}
-                                onChange={(e) => updateQuantity(item.id, Number(e.target.value))}
+                                onChange={(e) =>
+                                  updateQuantity(
+                                    item.id,
+                                    Number(e.target.value)
+                                  )
+                                }
                                 className="w-20 px-2 py-1 border rounded text-sm"
                               />
                               <button
@@ -1893,7 +1918,8 @@ const CustomerDashboard = () => {
                         </span>
                         {selectedItems.size > 0 && (
                           <span className="text-sm text-gray-500 ml-2">
-                            ({selectedItems.size} item{selectedItems.size !== 1 ? "s" : ""} selected)
+                            ({selectedItems.size} item
+                            {selectedItems.size !== 1 ? "s" : ""} selected)
                           </span>
                         )}
                       </div>
@@ -1913,7 +1939,8 @@ const CustomerDashboard = () => {
                               : "bg-red-600 hover:bg-red-700 text-white"
                           }`}
                         >
-                          Checkout {selectedItems.size > 0 && `(${selectedItems.size})`}
+                          Checkout{" "}
+                          {selectedItems.size > 0 && `(${selectedItems.size})`}
                         </button>
                       </div>
                     </div>
@@ -1921,7 +1948,9 @@ const CustomerDashboard = () => {
                 ) : (
                   <div className="text-center py-12">
                     <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Add your first item to the cart</p>
+                    <p className="text-gray-600">
+                      Add your first item to the cart
+                    </p>
                     <Link
                       to="/parts"
                       className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
@@ -2810,6 +2839,15 @@ const CustomerDashboard = () => {
                 >
                   Close
                 </button>
+                <button
+                  onClick={() =>
+                    (window.location.href = `https://sandbox.payhere.lk/pay/checkout?order_id=${selectedBookingForInvoice.bookingId}`)
+                  }
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Pay Now
+                </button>
               </div>
             </div>
           </div>
@@ -2835,7 +2873,9 @@ const CustomerDashboard = () => {
             <div className="p-6">
               {/* Order Summary */}
               <div className="mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Order Summary
+                </h4>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   {getSelectedItems().map((item) => (
                     <div
@@ -2846,7 +2886,8 @@ const CustomerDashboard = () => {
                         {item.name} × {item.quantity || 1}
                       </span>
                       <span className="font-medium text-gray-900">
-                        Rs. {(item.price * (item.quantity || 1)).toLocaleString()}
+                        Rs.{" "}
+                        {(item.price * (item.quantity || 1)).toLocaleString()}
                       </span>
                     </div>
                   ))}
@@ -2875,7 +2916,11 @@ const CustomerDashboard = () => {
                     }`}
                   >
                     <div className="text-center">
-                    <img src="./public/img/paypal.png" alt="PayPal" className="w-15 h-10 mx-auto"/>
+                      <img
+                        src="./public/img/paypal.png"
+                        alt="PayPal"
+                        className="w-15 h-10 mx-auto"
+                      />
                     </div>
                   </button>
 
@@ -2889,7 +2934,11 @@ const CustomerDashboard = () => {
                     }`}
                   >
                     <div className="text-center">
-                    <img src="./public/img/visa.png" alt="Visa" className="w-20 h-13 mx-auto"/>
+                      <img
+                        src="./public/img/visa.png"
+                        alt="Visa"
+                        className="w-20 h-13 mx-auto"
+                      />
                     </div>
                   </button>
 
@@ -2903,7 +2952,11 @@ const CustomerDashboard = () => {
                     }`}
                   >
                     <div className="text-center">
-                    <img src="./public/img/mastercard.png" alt="MasterCard" className="w-20 h-13 mx-auto"/>
+                      <img
+                        src="./public/img/mastercard.png"
+                        alt="MasterCard"
+                        className="w-20 h-13 mx-auto"
+                      />
                     </div>
                   </button>
                 </div>
@@ -2962,7 +3015,10 @@ const CustomerDashboard = () => {
                         onChange={(e) =>
                           setPaymentFormData({
                             ...paymentFormData,
-                            cardNumber: e.target.value.replace(/\s/g, "").replace(/(.{4})/g, "$1 ").trim(),
+                            cardNumber: e.target.value
+                              .replace(/\s/g, "")
+                              .replace(/(.{4})/g, "$1 ")
+                              .trim(),
                           })
                         }
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
@@ -2981,7 +3037,8 @@ const CustomerDashboard = () => {
                           onChange={(e) => {
                             let value = e.target.value.replace(/\D/g, "");
                             if (value.length >= 2) {
-                              value = value.slice(0, 2) + "/" + value.slice(2, 4);
+                              value =
+                                value.slice(0, 2) + "/" + value.slice(2, 4);
                             }
                             setPaymentFormData({
                               ...paymentFormData,

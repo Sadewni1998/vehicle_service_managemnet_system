@@ -66,6 +66,7 @@ export const authAPI = {
   updateProfile: (userData) => api.put("/auth/profile", userData),
   changePassword: (passwordData) =>
     api.put("/auth/change-password", passwordData),
+  forgotPassword: (email) => api.post("/auth/forgot-password", { email }),
 };
 
 // Bookings API

@@ -1157,14 +1157,13 @@ const ManagementDashboard = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {customer.createdAt
-                                ? new Date(customer.createdAt).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      year: "numeric",
-                                      month: "short",
-                                      day: "numeric",
-                                    }
-                                  )
+                                ? new Date(
+                                    customer.createdAt
+                                  ).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  })
                                 : "-"}
                             </td>
                           </tr>
@@ -3607,4 +3606,3 @@ const ManagementDashboard = () => {
 };
 
 export default ManagementDashboard;
-

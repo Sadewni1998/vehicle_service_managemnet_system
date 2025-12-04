@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require("google-auth-library");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const { isTenDigitPhone } = require("../utils/validators");
+const sendEmail = require("../utils/emailService");
+const crypto = require("crypto");
 
 /**
  * Handles new customer registration with mandatory vehicle details.
@@ -548,6 +550,61 @@ const getAllCustomers = async (req, res) => {
   }
 };
 
+/**
+ * Forgot Password
+ * Generates a temporary password and sends it to the user's email.
+ */
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ message: "Email is required." });
+  }
+
+  try {
+    // Check if user exists
+    const [rows] = await db.query("SELECT * FROM customer WHERE email = ?", [
+      email,
+    ]);
+    const customer = rows[0];
+
+    if (!customer) {
+      // For security, don't reveal if user exists
+      return res.status(200).json({
+        message:
+          "If an account exists for this email, a temporary password has been sent.",
+      });
+    }
+
+    // Generate temporary password (8 characters)
+    const tempPassword = crypto.randomBytes(4).toString("hex");
+
+    // Hash the temporary password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(tempPassword, salt);
+
+    // Update password in DB
+    await db.query("UPDATE customer SET password = ? WHERE customerId = ?", [
+      hashedPassword,
+      customer.customerId,
+    ]);
+
+    // Send email
+    const subject = "Temporary Password - Hybrid Lanka";
+    const text = `Your temporary password is: ${tempPassword}\n\nPlease log in and change your password immediately.`;
+
+    await sendEmail(email, subject, text);
+
+    res.status(200).json({
+      message:
+        "If an account exists for this email, a temporary password has been sent.",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -557,4 +614,5 @@ module.exports = {
   googleSignIn,
   getCustomerStats,
   getAllCustomers,
+  forgotPassword,
 };

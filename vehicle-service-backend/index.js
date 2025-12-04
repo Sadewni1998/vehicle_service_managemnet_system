@@ -2,6 +2,7 @@
 
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config(); // Load environment variables from .env file
 
 const authRoutes = require("./routes/authRoutes");
@@ -17,6 +18,9 @@ const invoiceRoutes = require("./routes/invoiceRoutes");
 const eshopRoutes = require("./routes/eshopRoutes");
 // Initialize the Express app
 const app = express();
+
+// Serve static files from the uploads directory
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // CORS configuration
 app.use(

@@ -17,6 +17,10 @@ router.post("/register", authController.register);
 // POST /api/auth/login
 router.post("/login", authController.login);
 
+// Define the forgot password route
+// POST /api/auth/forgot-password
+router.post("/forgot-password", authController.forgotPassword);
+
 // Protected routes
 router.get("/profile", ensureAuthenticated, authController.getProfile);
 router.put("/profile", ensureAuthenticated, authController.updateProfile);
