@@ -24,6 +24,7 @@ const ReceptionistDashboard = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [kmEdit, setKmEdit] = useState("");
   const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [message, setMessage] = useState({ type: null, text: "" });
 
   // Get current date
   const currentDate = new Date().toLocaleDateString("en-US", {
@@ -126,7 +127,9 @@ const ReceptionistDashboard = () => {
           manufacturedYear: currentVehicle.manufacturedYear || 2020,
           fuelType: currentVehicle.fuelType || "Petrol",
           transmissionType: currentVehicle.transmissionType || "Automatic",
-          kilometersRun: currentVehicle.kilometersRun || 45000,
+          kilometersRun: currentVehicle.kilometersRun !== null && currentVehicle.kilometersRun !== undefined 
+            ? currentVehicle.kilometersRun 
+            : null,
           bookingDate: new Date().toISOString().split("T")[0],
           timeSlot: currentVehicle.timeSlot,
           status: currentVehicle.status,
@@ -138,7 +141,12 @@ const ReceptionistDashboard = () => {
             currentVehicle.specialRequests || "No special requests",
         };
         setSelectedBooking(bookingDetails);
-        setKmEdit(String(bookingDetails.kilometersRun || ""));
+        setKmEdit(
+          bookingDetails.kilometersRun !== null && bookingDetails.kilometersRun !== undefined
+            ? String(bookingDetails.kilometersRun)
+            : ""
+        );
+        setMessage({ type: null, text: "" }); // Clear any previous messages
         setShowBookingDetails(true);
         return;
       }
@@ -146,8 +154,14 @@ const ReceptionistDashboard = () => {
       // Fallback to API call if vehicle not found in state
       try {
         const response = await receptionistAPI.getBookingById(bookingId);
-        setSelectedBooking(response.data);
-        setKmEdit(String(response.data.kilometersRun || ""));
+        const bookingData = response.data;
+        setSelectedBooking(bookingData);
+        setKmEdit(
+          bookingData.kilometersRun !== null && bookingData.kilometersRun !== undefined
+            ? String(bookingData.kilometersRun)
+            : ""
+        );
+        setMessage({ type: null, text: "" }); // Clear any previous messages
         setShowBookingDetails(true);
       } catch (apiError) {
         console.warn("API call failed, using mock data:", apiError.message);
@@ -163,7 +177,7 @@ const ReceptionistDashboard = () => {
           manufacturedYear: 2020,
           fuelType: "Petrol",
           transmissionType: "Automatic",
-          kilometersRun: 45000,
+          kilometersRun: 0,
           bookingDate: new Date().toISOString().split("T")[0],
           timeSlot: "9:00 AM - 10:00 AM",
           status: "pending",
@@ -171,7 +185,12 @@ const ReceptionistDashboard = () => {
           specialRequests: "Please check the air conditioning system",
         };
         setSelectedBooking(mockBooking);
-        setKmEdit(String(mockBooking.kilometersRun || ""));
+        setKmEdit(
+          mockBooking.kilometersRun !== null && mockBooking.kilometersRun !== undefined
+            ? String(mockBooking.kilometersRun)
+            : ""
+        );
+        setMessage({ type: null, text: "" }); // Clear any previous messages
         setShowBookingDetails(true);
       }
     } catch (err) {
@@ -183,6 +202,33 @@ const ReceptionistDashboard = () => {
   // Mark vehicle as arrived
   const markAsArrived = async (vehicleId) => {
     try {
+      // First, check if kilometersRun is set before allowing status change
+      let kilometersRun = null;
+      
+      // Try to get kilometersRun from current vehicle state first
+      const currentVehicle = vehicles.find((v) => v.id === vehicleId);
+      if (currentVehicle && currentVehicle.kilometersRun !== null && currentVehicle.kilometersRun !== undefined) {
+        kilometersRun = currentVehicle.kilometersRun;
+      } else {
+        // Fetch booking details to check kilometersRun from database
+        try {
+          const response = await receptionistAPI.getBookingById(vehicleId);
+          kilometersRun = response.data.kilometersRun;
+        } catch (apiError) {
+          console.warn("Could not fetch booking details:", apiError.message);
+        }
+      }
+
+      // Validate that kilometersRun is not null or undefined
+      if (kilometersRun === null || kilometersRun === undefined) {
+        setMessage({
+          type: "error",
+          text: "Cannot mark as arrived: Kilometers run must be entered before checking in. Please update kilometers run in booking details first.",
+        });
+        setTimeout(() => setMessage({ type: null, text: "" }), 7000);
+        return;
+      }
+
       const currentTime = new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
@@ -207,6 +253,9 @@ const ReceptionistDashboard = () => {
             : vehicle
         )
       );
+      
+      // Clear any previous messages
+      setMessage({ type: null, text: "" });
     } catch (err) {
       console.error("Error updating booking status:", err);
       setError("Failed to update booking status. Please try again.");
@@ -216,9 +265,22 @@ const ReceptionistDashboard = () => {
   // Save kilometers run for the selected booking
   const saveKilometers = async () => {
     if (!selectedBooking) return;
+    // Prevent saving if booking status is "arrived" (checked in)
+    if (selectedBooking.status === "arrived") {
+      setMessage({
+        type: "error",
+        text: "Cannot modify kilometers run for checked-in bookings.",
+      });
+      setTimeout(() => setMessage({ type: null, text: "" }), 5000);
+      return;
+    }
     const value = parseInt(kmEdit, 10);
     if (Number.isNaN(value) || value < 0) {
-      alert("Please enter a valid non-negative integer for kilometers run");
+      setMessage({
+        type: "error",
+        text: "Please enter a valid non-negative integer for kilometers run",
+      });
+      setTimeout(() => setMessage({ type: null, text: "" }), 5000);
       return;
     }
     try {
@@ -230,10 +292,24 @@ const ReceptionistDashboard = () => {
           v.id === selectedBooking.id ? { ...v, kilometersRun: value } : v
         )
       );
+      setMessage({
+        type: "success",
+        text: "Kilometers run saved successfully!",
+      });
+      setTimeout(() => setMessage({ type: null, text: "" }), 5000);
     } catch (err) {
       console.error("Failed to save kilometers:", err);
-      alert("Failed to save kilometers. Please try again.");
+      setMessage({
+        type: "error",
+        text: "Failed to save kilometers. Please try again.",
+      });
+      setTimeout(() => setMessage({ type: null, text: "" }), 5000);
     }
+  };
+
+  // Check if kilometers can be edited (cannot edit if status is "arrived")
+  const canEditKilometers = () => {
+    return selectedBooking && selectedBooking.status !== "arrived";
   };
 
   // Get status badge styling
@@ -442,6 +518,32 @@ const ReceptionistDashboard = () => {
           </div>
         )}
 
+        {/* Warning/Info Message */}
+        {message.type && !showBookingDetails && (
+          <div
+            className={`mb-6 rounded-lg p-4 border ${
+              message.type === "success"
+                ? "bg-green-50 border-green-200"
+                : "bg-red-50 border-red-200"
+            }`}
+          >
+            <div className="flex items-center">
+              {message.type === "success" ? (
+                <CheckCircle className="w-5 h-5 text-green-600 mr-2 flex-shrink-0" />
+              ) : (
+                <XCircle className="w-5 h-5 text-red-600 mr-2 flex-shrink-0" />
+              )}
+              <p
+                className={
+                  message.type === "success" ? "text-green-800" : "text-red-800"
+                }
+              >
+                {message.text}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Today's Bookings Table */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
@@ -644,18 +746,64 @@ const ReceptionistDashboard = () => {
                         <input
                           type="number"
                           min="0"
-                          value={kmEdit}
-                          onChange={(e) => setKmEdit(e.target.value)}
-                          className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                          value={
+                            !canEditKilometers() &&
+                            selectedBooking.kilometersRun !== null &&
+                            selectedBooking.kilometersRun !== undefined
+                              ? selectedBooking.kilometersRun
+                              : kmEdit
+                          }
+                          onChange={(e) => {
+                            if (canEditKilometers()) {
+                              setKmEdit(e.target.value);
+                            }
+                          }}
+                          disabled={!canEditKilometers()}
+                          readOnly={!canEditKilometers()}
+                          className={`w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent ${
+                            !canEditKilometers()
+                              ? "bg-gray-100 cursor-not-allowed opacity-75"
+                              : ""
+                          }`}
                         />
                         <span className="text-gray-600">km</span>
-                        <button
-                          onClick={saveKilometers}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm"
-                        >
-                          Save
-                        </button>
+                        {canEditKilometers() ? (
+                          <button
+                            onClick={saveKilometers}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm"
+                          >
+                            Save
+                          </button>
+                        ) : (
+                          <span className="text-xs text-gray-500 italic">
+                            (Read-only - Checked In)
+                          </span>
+                        )}
                       </div>
+                      {message.type && (
+                        <div
+                          className={`mt-3 p-3 rounded-lg flex items-center gap-2 ${
+                            message.type === "success"
+                              ? "bg-green-50 border border-green-200"
+                              : "bg-red-50 border border-red-200"
+                          }`}
+                        >
+                          {message.type === "success" ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                          )}
+                          <p
+                            className={
+                              message.type === "success"
+                                ? "text-green-800 text-sm"
+                                : "text-red-800 text-sm"
+                            }
+                          >
+                            {message.text}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
