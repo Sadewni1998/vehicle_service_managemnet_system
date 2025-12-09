@@ -257,8 +257,7 @@ const MechanicDashboard = () => {
 
   const tabs = [
     { id: "my-jobs", label: "My Jobs" },
-    { id: "job-cards", label: "Job Cards" },
-    { id: "schedule", label: "Today's Schedule" },
+    { id: "job-cards", label: "Job Cards" }
   ];
 
   return (
@@ -679,20 +678,6 @@ const MechanicDashboard = () => {
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {activeTab === "schedule" && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-6">
-                  Today's Schedule
-                </h3>
-                <div className="text-center py-12">
-                  <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">
-                    No schedule available for today
-                  </p>
-                </div>
               </div>
             )}
           </div>
