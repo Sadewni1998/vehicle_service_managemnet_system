@@ -2233,6 +2233,14 @@ const ManagementDashboard = () => {
                         {selectedBooking.transmissionType}
                       </p>
                     </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        Odometer
+                      </label>
+                      <p className="text-gray-900">
+                        {selectedBooking.kilometersRun+" km"}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
