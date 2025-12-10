@@ -748,24 +748,21 @@ const CustomerDashboard = () => {
   // View booking details
   const viewBookingDetails = async (bookingId) => {
     try {
+      // Always fetch fresh booking data to ensure we have all details including mechanics and parts
+      const response = await bookingsAPI.getBookingById(bookingId);
+      setSelectedBooking(response.data);
+      setShowBookingDetails(true);
+    } catch (err) {
+      console.error("Error viewing booking details:", err);
+      // Fallback to local data if API fails
       const booking = bookings.find((b) => b.bookingId === bookingId);
       if (booking) {
         setSelectedBooking(booking);
         setShowBookingDetails(true);
       } else {
-        // Fallback to API call
-        try {
-          const response = await bookingsAPI.getBookingById(bookingId);
-          setSelectedBooking(response.data);
-          setShowBookingDetails(true);
-        } catch (apiError) {
-          console.error("Failed to fetch booking details:", apiError);
-          setError("Failed to load booking details. Please try again.");
-        }
+        setError("Failed to load booking details. Please try again.");
+        toast.error("Failed to load booking details");
       }
-    } catch (err) {
-      console.error("Error viewing booking details:", err);
-      setError("Failed to load booking details. Please try again.");
     }
   };
 
@@ -900,12 +897,39 @@ const CustomerDashboard = () => {
                       Make Your First Booking
                     </Link>
                   </div>
+                ) : bookings.filter((booking) => {
+                    const status = booking.status?.toLowerCase();
+                    return (
+                      status === "pending" ||
+                      status === "confirmed" ||
+                      status === "approved" ||
+                      status === "in progress"
+                    );
+                  }).length === 0 ? (
+                  <div className="text-center py-12">
+                    <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">
+                      No active bookings. All caught up!
+                    </p>
+                    <Link
+                      to="/booking"
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-block"
+                    >
+                      Book a New Service
+                    </Link>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {bookings
-                      .filter(
-                        (booking) => booking.status?.toLowerCase() === "pending"
-                      )
+                      .filter((booking) => {
+                        const status = booking.status?.toLowerCase();
+                        return (
+                          status === "pending" ||
+                          status === "confirmed" ||
+                          status === "approved" ||
+                          status === "in progress"
+                        );
+                      })
                       .map((booking) => (
                         <div
                           key={booking.bookingId}
@@ -1543,11 +1567,26 @@ const CustomerDashboard = () => {
                   Service History
                 </h3>
                 {Array.isArray(bookings) &&
-                bookings.filter((b) => b?.status?.toLowerCase() !== "pending")
-                  .length > 0 ? (
+                bookings.filter((b) => {
+                  const status = b?.status?.toLowerCase();
+                  return (
+                    status === "verified" ||
+                    status === "completed" ||
+                    status === "cancelled" ||
+                    status === "rejected"
+                  );
+                }).length > 0 ? (
                   <div className="space-y-4">
                     {bookings
-                      .filter((b) => b?.status?.toLowerCase() !== "pending")
+                      .filter((b) => {
+                        const status = b?.status?.toLowerCase();
+                        return (
+                          status === "verified" ||
+                          status === "completed" ||
+                          status === "cancelled" ||
+                          status === "rejected"
+                        );
+                      })
                       .map((booking) => (
                         <div
                           key={booking.bookingId}
@@ -2132,380 +2171,289 @@ const CustomerDashboard = () => {
       {showBookingDetails && selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-900">
-                  Booking Details
-                </h3>
+                <div className="flex items-center gap-4">
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    Booking Details
+                  </h3>
+                  <span
+                    className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(
+                      selectedBooking.status
+                    )}`}
+                  >
+                    {selectedBooking.status}
+                  </span>
+                </div>
                 <button
                   onClick={() => setShowBookingDetails(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-200 rounded-full"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
+              <div className="mt-2 text-sm text-gray-500 flex gap-4">
+                <span>ID: #{selectedBooking.bookingId}</span>
+                <span>•</span>
+                <span>Created: {formatDate(selectedBooking.createdAt)}</span>
+              </div>
             </div>
 
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Customer Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Customer Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Name
-                      </label>
-                      <p className="text-gray-900">{selectedBooking.name}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Phone
-                      </label>
-                      <p className="text-gray-900">{selectedBooking.phone}</p>
-                    </div>
+            <div className="p-6 space-y-8">
+              {/* Top Section: Vehicle & Booking Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Vehicle Card */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                    <Car className="w-5 h-5 text-red-600" />
+                    <h4 className="font-semibold text-gray-900">
+                      Vehicle Information
+                    </h4>
                   </div>
-                </div>
-
-                {/* Vehicle Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    Vehicle Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
+                  <div className="p-4 space-y-3">
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">
                         Vehicle Number
-                      </label>
-                      <p className="text-gray-900 font-mono">
+                      </span>
+                      <span className="font-mono font-medium text-gray-900">
                         {selectedBooking.vehicleNumber}
-                      </p>
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Vehicle Type
-                      </label>
-                      <p className="text-gray-900">
-                        {selectedBooking.vehicleType}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Brand & Model
-                      </label>
-                      <p className="text-gray-900">
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">
+                        Make & Model
+                      </span>
+                      <span className="font-medium text-gray-900">
                         {selectedBooking.vehicleBrand}{" "}
                         {selectedBooking.vehicleBrandModel}
-                      </p>
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Year
-                      </label>
-                      <p className="text-gray-900">
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">Year</span>
+                      <span className="font-medium text-gray-900">
                         {selectedBooking.manufacturedYear}
-                      </p>
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Fuel Type
-                      </label>
-                      <p className="text-gray-900">
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">Type</span>
+                      <span className="font-medium text-gray-900 capitalize">
+                        {selectedBooking.vehicleType}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">Fuel</span>
+                      <span className="font-medium text-gray-900 capitalize">
                         {selectedBooking.fuelType}
-                      </p>
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 text-sm">
                         Transmission
-                      </label>
-                      <p className="text-gray-900">
+                      </span>
+                      <span className="font-medium text-gray-900 capitalize">
                         {selectedBooking.transmissionType}
-                      </p>
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Booking Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    Booking Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Booking Date
-                      </label>
-                      <p className="text-gray-900">
-                        {new Date(
-                          selectedBooking.bookingDate
-                        ).toLocaleDateString()}
-                      </p>
+                {/* Booking Info Card */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-red-600" />
+                    <h4 className="font-semibold text-gray-900">
+                      Appointment Details
+                    </h4>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">Date</span>
+                      <span className="font-medium text-gray-900">
+                        {formatDate(selectedBooking.bookingDate)}
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Time Slot
-                      </label>
-                      <p className="text-gray-900">
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">Time Slot</span>
+                      <span className="font-medium text-gray-900">
                         {selectedBooking.timeSlot}
-                      </p>
+                      </span>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Status
-                      </label>
-                      <span
-                        className={`inline-flex px-3 py-1 text-xs font-semibold rounded ${
-                          selectedBooking.status === "arrived"
-                            ? "bg-green-100 text-green-800"
-                            : selectedBooking.status === "cancelled"
-                            ? "bg-red-100 text-red-800"
-                            : selectedBooking.status === "confirmed"
-                            ? "bg-blue-100 text-blue-800"
-                            : selectedBooking.status === "completed"
-                            ? "bg-green-100 text-green-800"
-                            : selectedBooking.status === "in_progress"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {selectedBooking.status}
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">
+                        Customer Name
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {selectedBooking.name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-100 pb-2">
+                      <span className="text-gray-500 text-sm">Contact</span>
+                      <span className="font-medium text-gray-900">
+                        {selectedBooking.phone}
                       </span>
                     </div>
                     {selectedBooking.arrivedTime && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">
-                          Arrived Time
-                        </label>
-                        <p className="text-gray-900">
+                      <div className="flex justify-between border-b border-gray-100 pb-2">
+                        <span className="text-gray-500 text-sm">
+                          Arrived At
+                        </span>
+                        <span className="font-medium text-gray-900">
                           {selectedBooking.arrivedTime}
-                        </p>
+                        </span>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Service Information */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5" />
-                    Service Information
-                  </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">
-                        Service Types
-                      </label>
-                      <div className="mt-1">
-                        {selectedBooking.serviceTypes ? (
-                          <div className="flex flex-wrap gap-2">
-                            {Array.isArray(selectedBooking.serviceTypes)
-                              ? selectedBooking.serviceTypes.map(
-                                  (service, index) => (
-                                    <span
-                                      key={index}
-                                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-                                    >
-                                      {service}
-                                    </span>
-                                  )
-                                )
-                              : selectedBooking.serviceTypes
-                                  .split(",")
-                                  .map((service, index) => (
-                                    <span
-                                      key={index}
-                                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"
-                                    >
-                                      {service.trim()}
-                                    </span>
-                                  ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm">
-                            No specific services selected
-                          </p>
-                        )}
+                    {selectedBooking.kilometersRun && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500 text-sm">Odometer</span>
+                        <span className="font-medium text-gray-900">
+                          {Number(
+                            selectedBooking.kilometersRun
+                          ).toLocaleString()}{" "}
+                          km
+                        </span>
                       </div>
-                    </div>
-                    {selectedBooking.specialRequests && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">
-                          Special Requests
-                        </label>
-                        <p className="text-gray-900 bg-gray-50 p-3 rounded-lg text-sm">
-                          {selectedBooking.specialRequests}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assigned Mechanics */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Assigned Mechanics
-                  </h4>
-                  <div className="space-y-3">
-                    {selectedBooking.assignedMechanicsDetails &&
-                    selectedBooking.assignedMechanicsDetails.length > 0 ? (
-                      <div className="space-y-3">
-                        {selectedBooking.assignedMechanicsDetails.map(
-                          (mechanic) => (
-                            <div
-                              key={mechanic.mechanicId}
-                              className="bg-gray-50 p-4 rounded-lg"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <h5 className="font-medium text-gray-900">
-                                  {mechanic.mechanicName}
-                                </h5>
-                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
-                                  {mechanic.mechanicCode}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <span className="text-gray-600">
-                                    Specialization:
-                                  </span>
-                                  <p className="font-medium">
-                                    {mechanic.specialization}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">
-                                    Experience:
-                                  </span>
-                                  <p className="font-medium">
-                                    {mechanic.experienceYears} years
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">
-                                    Hourly Rate:
-                                  </span>
-                                  <p className="font-medium">
-                                    Rs. {mechanic.hourlyRate?.toLocaleString()}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">Status:</span>
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      mechanic.availability === "Available"
-                                        ? "bg-green-100 text-green-800"
-                                        : mechanic.availability === "Busy"
-                                        ? "bg-red-100 text-red-800"
-                                        : "bg-yellow-100 text-yellow-800"
-                                    }`}
-                                  >
-                                    {mechanic.availability}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">
-                        No mechanics assigned to this booking
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assigned Spare Parts */}
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    Assigned Spare Parts
-                  </h4>
-                  <div className="space-y-3">
-                    {selectedBooking.assignedSparePartsDetails &&
-                    selectedBooking.assignedSparePartsDetails.length > 0 ? (
-                      <div className="space-y-3">
-                        {selectedBooking.assignedSparePartsDetails.map(
-                          (part) => (
-                            <div
-                              key={part.partId}
-                              className="bg-gray-50 p-4 rounded-lg"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <h5 className="font-medium text-gray-900">
-                                  {part.partName}
-                                </h5>
-                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                                  {part.partCode}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <span className="text-gray-600">
-                                    Category:
-                                  </span>
-                                  <p className="font-medium">{part.category}</p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">
-                                    Quantity:
-                                  </span>
-                                  <p className="font-medium">
-                                    {part.assignedQuantity}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">
-                                    Unit Price:
-                                  </span>
-                                  <p className="font-medium">
-                                    Rs. {part.unitPrice?.toLocaleString()}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="text-gray-600">
-                                    Total Price:
-                                  </span>
-                                  <p className="font-medium text-green-600">
-                                    Rs. {part.totalPrice?.toLocaleString()}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        )}
-                        <div className="bg-green-50 p-3 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium text-gray-900">
-                              Total Parts Cost:
-                            </span>
-                            <span className="font-bold text-green-600 text-lg">
-                              Rs.{" "}
-                              {selectedBooking.assignedSparePartsDetails
-                                .reduce(
-                                  (total, part) =>
-                                    total + (part.totalPrice || 0),
-                                  0
-                                )
-                                .toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">
-                        No spare parts assigned to this booking
-                      </p>
                     )}
                   </div>
                 </div>
               </div>
+
+              {/* Services Section */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <h4 className="font-semibold text-gray-900">
+                    Service Information
+                  </h4>
+                </div>
+                <div className="p-4">
+                  <div className="mb-4">
+                    <h5 className="text-sm font-medium text-gray-500 mb-2">
+                      Requested Services
+                    </h5>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedBooking.serviceTypes ? (
+                        (Array.isArray(selectedBooking.serviceTypes)
+                          ? selectedBooking.serviceTypes
+                          : selectedBooking.serviceTypes.split(",")
+                        ).map((service, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1 bg-red-50 text-red-700 rounded-full text-sm font-medium border border-red-100"
+                          >
+                            {typeof service === "string"
+                              ? service.trim()
+                              : service}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 italic">
+                          No specific services listed
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {selectedBooking.specialRequests && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-500 mb-2">
+                        Special Requests
+                      </h5>
+                      <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 text-gray-800 text-sm">
+                        {selectedBooking.specialRequests}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Mechanics & Parts (Only if available) */}
+              {(selectedBooking.assignedMechanicsDetails?.length > 0 ||
+                selectedBooking.assignedSparePartsDetails?.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Mechanics */}
+                  {selectedBooking.assignedMechanicsDetails?.length > 0 && (
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-red-600" />
+                        <h4 className="font-semibold text-gray-900">
+                          Assigned Mechanics
+                        </h4>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {selectedBooking.assignedMechanicsDetails.map(
+                          (mechanic) => (
+                            <div
+                              key={mechanic.mechanicId}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {mechanic.mechanicName}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {mechanic.specialization}
+                                </p>
+                              </div>
+                              <span className="text-xs bg-white border border-gray-200 px-2 py-1 rounded text-gray-600">
+                                {mechanic.mechanicCode}
+                              </span>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Parts */}
+                  {selectedBooking.assignedSparePartsDetails?.length > 0 && (
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-red-600" />
+                        <h4 className="font-semibold text-gray-900">
+                          Spare Parts Used
+                        </h4>
+                      </div>
+                      <div className="p-4 space-y-3">
+                        {selectedBooking.assignedSparePartsDetails.map(
+                          (part) => (
+                            <div
+                              key={part.partId}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900">
+                                  {part.partName}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {part.partCode} • Qty: {part.assignedQuantity}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-medium text-gray-900">
+                                  Rs. {part.totalPrice?.toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        )}
+                        <div className="pt-2 border-t border-gray-100 flex justify-between items-center">
+                          <span className="font-medium text-gray-700">
+                            Total Parts Cost
+                          </span>
+                          <span className="font-bold text-red-600">
+                            Rs.{" "}
+                            {selectedBooking.assignedSparePartsDetails
+                              .reduce(
+                                (sum, part) => sum + (part.totalPrice || 0),
+                                0
+                              )
+                              .toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="p-6 border-t border-gray-200 bg-gray-50">

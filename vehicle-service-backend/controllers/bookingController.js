@@ -62,7 +62,7 @@ const createBooking = async (req, res) => {
   // Check if the selected time slot is available for the booking date
   try {
     const [timeSlotResult] = await db.query(
-      "SELECT bookingId FROM booking WHERE bookingDate = ? AND timeSlot = ?",
+      "SELECT bookingId FROM booking WHERE bookingDate = ? AND timeSlot = ? AND status NOT IN ('cancelled', 'rejected')",
       [bookingDate, timeSlot]
     );
 
@@ -88,7 +88,7 @@ const createBooking = async (req, res) => {
   try {
     // Check how many bookings exist for today
     const [countResult] = await db.query(
-      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ?",
+      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ? AND status NOT IN ('cancelled', 'rejected')",
       [today]
     );
 
@@ -540,7 +540,7 @@ const getBookingStats = async (req, res) => {
       "SELECT COUNT(*) as cancelled FROM booking WHERE status = 'cancelled'"
     );
     const [todayBookings] = await db.query(
-      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ?",
+      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ? AND status NOT IN ('cancelled', 'rejected')",
       [today]
     );
     const [activeBookings] = await db.query(
@@ -572,7 +572,7 @@ const checkBookingAvailability = async (req, res) => {
 
   try {
     const [countResult] = await db.query(
-      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ?",
+      "SELECT COUNT(*) as count FROM booking WHERE DATE(bookingDate) = ? AND status NOT IN ('cancelled', 'rejected')",
       [today]
     );
 
@@ -622,7 +622,7 @@ const getAvailableTimeSlots = async (req, res) => {
   try {
     // Get booked time slots for the specified date
     const [bookedSlots] = await db.query(
-      "SELECT timeSlot FROM booking WHERE bookingDate = ?",
+      "SELECT timeSlot FROM booking WHERE bookingDate = ? AND status NOT IN ('cancelled', 'rejected')",
       [date]
     );
 

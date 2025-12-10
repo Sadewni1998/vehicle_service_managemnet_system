@@ -16,6 +16,7 @@ const vehicleRoutes = require("./routes/vehicleRoutes");
 const jobcardRoutes = require("./routes/jobcardRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const eshopRoutes = require("./routes/eshopRoutes");
+const serviceRoutes = require("./routes/serviceRoutes");
 // Initialize the Express app
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/api/vehicles", vehicleRoutes);
 app.use("/api/jobcards", jobcardRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/eshop", eshopRoutes);
+app.use("/api/services", serviceRoutes);
 
 // Placeholder routes for frontend compatibility
 app.get("/api/users/services", (req, res) => {

@@ -536,7 +536,18 @@ const getCustomerStats = async (req, res) => {
 const getAllCustomers = async (req, res) => {
   try {
     const [customers] = await db.query(
-      "SELECT customerId, name, email, phone, address, createdAt FROM customer ORDER BY createdAt DESC"
+      `SELECT 
+        c.customerId, 
+        c.name, 
+        c.email, 
+        c.phone, 
+        c.address, 
+        c.createdAt,
+        GROUP_CONCAT(v.vehicleNumber SEPARATOR ', ') as vehicleNumbers
+      FROM customer c
+      LEFT JOIN vehicle v ON c.customerId = v.customerId
+      GROUP BY c.customerId
+      ORDER BY c.createdAt DESC`
     );
 
     res.json(customers);
@@ -551,8 +562,7 @@ const getAllCustomers = async (req, res) => {
 };
 
 /**
- * Forgot Password
- * Generates a temporary password and sends it to the user's email.
+ * Forgot Password - Send OTP
  */
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
@@ -571,36 +581,117 @@ const forgotPassword = async (req, res) => {
     if (!customer) {
       // For security, don't reveal if user exists
       return res.status(200).json({
-        message:
-          "If an account exists for this email, a temporary password has been sent.",
+        message: "If an account exists for this email, an OTP has been sent.",
       });
     }
 
-    // Generate temporary password (8 characters)
-    const tempPassword = crypto.randomBytes(4).toString("hex");
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Hash the temporary password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(tempPassword, salt);
+    // Set expiration to 15 minutes from now
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
 
-    // Update password in DB
-    await db.query("UPDATE customer SET password = ? WHERE customerId = ?", [
-      hashedPassword,
-      customer.customerId,
-    ]);
+    // Update OTP in DB
+    await db.query(
+      "UPDATE customer SET resetOTP = ?, resetOTPExpires = ? WHERE customerId = ?",
+      [otp, expires, customer.customerId]
+    );
 
     // Send email
-    const subject = "Temporary Password - Hybrid Lanka";
-    const text = `Your temporary password is: ${tempPassword}\n\nPlease log in and change your password immediately.`;
+    const subject = "Password Reset OTP - Hybrid Lanka";
+    const text = `Your OTP for password reset is: ${otp}\n\nThis OTP is valid for 15 minutes.`;
 
     await sendEmail(email, subject, text);
 
     res.status(200).json({
-      message:
-        "If an account exists for this email, a temporary password has been sent.",
+      message: "If an account exists for this email, an OTP has been sent.",
     });
   } catch (error) {
     console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
+/**
+ * Verify OTP
+ */
+const verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ message: "Email and OTP are required." });
+  }
+
+  try {
+    const [rows] = await db.query("SELECT * FROM customer WHERE email = ?", [
+      email,
+    ]);
+    const customer = rows[0];
+
+    if (!customer) {
+      return res.status(400).json({ message: "Invalid request." });
+    }
+
+    if (customer.resetOTP !== otp) {
+      return res.status(400).json({ message: "Invalid OTP." });
+    }
+
+    if (new Date() > new Date(customer.resetOTPExpires)) {
+      return res.status(400).json({ message: "OTP has expired." });
+    }
+
+    res.status(200).json({ message: "OTP verified successfully." });
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    res.status(500).json({ message: "Server error." });
+  }
+};
+
+/**
+ * Reset Password with OTP
+ */
+const resetPasswordWithOTP = async (req, res) => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res
+      .status(400)
+      .json({ message: "Email, OTP, and new password are required." });
+  }
+
+  try {
+    const [rows] = await db.query("SELECT * FROM customer WHERE email = ?", [
+      email,
+    ]);
+    const customer = rows[0];
+
+    if (!customer) {
+      return res.status(400).json({ message: "Invalid request." });
+    }
+
+    if (customer.resetOTP !== otp) {
+      return res.status(400).json({ message: "Invalid OTP." });
+    }
+
+    if (new Date() > new Date(customer.resetOTPExpires)) {
+      return res.status(400).json({ message: "OTP has expired." });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password and clear OTP
+    await db.query(
+      "UPDATE customer SET password = ?, resetOTP = NULL, resetOTPExpires = NULL WHERE customerId = ?",
+      [hashedPassword, customer.customerId]
+    );
+
+    res
+      .status(200)
+      .json({ message: "Password reset successfully. You can now login." });
+  } catch (error) {
+    console.error("Reset password error:", error);
     res.status(500).json({ message: "Server error." });
   }
 };
@@ -615,4 +706,6 @@ module.exports = {
   getCustomerStats,
   getAllCustomers,
   forgotPassword,
+  verifyOTP,
+  resetPasswordWithOTP,
 };

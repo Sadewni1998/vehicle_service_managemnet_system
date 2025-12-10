@@ -21,6 +21,14 @@ router.post("/login", authController.login);
 // POST /api/auth/forgot-password
 router.post("/forgot-password", authController.forgotPassword);
 
+// Define the verify OTP route
+// POST /api/auth/verify-otp
+router.post("/verify-otp", authController.verifyOTP);
+
+// Define the reset password route
+// POST /api/auth/reset-password
+router.post("/reset-password", authController.resetPasswordWithOTP);
+
 // Protected routes
 router.get("/profile", ensureAuthenticated, authController.getProfile);
 router.put("/profile", ensureAuthenticated, authController.updateProfile);

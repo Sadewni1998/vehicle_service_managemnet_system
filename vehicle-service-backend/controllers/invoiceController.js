@@ -109,6 +109,17 @@ const createInvoicePdf = async (bookingId) => {
     }
   }
 
+  // Fetch service prices
+  let serviceDetails = [];
+  if (serviceTypes.length > 0) {
+    const placeholders = serviceTypes.map(() => "?").join(",");
+    const [services] = await db.query(
+      `SELECT serviceName, price FROM services WHERE serviceName IN (${placeholders})`,
+      serviceTypes
+    );
+    serviceDetails = services;
+  }
+
   // Calculate totals (ensure numeric math: MySQL DECIMAL fields arrive as strings)
   const toNum = (v) => {
     const n = typeof v === "string" ? parseFloat(v) : v;
@@ -123,15 +134,17 @@ const createInvoicePdf = async (bookingId) => {
     return { ...part, assignedQuantity: qty, unitPrice: unit, totalPrice };
   });
 
-  const laborCost = assignedMechanicsDetails.reduce((total, mechanic) => {
-    return total + toNum(mechanic.hourlyRate);
-  }, 0);
+  const laborCost = 0;
 
   const partsCost = assignedSparePartsDetails.reduce((total, part) => {
     return total + toNum(part.totalPrice);
   }, 0);
 
-  const subtotal = laborCost + partsCost;
+  const servicesCost = serviceDetails.reduce((total, service) => {
+    return total + toNum(service.price);
+  }, 0);
+
+  const subtotal = partsCost + servicesCost;
   // As per latest requirement, remove tax from total calculation
   const taxRate = 0; // Previously 0.15 (15%)
   const tax = 0; // No tax applied
@@ -198,6 +211,7 @@ const createInvoicePdf = async (bookingId) => {
       date: formatSLDate(booking.bookingDate),
       timeSlot: booking.timeSlot,
       types: serviceTypes,
+      details: serviceDetails,
       specialRequests: booking.specialRequests,
       bookingCreatedAt: booking.createdAt
         ? new Date(booking.createdAt).toLocaleString("en-GB", {
@@ -217,6 +231,7 @@ const createInvoicePdf = async (bookingId) => {
     pricing: {
       laborCost: laborCost,
       partsCost: partsCost,
+      servicesCost: servicesCost,
       subtotal: subtotal,
       tax: tax,
       total: total,
@@ -338,18 +353,21 @@ const generateInvoice = async (req, res) => {
 const generateInvoiceHTML = (data) => {
   // Build line items: include service labor and spare parts; discount not tracked -> 0.00; gross = amount
   const items = [];
-  if (data.pricing.laborCost > 0) {
-    items.push({
-      description: `Labor charges (${data.mechanics.length} mechanic${
-        data.mechanics.length === 1 ? "" : "s"
-      })`,
-      unitPrice: data.pricing.laborCost,
-      qty: 1,
-      amount: data.pricing.laborCost,
-      discount: 0,
-      gross: data.pricing.laborCost,
-    });
+
+  // Add services
+  if (data.service.details && data.service.details.length > 0) {
+    for (const service of data.service.details) {
+      items.push({
+        description: service.serviceName,
+        unitPrice: service.price,
+        qty: 1,
+        amount: service.price,
+        discount: 0,
+        gross: service.price,
+      });
+    }
   }
+
   for (const part of data.parts) {
     const qty = part.assignedQuantity || 1;
     const unit = part.unitPrice || 0;

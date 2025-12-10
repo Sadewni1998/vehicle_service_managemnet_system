@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS spareparts (
     partId INT AUTO_INCREMENT PRIMARY KEY,
     partCode VARCHAR(50) NOT NULL UNIQUE,
     partName VARCHAR(255) NOT NULL,
+    brand VARCHAR(100),
     description TEXT,
     category ENUM(
         'Engine', 
@@ -255,6 +256,26 @@ CREATE TABLE IF NOT EXISTS jobcardSparePart (
 );
 
 -- =======================================================
+-- SERVICES TABLE
+-- =======================================================
+CREATE TABLE IF NOT EXISTS services (
+    serviceId INT AUTO_INCREMENT PRIMARY KEY,
+    serviceName VARCHAR(255) NOT NULL UNIQUE,
+    price DECIMAL(10,2) NOT NULL
+);
+
+-- INSERT SERVICE DATA
+INSERT INTO services (serviceName, price) VALUES
+('Full Service', 15000.00),
+('Engine Servicing', 8000.00),
+('Transmission Service', 12000.00),
+('Oil & Filter Service', 4500.00),
+('Body Wash', 1500.00),
+('Diagnostic Test', 3000.00),
+('Wheel Alignment', 3500.00),
+('Vacuum Cleaning', 1200.00);
+
+-- =======================================================
 -- E-SHOP TABLE
 -- =======================================================
 CREATE TABLE IF NOT EXISTS eshop (
@@ -322,3 +343,23 @@ INSERT INTO booking (
 ('Michael Chen', '0775555555', 'DEF-456', 'Hatchback', 'Petrol', 'Nissan', 'Micra', 2021, 'Manual', 28000, CURDATE(), '12:00-14:00', JSON_ARRAY('Regular Service', 'Battery Check'), 'Replace air filter', NULL, 'arrived', '07:45'),
 ('Emily Davis', '0778888888', 'GHI-321', 'Sedan', 'Petrol', 'BMW', '3 Series', 2018, 'Automatic', 65000, CURDATE(), '14:00-16:00', JSON_ARRAY('Premium Service', 'Transmission Check'), 'Full diagnostic check', NULL, 'pending', NULL),
 ('Robert Wilson', '0779999999', 'JKL-654', 'Pickup', 'Diesel', 'Ford', 'Ranger', 2017, 'Manual', 78000, CURDATE(), '16:00-18:00', JSON_ARRAY('Engine Overhaul', 'Clutch Replacement'), 'Customer cancelled due to emergency', NULL, 'cancelled', NULL);
+
+-- =======================================================
+-- SERVICES TABLE
+-- =======================================================
+CREATE TABLE IF NOT EXISTS services (
+    serviceId INT AUTO_INCREMENT PRIMARY KEY,
+    serviceName VARCHAR(255) NOT NULL UNIQUE,
+    price DECIMAL(10,2) NOT NULL
+);
+
+-- INSERT SERVICE DATA
+INSERT IGNORE INTO services (serviceName, price) VALUES
+('Full Service', 15000.00),
+('Engine Servicing', 8000.00),
+('Transmission Service', 12000.00),
+('Oil & Filter Service', 4500.00),
+('Body Wash', 1500.00),
+('Diagnostic Test', 3000.00),
+('Wheel Alignment', 3500.00),
+('Vacuum Cleaning', 1200.00);

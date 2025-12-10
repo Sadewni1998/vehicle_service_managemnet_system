@@ -25,6 +25,7 @@ import {
   invoiceAPI,
   breakdownAPI,
   sparePartsAPI,
+  servicesAPI,
 } from "../utils/api";
 import {
   fetchEshopItems,
@@ -298,6 +299,23 @@ const ManagementDashboard = () => {
     loadSpareParts();
   }, [activeTab]);
 
+  // Load services when the tab is active
+  useEffect(() => {
+    const loadServices = async () => {
+      if (activeTab === "services") {
+        try {
+          const response = await servicesAPI.getAll();
+          setServices(response.data || []);
+        } catch (err) {
+          console.error("Error loading services:", err);
+          setError("Failed to load services");
+        }
+      }
+    };
+
+    loadServices();
+  }, [activeTab]);
+
   // Load customers when the tab is active
   useEffect(() => {
     const loadCustomers = async () => {
@@ -417,50 +435,46 @@ const ManagementDashboard = () => {
   };
 
   // Submit service
-  const handleServiceSubmit = (e) => {
+  const handleServiceSubmit = async (e) => {
     e.preventDefault();
 
-    if (editingServiceId) {
-      // Update existing service
-      setServices((prev) =>
-        prev.map((service) =>
-          service.id === editingServiceId
-            ? {
-                ...service,
-                name: serviceForm.name,
-                charge: serviceForm.charge,
-                discount: serviceForm.discount,
-                updatedAt: new Date().toISOString(),
-              }
-            : service
-        )
-      );
-    } else {
-      // Create new service with unique ID
-      const newService = {
-        id: Date.now(), // Simple ID generation for demo
+    try {
+      const serviceData = {
         name: serviceForm.name,
-        charge: serviceForm.charge,
-        discount: serviceForm.discount,
-        createdAt: new Date().toISOString(),
+        charge: parseFloat(serviceForm.charge),
+        discount: parseFloat(serviceForm.discount),
       };
 
-      // Add to services list
-      setServices((prev) => [...prev, newService]);
+      if (editingServiceId) {
+        // Update existing service
+        await servicesAPI.update(editingServiceId, serviceData);
+        // Refresh list
+        const response = await servicesAPI.getAll();
+        setServices(response.data || []);
+      } else {
+        // Create new service
+        await servicesAPI.create(serviceData);
+        // Refresh list
+        const response = await servicesAPI.getAll();
+        setServices(response.data || []);
+      }
+
+      // Reset form
+      setServiceForm({
+        name: "",
+        charge: 0,
+        discount: 0,
+      });
+
+      // Reset editing state
+      setEditingServiceId(null);
+
+      // Close modal
+      setShowServiceForm(false);
+    } catch (err) {
+      console.error("Error saving service:", err);
+      setError("Failed to save service");
     }
-
-    // Reset form
-    setServiceForm({
-      name: "",
-      charge: 0,
-      discount: 0,
-    });
-
-    // Reset editing state
-    setEditingServiceId(null);
-
-    // Close modal
-    setShowServiceForm(false);
   };
 
   // Handle edit service
@@ -476,9 +490,17 @@ const ManagementDashboard = () => {
   };
 
   // Handle delete service
-  const handleDeleteService = (serviceId) => {
+  const handleDeleteService = async (serviceId) => {
     if (window.confirm("Are you sure you want to delete this service?")) {
-      setServices((prev) => prev.filter((service) => service.id !== serviceId));
+      try {
+        await servicesAPI.delete(serviceId);
+        // Refresh list
+        const response = await servicesAPI.getAll();
+        setServices(response.data || []);
+      } catch (err) {
+        console.error("Error deleting service:", err);
+        setError("Failed to delete service");
+      }
     }
   };
 
@@ -654,6 +676,7 @@ const ManagementDashboard = () => {
       const sparePartData = {
         partCode: sparePartForm.partCode,
         partName: sparePartForm.partName,
+        brand: sparePartForm.brand,
         description: sparePartForm.description,
         category: sparePartForm.category,
         unitPrice: parseFloat(sparePartForm.price),
@@ -1126,6 +1149,9 @@ const ManagementDashboard = () => {
                             ADDRESS
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            VEHICLE NUMBER
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
                             REGISTERED DATE
                           </th>
                         </tr>
@@ -1152,6 +1178,11 @@ const ManagementDashboard = () => {
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900">
                               {customer.address || (
+                                <span className="text-gray-400">-</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              {customer.vehicleNumbers || (
                                 <span className="text-gray-400">-</span>
                               )}
                             </td>
@@ -2238,7 +2269,7 @@ const ManagementDashboard = () => {
                         Odometer
                       </label>
                       <p className="text-gray-900">
-                        {selectedBooking.kilometersRun+" km"}
+                        {selectedBooking.kilometersRun + " km"}
                       </p>
                     </div>
                   </div>

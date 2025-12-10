@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import { Car, Wrench, CheckCircle, AlertCircle } from "lucide-react";
-import { bookingsAPI, authAPI, vehicleAPI } from "../utils/api";
+import { bookingsAPI, authAPI, vehicleAPI, servicesAPI } from "../utils/api";
 import {
   unicodeNameRegex,
   sanitizeNameInput,
@@ -46,6 +46,8 @@ const Booking = () => {
     bookedTimeSlots: [],
     isLoading: true,
   });
+  const [services, setServices] = useState([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(true);
   const [selectedDate, setSelectedDate] = useState("");
   const {
     register,
@@ -67,6 +69,7 @@ const Booking = () => {
       user,
     });
     checkBookingAvailability();
+    fetchServices();
     if (isAuthenticated && user) {
       console.log("🚗 User is authenticated, fetching vehicles...");
       fetchUserVehicles();
@@ -92,6 +95,19 @@ const Booking = () => {
       setValue("phone_number", sanitizePhoneInput(user.phone || ""));
     }
   }, [isAuthenticated, user, setValue]);
+
+  // Fetch services
+  const fetchServices = async () => {
+    try {
+      const response = await servicesAPI.getAll();
+      setServices(response.data);
+    } catch (error) {
+      console.error("Error fetching services:", error);
+      toast.error("Failed to load services");
+    } finally {
+      setIsLoadingServices(false);
+    }
+  };
 
   // Fetch user vehicles
   const fetchUserVehicles = async () => {
@@ -685,75 +701,48 @@ const Booking = () => {
 
                 {/*Services Checkboxes */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white">
-                  <div className="grid grid-cols-1 gap-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="fullservice"
-                        {...register("services")}
-                      />
-                      <span>Full Service</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="engine"
-                        {...register("services")}
-                      />
-                      <span>Engine Servicing</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="transmission"
-                        {...register("services")}
-                      />
-                      <span>Transmission Service</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="oil"
-                        {...register("services")}
-                      />
-                      <span>Oil & Filter Service</span>
-                    </label>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="wash"
-                        {...register("services")}
-                      />
-                      <span>Body Wash</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="diagnostic"
-                        {...register("services")}
-                      />
-                      <span>Diagnostic Test</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="tire"
-                        {...register("services")}
-                      />
-                      <span>Wheel Alignment</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        value="vacuum"
-                        {...register("services")}
-                      />
-                      <span>Vacuum Cleaning</span>
-                    </label>
-                  </div>
+                  {isLoadingServices ? (
+                    <div className="col-span-2 text-center">
+                      Loading services...
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 gap-3">
+                        {services
+                          .slice(0, Math.ceil(services.length / 2))
+                          .map((service) => (
+                            <label
+                              key={service.id}
+                              className="flex items-center gap-2"
+                            >
+                              <input
+                                type="checkbox"
+                                value={service.name}
+                                {...register("services")}
+                              />
+                              <span>{service.name}</span>
+                            </label>
+                          ))}
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        {services
+                          .slice(Math.ceil(services.length / 2))
+                          .map((service) => (
+                            <label
+                              key={service.id}
+                              className="flex items-center gap-2"
+                            >
+                              <input
+                                type="checkbox"
+                                value={service.name}
+                                {...register("services")}
+                              />
+                              <span>{service.name}</span>
+                            </label>
+                          ))}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div>

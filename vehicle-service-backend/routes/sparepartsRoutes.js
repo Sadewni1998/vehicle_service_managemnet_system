@@ -171,6 +171,7 @@ router.post("/", async (req, res) => {
     const {
       partCode,
       partName,
+      brand,
       description,
       category,
       unitPrice,
@@ -237,19 +238,32 @@ router.post("/", async (req, res) => {
       }
     }
 
+    console.log("Creating spare part with data:", {
+      partCode,
+      partName,
+      brand,
+      description,
+      category,
+      unitPrice,
+      imageUrl,
+      stockQuantity,
+      mechanicId,
+    });
+
     // Insert new spare part
     const [result] = await db.execute(
-      `INSERT INTO spareparts (partCode, partName, description, category, unitPrice, imageUrl, stockQuantity, mechanicId)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO spareparts (partCode, partName, brand, description, category, unitPrice, imageUrl, stockQuantity, mechanicId)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         partCode,
         partName,
+        brand,
         description,
         category,
         unitPrice,
-        imageUrl,
+        imageUrl || null,
         stockQuantity,
-        mechanicId,
+        mechanicId || null,
       ]
     );
 
@@ -268,7 +282,7 @@ router.post("/", async (req, res) => {
     console.error("Error creating spare part:", error);
     res.status(500).json({
       success: false,
-      message: "Error creating spare part",
+      message: "Error creating spare part: " + error.message,
       error: error.message,
     });
   }
@@ -281,6 +295,7 @@ router.put("/:id", async (req, res) => {
     const {
       partCode,
       partName,
+      brand,
       description,
       category,
       unitPrice,
@@ -352,6 +367,10 @@ router.put("/:id", async (req, res) => {
     if (partName !== undefined) {
       updateFields.push("partName = ?");
       updateValues.push(partName);
+    }
+    if (brand !== undefined) {
+      updateFields.push("brand = ?");
+      updateValues.push(brand);
     }
     if (description !== undefined) {
       updateFields.push("description = ?");

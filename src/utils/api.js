@@ -67,6 +67,9 @@ export const authAPI = {
   changePassword: (passwordData) =>
     api.put("/auth/change-password", passwordData),
   forgotPassword: (email) => api.post("/auth/forgot-password", { email }),
+  verifyOTP: (email, otp) => api.post("/auth/verify-otp", { email, otp }),
+  resetPassword: (email, otp, newPassword) =>
+    api.post("/auth/reset-password", { email, otp, newPassword }),
 };
 
 // Bookings API
@@ -224,6 +227,14 @@ export const generalAPI = {
     api.put(`/users/vehicles/${id}`, vehicleData),
   deleteVehicle: (id) => api.delete(`/users/vehicles/${id}`),
   healthCheck: () => api.get("/health"),
+};
+
+// Services API
+export const servicesAPI = {
+  getAll: () => api.get("/services"),
+  create: (serviceData) => api.post("/services", serviceData),
+  update: (id, serviceData) => api.put(`/services/${id}`, serviceData),
+  delete: (id) => api.delete(`/services/${id}`),
 };
 
 export default api;
