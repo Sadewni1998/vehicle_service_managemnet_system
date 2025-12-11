@@ -63,8 +63,7 @@ CREATE TABLE IF NOT EXISTS booking (
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     customerId INT NULL,
-    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL,
-    UNIQUE KEY unique_time_slot (bookingDate, timeSlot)
+    FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL
 );
 
 -- =======================================================
