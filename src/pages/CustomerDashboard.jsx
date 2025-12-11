@@ -1932,12 +1932,13 @@ const CustomerDashboard = () => {
                   </h4>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="space-y-2 text-sm">
-                      {selectedInvoice.invoiceData?.pricing?.laborCost && (
+                      {selectedInvoice.invoiceData?.pricing?.servicesCost >
+                        0 && (
                         <div className="flex justify-between">
-                          <span>Labor Cost:</span>
+                          <span>Service Charge:</span>
                           <span>
                             Rs.{" "}
-                            {selectedInvoice.invoiceData.pricing.laborCost.toLocaleString()}
+                            {selectedInvoice.invoiceData.pricing.servicesCost.toLocaleString()}
                           </span>
                         </div>
                       )}
@@ -2332,7 +2333,7 @@ const CustomerDashboard = () => {
             </div>
 
             <div className="p-6">
-              {/* Labor Charges Section */}
+              {/* Service Charge Section */}
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <svg
@@ -2348,64 +2349,44 @@ const CustomerDashboard = () => {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                     />
                   </svg>
-                  Labor Charges
+                  Service Charge
                 </h4>
-                {selectedBookingForInvoice.assignedMechanics &&
-                selectedBookingForInvoice.assignedMechanics.length > 0 ? (
+                {selectedBookingForInvoice.serviceDetails &&
+                selectedBookingForInvoice.serviceDetails.length > 0 ? (
                   <div className="space-y-3">
-                    {JSON.parse(
-                      selectedBookingForInvoice.assignedMechanics
-                    ).map((mechanicId, index) => {
-                      // Find mechanic details from the assignedMechanicsDetails if available
-                      const mechanicDetails =
-                        selectedBookingForInvoice.assignedMechanicsDetails?.find(
-                          (m) => m.mechanicId === mechanicId
-                        );
-                      return (
+                    {selectedBookingForInvoice.serviceDetails.map(
+                      (service, index) => (
                         <div
-                          key={mechanicId}
+                          key={index}
                           className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200"
                         >
                           <div>
                             <div className="font-medium text-gray-900">
-                              {mechanicDetails
-                                ? mechanicDetails.mechanicName
-                                : `Mechanic ${index + 1}`}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              {mechanicDetails
-                                ? mechanicDetails.specialization
-                                : "Specialization not available"}
+                              {service.serviceName}
                             </div>
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-blue-600">
-                              Rs.{" "}
-                              {mechanicDetails
-                                ? mechanicDetails.hourlyRate?.toLocaleString()
-                                : "N/A"}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              per hour
+                              Rs. {parseFloat(service.price).toLocaleString()}
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
+                      )
+                    )}
                     <div className="border-t border-blue-200 pt-3 mt-4">
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-gray-900">
-                          Total Labor Cost:
+                          Total Service Charge:
                         </span>
                         <span className="font-bold text-lg text-blue-600">
                           Rs.{" "}
-                          {selectedBookingForInvoice.assignedMechanicsDetails
+                          {selectedBookingForInvoice.serviceDetails
                             ?.reduce(
-                              (total, mechanic) =>
-                                total + (parseFloat(mechanic.hourlyRate) || 0),
+                              (total, service) =>
+                                total + (parseFloat(service.price) || 0),
                               0
                             )
-                            .toLocaleString() || "N/A"}
+                            .toLocaleString() || "0"}
                         </span>
                       </div>
                     </div>
@@ -2425,7 +2406,7 @@ const CustomerDashboard = () => {
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                       />
                     </svg>
-                    <p>No mechanics assigned to this booking</p>
+                    <p>No services assigned to this booking</p>
                   </div>
                 )}
               </div>
@@ -2555,8 +2536,7 @@ const CustomerDashboard = () => {
               </div>
 
               {/* Total Cost Summary */}
-              {(selectedBookingForInvoice.assignedMechanicsDetails?.length >
-                0 ||
+              {(selectedBookingForInvoice.serviceDetails?.length > 0 ||
                 selectedBookingForInvoice.assignedSparePartsDetails?.length >
                   0) && (
                 <div className="border-t border-gray-200 pt-4">
@@ -2566,13 +2546,13 @@ const CustomerDashboard = () => {
                     </h4>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span>Labor Cost:</span>
+                        <span>Service Charge:</span>
                         <span className="font-medium">
                           Rs.{" "}
-                          {selectedBookingForInvoice.assignedMechanicsDetails
+                          {selectedBookingForInvoice.serviceDetails
                             ?.reduce(
-                              (total, mechanic) =>
-                                total + (parseFloat(mechanic.hourlyRate) || 0),
+                              (total, service) =>
+                                total + (parseFloat(service.price) || 0),
                               0
                             )
                             .toLocaleString() || "0"}
@@ -2596,16 +2576,16 @@ const CustomerDashboard = () => {
                         <span className="text-red-600">
                           Rs.{" "}
                           {(
-                            selectedBookingForInvoice.assignedMechanicsDetails?.reduce(
-                              (total, mechanic) =>
-                                total + (parseFloat(mechanic.hourlyRate) || 0),
+                            (selectedBookingForInvoice.serviceDetails?.reduce(
+                              (total, service) =>
+                                total + (parseFloat(service.price) || 0),
                               0
-                            ) +
-                              selectedBookingForInvoice.assignedSparePartsDetails?.reduce(
-                                (total, part) =>
-                                  total + (parseFloat(part.totalPrice) || 0),
-                                0
-                              ) || 0
+                            ) || 0) +
+                            (selectedBookingForInvoice.assignedSparePartsDetails?.reduce(
+                              (total, part) =>
+                                total + (parseFloat(part.totalPrice) || 0),
+                              0
+                            ) || 0)
                           ).toLocaleString()}
                         </span>
                       </div>

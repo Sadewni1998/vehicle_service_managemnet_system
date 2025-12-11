@@ -877,10 +877,425 @@ const downloadCustomerInvoice = async (req, res) => {
   }
 };
 
+/**
+ * Core logic to generate PDF invoice for a breakdown request
+ */
+const createBreakdownInvoicePdf = async (requestId) => {
+  console.log(
+    `[createBreakdownInvoicePdf] Starting generation for request ID: ${requestId}`
+  );
+
+  // Get breakdown request details
+  const [requests] = await db.query(
+    `SELECT br.*, c.name as customerName, c.phone as customerPhone, c.email as customerEmail, c.address as customerAddress
+     FROM breakdown_request br
+     LEFT JOIN customer c ON br.customerId = c.customerId
+     WHERE br.requestId = ?`,
+    [requestId]
+  );
+
+  if (requests.length === 0) {
+    console.error(`[createBreakdownInvoicePdf] Request ${requestId} not found`);
+    throw new Error("Breakdown request not found");
+  }
+
+  const request = requests[0];
+
+  // Prepare invoice data
+  const invoiceData = {
+    invoiceNumber: `INV-BR-${requestId}-${Date.now()}`,
+    invoiceDate: new Date().toLocaleDateString("en-GB", {
+      timeZone: "Asia/Colombo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }),
+    currency: "LKR",
+    customer: {
+      name: request.contactName || request.customerName || "Guest",
+      id: request.customerId || "-",
+      phone: request.contactPhone || request.customerPhone || "-",
+    },
+    vehicle: {
+      number: request.vehicleNumber || "-",
+      type: request.vehicleType || "-",
+      location: `${request.latitude}, ${request.longitude}`,
+    },
+    breakdown: {
+      requestId: request.requestId,
+      dateTime: new Date(request.createdAt).toLocaleString("en-GB", {
+        timeZone: "Asia/Colombo",
+      }),
+      emergency: request.emergencyType,
+      distance: request.distance || "-",
+    },
+    pricing: {
+      amount: request.price || 0,
+    },
+  };
+
+  // Generate HTML
+  const htmlContent = generateBreakdownInvoiceHTML(invoiceData);
+
+  // Generate PDF
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+
+  const page = await browser.newPage();
+  await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+  try {
+    await page.evaluateHandle("document.fonts.ready");
+  } catch (_) {}
+
+  const pdfBuffer = await page.pdf({
+    format: "A4",
+    printBackground: true,
+    margin: {
+      top: "12.7mm",
+      right: "12.7mm",
+      bottom: "12.7mm",
+      left: "12.7mm",
+    },
+  });
+
+  await browser.close();
+  return { pdfBuffer, invoiceData };
+};
+
+/**
+ * Generate PDF invoice for a breakdown request
+ */
+const generateBreakdownInvoice = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { pdfBuffer } = await createBreakdownInvoicePdf(requestId);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="breakdown-invoice-${requestId}.pdf"`
+    );
+    res.setHeader("Content-Length", pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating breakdown invoice:", error);
+    if (error.message === "Breakdown request not found") {
+      return res.status(404).json({ message: "Breakdown request not found" });
+    }
+    res.status(500).json({
+      message: "Error generating invoice",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Generate HTML content for the breakdown invoice
+ */
+const generateBreakdownInvoiceHTML = (data) => {
+  const money = (n) =>
+    Number(n || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid Lanka Breakdown Invoice</title>
+  <style>
+    body { 
+      background-color: #ffffff; 
+      font-family: 'Aptos', 'Segoe UI', Calibri, Arial, Helvetica, sans-serif; 
+      color: #333; 
+      margin: 0; 
+      padding: 0; 
+      font-size: 12pt; 
+      -webkit-print-color-adjust: exact; 
+      print-color-adjust: exact; 
+    }
+    
+    .invoice-page { 
+      background: #fff; 
+      width: 100%; 
+      max-width: 100%; 
+      margin: 0; 
+      padding: 0 30px; 
+      box-shadow: none; 
+      box-sizing: border-box; 
+    }
+    
+    /* Header */
+    .header-section { 
+      display: grid; 
+      grid-template-columns: 1fr auto 1fr; 
+      align-items: center; 
+      padding-bottom: 6px; 
+    }
+    
+    .logo { 
+      grid-column: 1 / 2; 
+      justify-self: start; 
+    }
+    
+    .logo img { 
+      height: 64px; 
+      width: auto; 
+      display: block; 
+    }
+    
+    .company-details { 
+      grid-column: 2 / 3; 
+      text-align: center; 
+    }
+    
+    .company-details h2 { 
+      margin: 0 0 4px 0; 
+      font-size: 26pt; 
+      font-weight: 700; 
+      color: #D90429; 
+      font-family: 'Eras Bold ITC', 'Aptos Display', 'ErasITC-Bold', 'Arial Black', Arial, sans-serif; 
+    }
+    
+    .company-details .tagline { 
+      margin: 0 0 6px 0; 
+      font-size: 12pt; 
+      color: #D90429; 
+    }
+    
+    .company-details .contact { 
+      margin: 0; 
+      font-size: 12pt; 
+      color: #111; 
+    }
+    
+    /* Title */
+    .title-section { 
+      text-align: center; 
+      margin: 16px 0; 
+    }
+    
+    .title-section h1 { 
+      font-family: 'Aptos Display', 'Aptos', 'Segoe UI', Calibri, Arial, sans-serif; 
+      font-size: 14pt; 
+      font-weight: 700; 
+      color: #111; 
+      letter-spacing: 0.5px; 
+      display: inline-block; 
+    }
+    
+    /* Details Grid */
+    .details-grid { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 14px; 
+      margin-bottom: 16px; 
+    }
+    
+    .box-table { 
+      width: 100%; 
+      border-collapse: collapse; 
+    }
+    
+    .box-table, .box-table th, .box-table td { 
+      border: 1px solid #999; 
+    }
+    
+    .box-table thead th { 
+      background-color: #e6e6e6; 
+      text-align: left; 
+      padding: 6px 8px; 
+      font-weight: 700; 
+      font-family: 'Aptos Display', 'Aptos', 'Segoe UI', Calibri, Arial, sans-serif; 
+      font-size: 12pt; 
+    }
+    
+    .box-table tbody td { 
+      padding: 6px 8px; 
+      text-align: left; 
+      vertical-align: top; 
+    }
+    
+    .box-table tbody td:first-child { 
+      width: 40%; 
+      font-weight: 700; 
+      color: #444; 
+    }
+    
+    /* Items Table */
+    .items-table { 
+      width: 100%; 
+      border-collapse: collapse; 
+    }
+    
+    .items-table thead { 
+      background-color: #333A45; 
+      color: #fff; 
+    }
+    
+    .items-table thead th { 
+      font-family: 'Aptos Display', 'Aptos', 'Segoe UI', Calibri, Arial, sans-serif; 
+      font-weight: 700; 
+      font-size: 12pt; 
+    }
+    
+    .items-table th, .items-table td { 
+      border: 1px solid #ddd; 
+      padding: 8px; 
+      text-align: left; 
+    }
+    
+    .items-table th:not(:first-child), .items-table td:not(:first-child) { 
+      text-align: right; 
+    }
+    
+    .items-table tbody tr:nth-child(even) { 
+      background-color: #f9f9f9; 
+    }
+    
+    .items-table tfoot .total-label { 
+      text-align: right; 
+      font-weight: 700; 
+      font-size: 16px; 
+      border: none; 
+      padding-top: 15px; 
+    }
+    
+    .items-table tfoot .total-value { 
+      text-align: right; 
+      font-weight: 700; 
+      font-size: 16px; 
+      border: 1px solid #ddd; 
+      background-color: #f9f9f9; 
+    }
+    
+    /* Footer */
+    .footer-section { 
+      text-align: center; 
+      margin-top: 40px; 
+      padding-top: 15px; 
+      border-top: 1px solid #eee; 
+      color: #888; 
+      font-size: 12px; 
+    }
+    
+    @page { 
+      size: A4; 
+      margin: 0; 
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-page">
+    <header class="header-section">
+      <div class="logo"><img src="data:image/png;base64,${getLogoBase64()}" alt="Hybrid Lanka Logo" /></div>
+      <div class="company-details">
+        <h2>Hybrid Lanka</h2>
+        <p class="tagline">Total Solution for Your Hybrid Car</p>
+        <p class="contact">134/3 Horana road, Kesbewa, Sri Lanka &nbsp;&nbsp;&nbsp; Tel: 0112 620 757</p>
+      </div>
+      <div></div>
+    </header>
+
+    <section class="title-section">
+      <h1>INVOICE – Breakdown Requests</h1>
+    </section>
+
+    <section class="details-grid">
+      <div class="detail-box">
+        <table class="box-table">
+          <thead><tr><th colspan="2">Customer Details</th></tr></thead>
+          <tbody>
+            <tr><td>Customer Name</td><td>${data.customer.name}</td></tr>
+            <tr><td>Customer No.</td><td>${data.customer.id}</td></tr>
+            <tr><td>Contact No.</td><td>${data.customer.phone}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="detail-box">
+        <table class="box-table">
+          <thead><tr><th colspan="2">Invoice Details</th></tr></thead>
+          <tbody>
+            <tr><td>Invoice No.</td><td>${data.invoiceNumber}</td></tr>
+            <tr><td>Date</td><td>${data.invoiceDate}</td></tr>
+            <tr><td>Currency</td><td>${data.currency}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="detail-box">
+        <table class="box-table">
+          <thead><tr><th colspan="2">Vehicle Details</th></tr></thead>
+          <tbody>
+            <tr><td>Vehicle No.</td><td>${data.vehicle.number}</td></tr>
+            <tr><td>Type</td><td>${data.vehicle.type}</td></tr>
+            <tr><td>Location</td><td>${data.vehicle.location}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="detail-box">
+        <table class="box-table">
+          <thead><tr><th colspan="2">Breakdown Request Details</th></tr></thead>
+          <tbody>
+            <tr><td>Request ID</td><td>${data.breakdown.requestId}</td></tr>
+            <tr><td>Date/Time</td><td>${data.breakdown.dateTime}</td></tr>
+            <tr><td>Emergency</td><td>${data.breakdown.emergency}</td></tr>
+            <tr><td>Distance (km)</td><td>${data.breakdown.distance}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="items-section">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Service/ Parts Used</th>
+            <th>Unit Price</th>
+            <th>QTY</th>
+            <th>Gross Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Breakdown Request</td>
+            <td>${money(data.pricing.amount)}</td>
+            <td>1</td>
+            <td>${money(data.pricing.amount)}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3" class="total-label">Total Invoice Value</td>
+            <td class="total-value">${money(data.pricing.amount)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <footer class="footer-section">
+      <p>Page 1 of 1</p>
+    </footer>
+
+  </div>
+</body>
+</html>`;
+};
+
 module.exports = {
   generateInvoice,
   getCustomerInvoices,
   downloadCustomerInvoice,
   finalizeInvoice,
   createInvoicePdf,
+  generateBreakdownInvoice,
+  createBreakdownInvoicePdf,
 };

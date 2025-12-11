@@ -420,6 +420,28 @@ const getBookingById = async (req, res) => {
       }
     }
 
+    // Fetch service details (prices)
+    if (
+      enhancedBooking.serviceTypes &&
+      enhancedBooking.serviceTypes.length > 0
+    ) {
+      try {
+        const placeholders = enhancedBooking.serviceTypes
+          .map(() => "?")
+          .join(",");
+        const [services] = await db.query(
+          `SELECT serviceName, price FROM services WHERE serviceName IN (${placeholders})`,
+          enhancedBooking.serviceTypes
+        );
+        enhancedBooking.serviceDetails = services;
+      } catch (error) {
+        console.error("Error fetching service details:", error);
+        enhancedBooking.serviceDetails = [];
+      }
+    } else {
+      enhancedBooking.serviceDetails = [];
+    }
+
     res.status(200).json(enhancedBooking);
   } catch (error) {
     console.error("Error fetching booking:", error);

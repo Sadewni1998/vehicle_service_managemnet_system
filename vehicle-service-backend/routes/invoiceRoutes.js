@@ -8,6 +8,15 @@ const {
   checkRole,
 } = require("../middleware/authMiddleware");
 
+// Route to generate PDF invoice for a breakdown request
+// GET /api/invoices/breakdown/:requestId/generate
+router.get(
+  "/breakdown/:requestId/generate",
+  ensureAuthenticated,
+  checkRole(["manager", "service_advisor", "receptionist"]),
+  invoiceController.generateBreakdownInvoice
+);
+
 // Route to generate PDF invoice for a booking
 // GET /api/invoices/:bookingId/generate
 router.get(
