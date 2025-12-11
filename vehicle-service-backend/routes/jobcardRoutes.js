@@ -780,11 +780,20 @@ router.put(
       }
       const jobcard = rows[0];
       if (jobcard.status !== "ready_for_review") {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Jobcard is not ready for approval. All mechanics must complete first.",
-        });
+        // Double check if all mechanics are actually completed
+        const [[remainingRow]] = await db.query(
+          "SELECT COUNT(*) AS remaining FROM jobcardMechanic WHERE jobcardId = ? AND completedAt IS NULL",
+          [jobcardId]
+        );
+        const remaining = remainingRow?.remaining ?? 0;
+
+        if (remaining > 0) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Jobcard is not ready for approval. All mechanics must complete first.",
+          });
+        }
       }
 
       // Complete jobcard
