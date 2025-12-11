@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import toast from "react-hot-toast";
 import {
   Users,
   DollarSign,
@@ -348,6 +350,144 @@ const ManagementDashboard = () => {
       setError("Failed to refresh bookings");
     } finally {
       setLoadingBookings(false);
+    }
+  };
+
+  const generateBreakdownInvoice = async (request) => {
+    try {
+      // Load the existing PDF
+      const existingPdfBytes = await fetch(
+        "/references/invoice-breakdown_request.pdf"
+      ).then((res) => res.arrayBuffer());
+
+      // Load a PDFDocument from the existing PDF bytes
+      const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+      // Embed the Helvetica font
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+      // Get the first page of the document
+      const pages = pdfDoc.getPages();
+      const firstPage = pages[0];
+
+      // Define a helper to draw text
+      // Note: PDF coordinates start from bottom-left.
+      const drawText = (text, x, y, size = 10) => {
+        firstPage.drawText(String(text || ""), {
+          x,
+          y,
+          size,
+          font: helveticaFont,
+          color: rgb(0, 0, 0),
+        });
+      };
+
+      // Coordinates configuration
+      const leftColX = 150;
+      const rightColX = 420;
+      const topSectionY = 662;
+      const topRowHeight = 25;
+      const midSectionY = 508;
+      const midRowHeight = 25;
+
+      // --- Customer Details (Top Left) ---
+      drawText(
+        request.linkedCustomerName || request.contactName || "-",
+        leftColX,
+        topSectionY
+      ); // Customer Name
+      drawText(
+        request.customerId ? String(request.customerId) : "NULL",
+        leftColX,
+        topSectionY - topRowHeight
+      ); // Customer No.
+      drawText(
+        request.linkedCustomerPhone || request.contactPhone || "-",
+        leftColX,
+        topSectionY - topRowHeight * 2
+      ); // Contact No.
+
+      // --- Invoice Details (Top Right) ---
+      drawText(`INV-${request.requestId}`, rightColX, topSectionY); // Invoice No.
+      drawText(
+        new Date().toLocaleDateString(),
+        rightColX,
+        topSectionY - topRowHeight
+      ); // Date
+
+      // --- Vehicle Details (Middle Left) ---
+      drawText(
+        request.linkedVehicleNumber || request.vehicleNumber || "-",
+        leftColX,
+        midSectionY
+      ); // Vehicle No.
+      drawText(
+        request.linkedVehicleType || request.vehicleType || "-",
+        leftColX,
+        midSectionY - midRowHeight
+      ); // Type
+      drawText(
+        `${request.latitude}, ${request.longitude}`,
+        leftColX,
+        midSectionY - midRowHeight * 2,
+        8
+      ); // Location (smaller font)
+
+      // --- Breakdown Request Details (Middle Right) ---
+      drawText(String(request.requestId), rightColX, midSectionY); // Request ID
+      drawText(
+        request.createdAt ? new Date(request.createdAt).toLocaleString() : "-",
+        rightColX,
+        midSectionY - midRowHeight,
+        8
+      ); // Date/Time (smaller font)
+      drawText(
+        request.emergencyType || "-",
+        rightColX,
+        midSectionY - midRowHeight * 2
+      ); // Emergency
+      // drawText("", rightColX, midSectionY - midRowHeight * 3); // Distance (km) - left blank
+
+      // --- Service / Parts Used Table (Bottom) ---
+      const tableRowY = 375; // Adjusted Y (moved down slightly)
+      const col1X = 40; // Service/Parts Used
+      const col2X = 280; // Unit Price (moved left)
+      const col3X = 390; // QTY (moved left)
+      const col4X = 490; // Gross Amount (moved left)
+
+      // Use the price stored in the request
+      let price = parseFloat(request.price);
+      if (isNaN(price)) {
+        price = 0;
+      }
+
+      const qty = 1;
+      const grossAmount = price * qty;
+
+      drawText("Breakdown Request", col1X, tableRowY);
+      drawText(price.toFixed(2), col2X, tableRowY);
+      drawText(String(qty), col3X, tableRowY);
+      drawText(grossAmount.toFixed(2), col4X, tableRowY);
+
+      // --- Total Invoice Value ---
+      const totalY = 340; // Adjusted Y (moved down slightly)
+      const totalX = 490; // Aligned with Gross Amount column
+      drawText(grossAmount.toFixed(2), totalX, totalY);
+
+      // Serialize the PDFDocument to bytes (a Uint8Array)
+      const pdfBytes = await pdfDoc.save();
+
+      // Trigger the browser to download the PDF document
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `Invoice_Breakdown_${request.requestId}.pdf`;
+      link.click();
+
+      toast.success("Invoice generated successfully");
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      toast.error(`Failed to generate invoice: ${error.message}`);
     }
   };
 
@@ -1672,6 +1812,9 @@ const ManagementDashboard = () => {
                             LOCATION
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
+                            PRICE (LKR)
+                          </th>
+                          <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
                             STATUS
                           </th>
                           <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider border-b-2 border-gray-200">
@@ -1717,6 +1860,17 @@ const ManagementDashboard = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {req.latitude}, {req.longitude}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                              {req.price
+                                ? parseFloat(req.price).toLocaleString(
+                                    "en-LK",
+                                    {
+                                      style: "currency",
+                                      currency: "LKR",
+                                    }
+                                  )
+                                : "5,000.00"}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span
@@ -1796,6 +1950,16 @@ const ManagementDashboard = () => {
                                     className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded"
                                   >
                                     Complete
+                                  </button>
+                                )}
+                                {req.status === "Completed" && (
+                                  <button
+                                    onClick={() =>
+                                      generateBreakdownInvoice(req)
+                                    }
+                                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded"
+                                  >
+                                    Invoice
                                   </button>
                                 )}
                               </div>

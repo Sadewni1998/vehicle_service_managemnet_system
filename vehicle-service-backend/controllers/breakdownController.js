@@ -86,12 +86,17 @@ const createBreakdownRequest = async (req, res) => {
       }
     }
 
+    // Calculate price (Simple logic: Base fee + distance based if available, for now fixed base fee)
+    // In a real app, you might calculate distance between service center and user location
+    // Use price from request if available (calculated on frontend), otherwise default to 5000
+    const price = req.body.price || 5000.0;
+
     // Insert request; for public requests, customerId/vehicleId remain NULL and store contact info directly
     const sql = `
       INSERT INTO breakdown_request (
         customerId, vehicleId, emergencyType, latitude, longitude, problemDescription, additionalInfo,
-        contactName, contactPhone, vehicleNumber, vehicleType
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        contactName, contactPhone, vehicleNumber, vehicleType, price
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const values = [
       customerId, // customerId - may be NULL for public requests
@@ -105,6 +110,7 @@ const createBreakdownRequest = async (req, res) => {
       contactPhone,
       String(vehicleNumber || "").toUpperCase(),
       vehicleType,
+      price,
     ];
 
     const [result] = await db.query(sql, values);
@@ -162,9 +168,16 @@ module.exports = {
 const getAllBreakdownRequests = async (req, res) => {
   try {
     const sql = `
-      SELECT *
-      FROM breakdown_request 
-      ORDER BY createdAt DESC
+      SELECT 
+        br.*,
+        c.name as linkedCustomerName,
+        c.phone as linkedCustomerPhone,
+        v.vehicleNumber as linkedVehicleNumber,
+        v.type as linkedVehicleType
+      FROM breakdown_request br
+      LEFT JOIN customer c ON br.customerId = c.customerId
+      LEFT JOIN vehicle v ON br.vehicleId = v.vehicleId
+      ORDER BY br.createdAt DESC
     `;
     const [rows] = await db.query(sql);
 

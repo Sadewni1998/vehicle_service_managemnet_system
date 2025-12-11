@@ -24,10 +24,77 @@ const Request = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [distance, setDistance] = useState(null);
+  const [estimatedCost, setEstimatedCost] = useState(null);
   const [coordinates, setCoordinates] = useState({
     latitude: null,
     longitude: null,
   });
+
+  // Shop location (Hybrid Lanka, Piliyandala)
+  const SHOP_LOCATION = {
+    latitude: 6.796387128410733,
+    longitude: 79.94012391349249,
+  };
+
+  // Pricing Configuration (LKR)
+  const PRICING = {
+    BASE_FEE: 1500,
+    PER_KM_RATE: 120,
+    NIGHT_MULTIPLIER: 1.5, // 10 PM to 6 AM
+    SURCHARGES: {
+      accident: 5000,
+      "engine failure": 2500,
+      "transmission issue": 2500,
+      "electrical problem": 2000,
+      "flat tire": 1500,
+      "battery dead": 1000,
+      overheating: 1000,
+      other: 0,
+      default: 0,
+    },
+  };
+
+  const calculateCost = (dist, type) => {
+    if (!dist) return null;
+
+    const currentHour = new Date().getHours();
+    const isNight = currentHour >= 22 || currentHour < 6;
+
+    let cost = PRICING.BASE_FEE + parseFloat(dist) * PRICING.PER_KM_RATE;
+
+    // Add type surcharge
+    const surcharge =
+      PRICING.SURCHARGES[type?.toLowerCase()] || PRICING.SURCHARGES.default;
+    cost += surcharge;
+
+    // Apply night multiplier
+    if (isNight) {
+      cost *= PRICING.NIGHT_MULTIPLIER;
+    }
+
+    return Math.round(cost / 100) * 100; // Round to nearest 100
+  };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in km
+    return d.toFixed(2); // Return distance with 2 decimal places
+  };
+
+  const deg2rad = (deg) => {
+    return deg * (Math.PI / 180);
+  };
+
   const { user, isAuthenticated, isCustomer } = useAuth();
   const {
     register,
@@ -35,7 +102,18 @@ const Request = () => {
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm();
+
+  const selectedEmergencyType = watch("emergency_type");
+
+  // Update cost when emergency type changes
+  useEffect(() => {
+    if (distance && selectedEmergencyType) {
+      const cost = calculateCost(distance, selectedEmergencyType);
+      setEstimatedCost(cost);
+    }
+  }, [distance, selectedEmergencyType]);
 
   // Prefill name and phone when user is logged in as a customer
   useEffect(() => {
@@ -65,12 +143,15 @@ const Request = () => {
         longitude: coordinates.longitude,
         problemDescription: data.problem_description,
         additionalInfo: data.additional_info || "",
+        price: estimatedCost, // Send the calculated estimated cost
       };
 
       const response = await breakdownAPI.create(requestData);
       toast.success("Breakdown service request submitted successfully!");
       reset();
       setCoordinates({ latitude: null, longitude: null });
+      setDistance(null);
+      setEstimatedCost(null);
       // Redirect to Customer Dashboard Breakdown Requests tab
       navigate("/customer-dashboard?tab=breakdown-requests");
     } catch (error) {
@@ -96,6 +177,15 @@ const Request = () => {
       async (position) => {
         try {
           const { latitude, longitude } = position.coords;
+
+          // Calculate distance from shop
+          const dist = calculateDistance(
+            SHOP_LOCATION.latitude,
+            SHOP_LOCATION.longitude,
+            latitude,
+            longitude
+          );
+          setDistance(dist);
 
           // Use Google Maps Geocoding API to get address
           const response = await fetch(
@@ -453,6 +543,41 @@ const Request = () => {
                     Click the location icon to automatically detect your current
                     location
                   </p>
+                  {distance && (
+                    <div className="mt-3 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-300">
+                          Distance from shop:
+                        </span>
+                        <span className="text-white font-semibold">
+                          {distance} km
+                        </span>
+                      </div>
+
+                      <div className="mb-2 text-right">
+                        <a
+                          href={`https://www.google.com/maps?q=${coordinates.latitude},${coordinates.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 text-xs hover:text-blue-300 inline-flex items-center transition-colors"
+                        >
+                          <MapPin className="w-3 h-3 mr-1" />
+                          Verify location on Google Maps
+                        </a>
+                      </div>
+
+                      {parseFloat(distance) > 500 && (
+                        <div className="p-2 bg-red-900/50 border border-red-500 rounded text-red-200 text-sm mt-2 flex items-start">
+                          <span className="mr-2">⚠️</span>
+                          <span>
+                            You appear to be {distance} km away. Please check
+                            the map link above to verify your detected location.
+                            We only service within Sri Lanka.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -492,6 +617,19 @@ const Request = () => {
                     ? "Submitting Request..."
                     : "Request Emergency Service"}
                 </button>
+
+                {estimatedCost && (
+                  <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700 text-center">
+                    <p className="text-gray-300 mb-1">Estimated Cost</p>
+                    <p className="text-green-400 font-bold text-2xl">
+                      LKR {estimatedCost.toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2 italic">
+                      *Final cost may vary based on actual inspection and
+                      additional parts required.
+                    </p>
+                  </div>
+                )}
               </form>
             </div>
           </div>

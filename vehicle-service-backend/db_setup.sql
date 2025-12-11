@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS customer (
     provider VARCHAR(50) NOT NULL DEFAULT 'local',
     phone VARCHAR(20),
     address TEXT,
-    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resetOTP VARCHAR(6) DEFAULT NULL,
+    resetOTPExpires DATETIME DEFAULT NULL
 );
 
 -- =======================================================
@@ -85,6 +87,7 @@ CREATE TABLE IF NOT EXISTS breakdown_request (
     status ENUM('Pending', 'Approved', 'In Progress', 'Completed', 'Cancelled') DEFAULT 'Pending',
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    price DECIMAL(10, 2) DEFAULT 0.00,
     FOREIGN KEY (customerId) REFERENCES customer(customerId) ON DELETE SET NULL,
     FOREIGN KEY (vehicleId) REFERENCES vehicle(vehicleId) ON DELETE SET NULL
 );
@@ -119,7 +122,7 @@ CREATE INDEX idx_staff_email ON staff(email);
 CREATE INDEX idx_staff_role ON staff(role);
 
 -- TEST STAFF DATA
-INSERT INTO staff (name, email, password, role) VALUES
+INSERT IGNORE INTO staff (name, email, password, role) VALUES
 ('Service Advisor', 'service_advicer@vehicleservice.com', '$2b$10$6NkoMNcWBjifArTW5hfryuJPPLIwfZpaIPbhso7XuU2toEP17wWXe', 'service_advisor'),
 ('Receptionist', 'receptionist@vehicleservice.com', '$2b$10$MOOmKWRYOlT8w.bRO.4lq.MxVPT9wlpaTbLJBFnEORPj9MoA1v3zu', 'receptionist'),
 ('Manager', 'manager@vehicleservice.com', '$2b$10$0emTWCs9TR36WJRnhgKtU.8bvB00iLhgYU373PcYx5S0WaRFUXye2', 'manager'),
@@ -146,10 +149,10 @@ CREATE TABLE IF NOT EXISTS mechanic (
 );
 
 -- TEST MECHANIC DATA
-INSERT INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, hourlyRate)
+INSERT IGNORE INTO mechanic (staffId, mechanicCode, mechanicName, specialization, experienceYears, certifications, hourlyRate)
 VALUES
-(4, 'MEC001', 'Sarah', 'Engine and Transmission', 5, '["ASE Certified","Engine Specialist"]', 2500.00),
-(5, 'MEC002', 'Bob Mechanic', 'Electrical Systems', 4, '["Auto Electrician"]', 2300.00);
+(4, 'MEC001', 'Sarah', 'Engine and Transmission', 5, '[\"ASE Certified\",\"Engine Specialist\"]', 2500.00),
+(5, 'MEC002', 'Bob Mechanic', 'Electrical Systems', 4, '[\"Auto Electrician\"]', 2300.00);
 
 -- =======================================================
 -- SPARE PARTS TABLE
@@ -183,7 +186,7 @@ CREATE TABLE IF NOT EXISTS spareparts (
 );
 
 -- TEST SPARE PARTS
-INSERT INTO spareparts (partCode, partName, description, category, unitPrice, stockQuantity, mechanicId, imageUrl)
+INSERT IGNORE INTO spareparts (partCode, partName, description, category, unitPrice, stockQuantity, mechanicId, imageUrl)
 VALUES
 ('ENG001', 'Engine Oil Filter', 'High-performance oil filter for Toyota models', 'Engine', 2500.00, 50, 1, 'images/parts/oil_filter.jpg'),
 ('BRK002', 'Brake Pads', 'Front brake pad set for sedans', 'Brakes', 5600.00, 30, 1, 'images/parts/brake_pads.jpg'),
@@ -260,11 +263,12 @@ CREATE TABLE IF NOT EXISTS jobcardSparePart (
 CREATE TABLE IF NOT EXISTS services (
     serviceId INT AUTO_INCREMENT PRIMARY KEY,
     serviceName VARCHAR(255) NOT NULL UNIQUE,
-    price DECIMAL(10,2) NOT NULL
+    price DECIMAL(10,2) NOT NULL,
+    discount DECIMAL(5,2) DEFAULT 0.00
 );
 
 -- INSERT SERVICE DATA
-INSERT INTO services (serviceName, price) VALUES
+INSERT IGNORE INTO services (serviceName, price) VALUES
 ('Full Service', 15000.00),
 ('Engine Servicing', 8000.00),
 ('Transmission Service', 12000.00),
@@ -318,7 +322,7 @@ CREATE TABLE IF NOT EXISTS invoices (
 -- =======================================================
 -- TEST E-SHOP DATA
 -- =======================================================
-INSERT INTO eshop (itemCode, itemName, description, price, quantity, discountPercentage, itemImage, itemBrand, itemType)
+INSERT IGNORE INTO eshop (itemCode, itemName, description, price, quantity, discountPercentage, itemImage, itemBrand, itemType)
 VALUES
 ('TOY-ENG-001', 'Toyota Engine Oil Filter', 'High-quality oil filter for Toyota vehicles', 2500.00, 50, 5.00, 'images/eshop/toyota_oil_filter.jpg', 'Toyota', 'Filters'),
 ('HON-BRK-002', 'Honda Brake Pads Set', 'Premium brake pads for Honda models', 4500.00, 30, 0.00, 'images/eshop/honda_brake_pads.jpg', 'Honda', 'Break Parts'),
@@ -331,7 +335,7 @@ VALUES
 -- =======================================================
 -- TEST BOOKINGS
 -- =======================================================
-INSERT INTO booking (
+INSERT IGNORE INTO booking (
     name, phone, vehicleNumber, vehicleType, fuelType,
     vehicleBrand, vehicleBrandModel, manufacturedYear, transmissionType, 
     kilometersRun, bookingDate, timeSlot, serviceTypes,
@@ -342,23 +346,3 @@ INSERT INTO booking (
 ('Michael Chen', '0775555555', 'DEF-456', 'Hatchback', 'Petrol', 'Nissan', 'Micra', 2021, 'Manual', 28000, CURDATE(), '12:00-14:00', JSON_ARRAY('Regular Service', 'Battery Check'), 'Replace air filter', NULL, 'arrived', '07:45'),
 ('Emily Davis', '0778888888', 'GHI-321', 'Sedan', 'Petrol', 'BMW', '3 Series', 2018, 'Automatic', 65000, CURDATE(), '14:00-16:00', JSON_ARRAY('Premium Service', 'Transmission Check'), 'Full diagnostic check', NULL, 'pending', NULL),
 ('Robert Wilson', '0779999999', 'JKL-654', 'Pickup', 'Diesel', 'Ford', 'Ranger', 2017, 'Manual', 78000, CURDATE(), '16:00-18:00', JSON_ARRAY('Engine Overhaul', 'Clutch Replacement'), 'Customer cancelled due to emergency', NULL, 'cancelled', NULL);
-
--- =======================================================
--- SERVICES TABLE
--- =======================================================
-CREATE TABLE IF NOT EXISTS services (
-    serviceId INT AUTO_INCREMENT PRIMARY KEY,
-    serviceName VARCHAR(255) NOT NULL UNIQUE,
-    price DECIMAL(10,2) NOT NULL
-);
-
--- INSERT SERVICE DATA
-INSERT IGNORE INTO services (serviceName, price) VALUES
-('Full Service', 15000.00),
-('Engine Servicing', 8000.00),
-('Transmission Service', 12000.00),
-('Oil & Filter Service', 4500.00),
-('Body Wash', 1500.00),
-('Diagnostic Test', 3000.00),
-('Wheel Alignment', 3500.00),
-('Vacuum Cleaning', 1200.00);
