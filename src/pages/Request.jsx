@@ -42,17 +42,6 @@ const Request = () => {
     BASE_FEE: 1500,
     PER_KM_RATE: 120,
     NIGHT_MULTIPLIER: 1.5, // 10 PM to 6 AM
-    SURCHARGES: {
-      accident: 5000,
-      "engine failure": 2500,
-      "transmission issue": 2500,
-      "electrical problem": 2000,
-      "flat tire": 1500,
-      "battery dead": 1000,
-      overheating: 1000,
-      other: 0,
-      default: 0,
-    },
   };
 
   const calculateCost = (dist, type) => {
@@ -62,11 +51,6 @@ const Request = () => {
     const isNight = currentHour >= 22 || currentHour < 6;
 
     let cost = PRICING.BASE_FEE + parseFloat(dist) * PRICING.PER_KM_RATE;
-
-    // Add type surcharge
-    const surcharge =
-      PRICING.SURCHARGES[type?.toLowerCase()] || PRICING.SURCHARGES.default;
-    cost += surcharge;
 
     // Apply night multiplier
     if (isNight) {
@@ -544,7 +528,7 @@ const Request = () => {
                     location
                   </p>
                   {distance && (
-                    <div className="mt-3 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                    <div className="mt-3 p-4 bg-gray-900 rounded-lg border border-gray-700">
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-gray-300">
                           Distance from shop:
@@ -619,7 +603,7 @@ const Request = () => {
                 </button>
 
                 {estimatedCost && (
-                  <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700 text-center">
+                  <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700 text-center">
                     <p className="text-gray-300 mb-1">Estimated Cost</p>
                     <p className="text-green-400 font-bold text-2xl">
                       LKR {estimatedCost.toLocaleString()}
