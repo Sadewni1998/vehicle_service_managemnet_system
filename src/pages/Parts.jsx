@@ -29,6 +29,7 @@ const Parts = () => {
           brand: item.itemBrand,
           price: item.price - (item.price*item.discountPercentage / 100), // Calculate new price
           originalPrice: item.price, 
+          discount: parseFloat(item.discountPercentage),
           image: item.itemImage || "/img/service-1.jpg", // Default image if not provided
           inStock: item.quantity > 0,
           description: item.description || "High-quality auto part",
@@ -289,9 +290,12 @@ const Parts = () => {
                       <span className="text-2xl font-bold text-primary-600">
                         Rs. {part.price.toLocaleString()}
                       </span>
-                      <span className="text-sm text-gray-500 line-through ml-2">
-                        Rs. {part.originalPrice.toLocaleString()}
-                      </span>
+                      {/* Show original price ONLY when discount > 0 */}
+                      {part.discount > 0 && (
+                        <span className="text-sm text-gray-500 line-through ml-2">
+                          Rs. {part.originalPrice.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                     <span className="text-sm text-gray-500">{part.brand}</span>
                   </div>
