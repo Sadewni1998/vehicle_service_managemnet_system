@@ -288,6 +288,8 @@ const CustomerDashboard = () => {
     city: "",
     postalCode: "",
   });
+  const [isPayingBill, setIsPayingBill] = useState(false);
+  const [billPaymentTotal, setBillPaymentTotal] = useState(0);
 
   const loadEshopCart = () => {
     try {
@@ -392,9 +394,6 @@ const CustomerDashboard = () => {
   const processPayment = async () => {
     setIsProcessingPayment(true);
     try {
-      const selected = getSelectedItems();
-      const total = getSelectedTotal();
-
       // Validate payment form based on method
       if (paymentMethod === "paypal") {
         if (!paymentFormData.email || !paymentFormData.password) {
@@ -422,31 +421,34 @@ const CustomerDashboard = () => {
         postalCode: paymentFormData.postalCode,
       };
 
-      // Prepare checkout data
-      const checkoutData = {
-        items: selected.map((item) => ({
-          id: item.id || item.itemId,
-          itemId: item.id || item.itemId,
-          name: item.name || item.itemName,
-          quantity: item.quantity || 1,
-          price: item.price,
-        })),
-        paymentMethod: paymentMethod,
-        totalAmount: total,
-        billingAddress: billingAddress,
-      };
+      if (isPayingBill && selectedBookingForInvoice) {
+        // Process bill payment
+        const total = billPaymentTotal;
+        
+        // Prepare bill payment data
+        const billPaymentData = {
+          bookingId: selectedBookingForInvoice.bookingId,
+          paymentMethod: paymentMethod,
+          totalAmount: total,
+          billingAddress: billingAddress,
+          serviceDetails: selectedBookingForInvoice.serviceDetails || [],
+          partsDetails: selectedBookingForInvoice.assignedSparePartsDetails || [],
+        };
 
-      // Call checkout API
-      const response = await checkoutOrder(checkoutData);
+        // For now, simulate payment success (you can add actual API call later)
+        // In a real scenario, you would call an API endpoint like:
+        // const response = await invoiceAPI.payInvoice(billPaymentData);
+        
+        // Simulate API call delay
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      if (response.success) {
-        // Remove selected items from cart after successful payment
-        const remainingItems = eshopCart.filter(
-          (item) => !selectedItems.has(item.id)
-        );
-        persistCart(remainingItems);
-        setSelectedItems(new Set());
+        // Close modals and reset
         setShowPaymentModal(false);
+        setShowInvoiceMenu(false);
+        setSelectedBookingForInvoice(null);
+        setIsPayingBill(false);
+        setBillPaymentTotal(0);
+        
         // Reset form
         setPaymentFormData({
           email: "",
@@ -461,12 +463,67 @@ const CustomerDashboard = () => {
         });
 
         toast.success(
-          `Payment successful! Order #${response.data.orderNumber} placed for ${
-            selected.length
-          } item${selected.length !== 1 ? "s" : ""}`
+          `Payment successful! Bill for Booking #${selectedBookingForInvoice.bookingId} has been paid.`
         );
+
+        // Refresh bookings to update status
+        try {
+          const response = await bookingsAPI.getUserBookings();
+          setBookings(response.data || []);
+        } catch (refreshError) {
+          console.warn("Could not refresh bookings list:", refreshError);
+        }
       } else {
-        throw new Error(response.message || "Payment failed");
+        // Process E-Shop checkout
+        const selected = getSelectedItems();
+        const total = getSelectedTotal();
+
+        // Prepare checkout data
+        const checkoutData = {
+          items: selected.map((item) => ({
+            id: item.id || item.itemId,
+            itemId: item.id || item.itemId,
+            name: item.name || item.itemName,
+            quantity: item.quantity || 1,
+            price: item.price,
+          })),
+          paymentMethod: paymentMethod,
+          totalAmount: total,
+          billingAddress: billingAddress,
+        };
+
+        // Call checkout API
+        const response = await checkoutOrder(checkoutData);
+
+        if (response.success) {
+          // Remove selected items from cart after successful payment
+          const remainingItems = eshopCart.filter(
+            (item) => !selectedItems.has(item.id)
+          );
+          persistCart(remainingItems);
+          setSelectedItems(new Set());
+          setShowPaymentModal(false);
+          // Reset form
+          setPaymentFormData({
+            email: "",
+            password: "",
+            cardNumber: "",
+            expiryDate: "",
+            cvv: "",
+            cardholderName: "",
+            streetAddress: "",
+            city: "",
+            postalCode: "",
+          });
+
+          toast.success(
+            `Payment successful! Order #${response.data.orderNumber} placed for ${
+              selected.length
+            } item${selected.length !== 1 ? "s" : ""}`
+          );
+        } else {
+          throw new Error(response.message || "Payment failed");
+        }
       }
     } catch (error) {
       console.error("Payment error:", error);
@@ -2598,12 +2655,33 @@ const CustomerDashboard = () => {
                   Close
                 </button>
                 <button
-                  onClick={() =>
-                    (window.location.href = `https://sandbox.payhere.lk/pay/checkout?order_id=${selectedBookingForInvoice.bookingId}`)
-                  }
+                  onClick={() => {
+                    // Calculate total amount
+                    const serviceTotal =
+                      selectedBookingForInvoice.serviceDetails?.reduce(
+                        (total, service) =>
+                          total + (parseFloat(service.price) || 0),
+                        0
+                      ) || 0;
+                    const partsTotal =
+                      selectedBookingForInvoice.assignedSparePartsDetails?.reduce(
+                        (total, part) =>
+                          total + (parseFloat(part.totalPrice) || 0),
+                        0
+                      ) || 0;
+                    const total = serviceTotal + partsTotal;
+
+                    if (total <= 0) {
+                      toast.error("No amount to pay for this bill");
+                      return;
+                    }
+
+                    setBillPaymentTotal(total);
+                    setIsPayingBill(true);
+                    setShowPaymentModal(true);
+                  }}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
-                  <DollarSign className="w-4 h-4" />
                   Pay Now
                 </button>
               </div>
@@ -2618,9 +2696,15 @@ const CustomerDashboard = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-900">Payment</h3>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {isPayingBill ? "Pay Bill" : "Payment"}
+                </h3>
                 <button
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setIsPayingBill(false);
+                    setBillPaymentTotal(0);
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-6 h-6" />
@@ -2632,29 +2716,91 @@ const CustomerDashboard = () => {
               {/* Order Summary */}
               <div className="mb-6">
                 <h4 className="font-semibold text-gray-900 mb-3">
-                  Order Summary
+                  {isPayingBill ? "Bill Summary" : "Order Summary"}
                 </h4>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  {getSelectedItems().map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between items-center text-sm"
-                    >
-                      <span className="text-gray-700">
-                        {item.name} × {item.quantity || 1}
-                      </span>
-                      <span className="font-medium text-gray-900">
-                        Rs.{" "}
-                        {(item.price * (item.quantity || 1)).toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="border-t border-gray-300 pt-2 mt-2 flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span className="text-red-600">
-                      Rs. {getSelectedTotal().toLocaleString()}
-                    </span>
-                  </div>
+                  {isPayingBill && selectedBookingForInvoice ? (
+                    <>
+                      {selectedBookingForInvoice.serviceDetails?.length > 0 && (
+                        <>
+                          <div className="text-xs font-medium text-blue-800 mb-2">
+                            Service Charges:
+                          </div>
+                          {selectedBookingForInvoice.serviceDetails.map(
+                            (service, index) => (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center text-sm"
+                              >
+                                <span className="text-gray-700">
+                                  {service.serviceName}
+                                </span>
+                                <span className="font-medium text-gray-900">
+                                  Rs. {parseFloat(service.price).toLocaleString()}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </>
+                      )}
+                      {selectedBookingForInvoice.assignedSparePartsDetails
+                        ?.length > 0 && (
+                        <>
+                          <div className="text-xs font-medium text-blue-800 mb-2 mt-2">
+                            Parts Charges:
+                          </div>
+                          {selectedBookingForInvoice.assignedSparePartsDetails.map(
+                            (part, index) => (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center text-sm"
+                              >
+                                <span className="text-gray-700">
+                                  {part.partName} (Qty: {part.assignedQuantity})
+                                </span>
+                                <span className="font-medium text-gray-900">
+                                  Rs.{" "}
+                                  {parseFloat(part.totalPrice).toLocaleString()}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </>
+                      )}
+                      <div className="border-t border-gray-300 pt-2 mt-2 flex justify-between font-bold text-lg">
+                        <span>Total:</span>
+                        <span className="text-red-600">
+                          Rs. {billPaymentTotal.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Booking ID: {selectedBookingForInvoice.bookingId}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {getSelectedItems().map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex justify-between items-center text-sm"
+                        >
+                          <span className="text-gray-700">
+                            {item.name} × {item.quantity || 1}
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            Rs.{" "}
+                            {(item.price * (item.quantity || 1)).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="border-t border-gray-300 pt-2 mt-2 flex justify-between font-bold text-lg">
+                        <span>Total:</span>
+                        <span className="text-red-600">
+                          Rs. {getSelectedTotal().toLocaleString()}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2911,7 +3057,11 @@ const CustomerDashboard = () => {
               {/* Action Buttons */}
               <div className="flex justify-end space-x-3">
                 <button
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setIsPayingBill(false);
+                    setBillPaymentTotal(0);
+                  }}
                   disabled={isProcessingPayment}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
@@ -2928,7 +3078,11 @@ const CustomerDashboard = () => {
                       Processing...
                     </>
                   ) : (
-                    `Pay Rs. ${getSelectedTotal().toLocaleString()}`
+                    `Pay Rs. ${
+                      isPayingBill
+                        ? billPaymentTotal.toLocaleString()
+                        : getSelectedTotal().toLocaleString()
+                    }`
                   )}
                 </button>
               </div>
