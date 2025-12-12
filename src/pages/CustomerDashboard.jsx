@@ -105,6 +105,9 @@ const CustomerDashboard = () => {
   const [showInvoiceMenu, setShowInvoiceMenu] = useState(false);
   const [selectedBookingForInvoice, setSelectedBookingForInvoice] =
     useState(null);
+  const [showBreakdownBillMenu, setShowBreakdownBillMenu] = useState(false);
+  const [selectedBreakdownForBill, setSelectedBreakdownForBill] =
+    useState(null);
   const { user } = useAuth();
   // Keep URL in sync when tab changes (so refresh/deep-link works)
   useEffect(() => {
@@ -421,57 +424,106 @@ const CustomerDashboard = () => {
         postalCode: paymentFormData.postalCode,
       };
 
-      if (isPayingBill && selectedBookingForInvoice) {
-        // Process bill payment
+      if (isPayingBill) {
+        // Process bill payment (either booking or breakdown)
         const total = billPaymentTotal;
         
-        // Prepare bill payment data
-        const billPaymentData = {
-          bookingId: selectedBookingForInvoice.bookingId,
-          paymentMethod: paymentMethod,
-          totalAmount: total,
-          billingAddress: billingAddress,
-          serviceDetails: selectedBookingForInvoice.serviceDetails || [],
-          partsDetails: selectedBookingForInvoice.assignedSparePartsDetails || [],
-        };
+        if (selectedBookingForInvoice) {
+          // Process booking bill payment
+          const billPaymentData = {
+            bookingId: selectedBookingForInvoice.bookingId,
+            paymentMethod: paymentMethod,
+            totalAmount: total,
+            billingAddress: billingAddress,
+            serviceDetails: selectedBookingForInvoice.serviceDetails || [],
+            partsDetails: selectedBookingForInvoice.assignedSparePartsDetails || [],
+          };
 
-        // For now, simulate payment success (you can add actual API call later)
-        // In a real scenario, you would call an API endpoint like:
-        // const response = await invoiceAPI.payInvoice(billPaymentData);
-        
-        // Simulate API call delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+          // For now, simulate payment success (you can add actual API call later)
+          // In a real scenario, you would call an API endpoint like:
+          // const response = await invoiceAPI.payInvoice(billPaymentData);
+          
+          // Simulate API call delay
+          await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // Close modals and reset
-        setShowPaymentModal(false);
-        setShowInvoiceMenu(false);
-        setSelectedBookingForInvoice(null);
-        setIsPayingBill(false);
-        setBillPaymentTotal(0);
-        
-        // Reset form
-        setPaymentFormData({
-          email: "",
-          password: "",
-          cardNumber: "",
-          expiryDate: "",
-          cvv: "",
-          cardholderName: "",
-          streetAddress: "",
-          city: "",
-          postalCode: "",
-        });
+          // Close modals and reset
+          setShowPaymentModal(false);
+          setShowInvoiceMenu(false);
+          setSelectedBookingForInvoice(null);
+          setIsPayingBill(false);
+          setBillPaymentTotal(0);
+          
+          // Reset form
+          setPaymentFormData({
+            email: "",
+            password: "",
+            cardNumber: "",
+            expiryDate: "",
+            cvv: "",
+            cardholderName: "",
+            streetAddress: "",
+            city: "",
+            postalCode: "",
+          });
 
-        toast.success(
-          `Payment successful! Bill for Booking #${selectedBookingForInvoice.bookingId} has been paid.`
-        );
+          toast.success(
+            `Payment successful! Bill for Booking #${selectedBookingForInvoice.bookingId} has been paid.`
+          );
 
-        // Refresh bookings to update status
-        try {
-          const response = await bookingsAPI.getUserBookings();
-          setBookings(response.data || []);
-        } catch (refreshError) {
-          console.warn("Could not refresh bookings list:", refreshError);
+          // Refresh bookings to update status
+          try {
+            const response = await bookingsAPI.getUserBookings();
+            setBookings(response.data || []);
+          } catch (refreshError) {
+            console.warn("Could not refresh bookings list:", refreshError);
+          }
+        } else if (selectedBreakdownForBill) {
+          // Process breakdown bill payment
+          const breakdownPaymentData = {
+            requestId: selectedBreakdownForBill.requestId,
+            paymentMethod: paymentMethod,
+            totalAmount: total,
+            billingAddress: billingAddress,
+          };
+
+          // For now, simulate payment success (you can add actual API call later)
+          // In a real scenario, you would call an API endpoint like:
+          // const response = await invoiceAPI.payBreakdownInvoice(breakdownPaymentData);
+          
+          // Simulate API call delay
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          // Close modals and reset
+          setShowPaymentModal(false);
+          setShowBreakdownBillMenu(false);
+          setSelectedBreakdownForBill(null);
+          setIsPayingBill(false);
+          setBillPaymentTotal(0);
+          
+          // Reset form
+          setPaymentFormData({
+            email: "",
+            password: "",
+            cardNumber: "",
+            expiryDate: "",
+            cvv: "",
+            cardholderName: "",
+            streetAddress: "",
+            city: "",
+            postalCode: "",
+          });
+
+          toast.success(
+            `Payment successful! Bill for Breakdown Request #${selectedBreakdownForBill.requestId} has been paid.`
+          );
+
+          // Refresh breakdown requests to update status
+          try {
+            const response = await breakdownAPI.getMyRequests();
+            setBreakdownRequests(response.data?.data || response.data || []);
+          } catch (refreshError) {
+            console.warn("Could not refresh breakdown requests list:", refreshError);
+          }
         }
       } else {
         // Process E-Shop checkout
@@ -833,6 +885,12 @@ const CustomerDashboard = () => {
       console.error("Error fetching booking details for invoice:", error);
       toast.error("Failed to load bill details. Please try again.");
     }
+  };
+
+  // Handle breakdown bill click - open breakdown bill modal
+  const handleBreakdownBillClick = (request) => {
+    setSelectedBreakdownForBill(request);
+    setShowBreakdownBillMenu(true);
   };
 
   // Download invoice
@@ -1593,13 +1651,26 @@ const CustomerDashboard = () => {
                               )}
                             </div>
 
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
-                                customerStatus
-                              )}`}
-                            >
-                              {customerStatus}
-                            </span>
+                            <div className="flex flex-col items-end space-y-2">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-medium ${getBreakdownStatusColor(
+                                  customerStatus
+                                )}`}
+                              >
+                                {customerStatus}
+                              </span>
+                              {request.status?.toLowerCase() === "completed" &&
+                                request.price &&
+                                parseFloat(request.price) > 0 && (
+                                  <button
+                                    onClick={() => handleBreakdownBillClick(request)}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors flex items-center gap-2"
+                                  >
+                                    <DollarSign className="w-4 h-4" />
+                                    Bill
+                                  </button>
+                                )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -2690,6 +2761,143 @@ const CustomerDashboard = () => {
         </div>
       )}
 
+      {/* Breakdown Bill Menu Modal */}
+      {showBreakdownBillMenu && selectedBreakdownForBill && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Breakdown Bill Details
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowBreakdownBillMenu(false);
+                    setSelectedBreakdownForBill(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="mt-2 text-sm text-gray-600">
+                Request ID: {selectedBreakdownForBill.requestId} •{" "}
+                {selectedBreakdownForBill.vehicleNumber}
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Breakdown Service Charge Section */}
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  Breakdown Service Charge
+                </h4>
+                {selectedBreakdownForBill.price &&
+                parseFloat(selectedBreakdownForBill.price) > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {selectedBreakdownForBill.emergencyType || "Breakdown Service"}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          Vehicle: {selectedBreakdownForBill.vehicleNumber}
+                        </div>
+                        {selectedBreakdownForBill.dist && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Distance: {selectedBreakdownForBill.dist} km
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-blue-600">
+                          Rs.{" "}
+                          {parseFloat(selectedBreakdownForBill.price).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="border-t border-blue-200 pt-3 mt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-900">
+                          Total Amount:
+                        </span>
+                        <span className="font-bold text-lg text-blue-600">
+                          Rs.{" "}
+                          {parseFloat(selectedBreakdownForBill.price).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg
+                      className="w-12 h-12 mx-auto mb-3 text-gray-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <p>No charge available for this breakdown request</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowBreakdownBillMenu(false);
+                    setSelectedBreakdownForBill(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                {selectedBreakdownForBill.price &&
+                  parseFloat(selectedBreakdownForBill.price) > 0 && (
+                    <button
+                      onClick={() => {
+                        const total = parseFloat(selectedBreakdownForBill.price) || 0;
+
+                        if (total <= 0) {
+                          toast.error("No amount to pay for this bill");
+                          return;
+                        }
+
+                        setBillPaymentTotal(total);
+                        setIsPayingBill(true);
+                        setShowPaymentModal(true);
+                      }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      Pay Now
+                    </button>
+                  )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Payment Modal */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -2775,6 +2983,30 @@ const CustomerDashboard = () => {
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         Booking ID: {selectedBookingForInvoice.bookingId}
+                      </div>
+                    </>
+                  ) : isPayingBill && selectedBreakdownForBill ? (
+                    <>
+                      <div className="text-xs font-medium text-blue-800 mb-2">
+                        Breakdown Service Charge:
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-700">
+                          {selectedBreakdownForBill.emergencyType || "Breakdown Service"}
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          Rs.{" "}
+                          {parseFloat(selectedBreakdownForBill.price).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="border-t border-gray-300 pt-2 mt-2 flex justify-between font-bold text-lg">
+                        <span>Total:</span>
+                        <span className="text-red-600">
+                          Rs. {billPaymentTotal.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Request ID: {selectedBreakdownForBill.requestId}
                       </div>
                     </>
                   ) : (

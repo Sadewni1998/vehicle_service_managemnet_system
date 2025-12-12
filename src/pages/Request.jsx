@@ -89,6 +89,16 @@ const Request = () => {
     watch,
   } = useForm();
 
+  const selectedEmergencyType = watch("emergency_type");
+
+  // Update cost when emergency type changes
+  useEffect(() => {
+    if (distance) {
+      const cost = calculateCost(distance);
+      setEstimatedCost(cost);
+    }
+  }, [distance, selectedEmergencyType]);
+
   // Prefill name and phone when user is logged in as a customer
   useEffect(() => {
     if (isAuthenticated && isCustomer && user) {
