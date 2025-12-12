@@ -357,7 +357,7 @@ const ManagementDashboard = () => {
     try {
       // Load the existing PDF
       const existingPdfBytes = await fetch(
-        "/references/invoice-breakdown_request.pdf"
+        "/references/invoice-BreakdownRequest.pdf"
       ).then((res) => res.arrayBuffer());
 
       // Load a PDFDocument from the existing PDF bytes
@@ -383,11 +383,11 @@ const ManagementDashboard = () => {
       };
 
       // Coordinates configuration
-      const leftColX = 150;
+      const leftColX = 140;
       const rightColX = 420;
-      const topSectionY = 662;
+      const topSectionY = 633;
       const topRowHeight = 25;
-      const midSectionY = 508;
+      const midSectionY = 500;
       const midRowHeight = 25;
 
       // --- Customer Details (Top Left) ---
@@ -430,8 +430,8 @@ const ManagementDashboard = () => {
         `${request.latitude}, ${request.longitude}`,
         leftColX,
         midSectionY - midRowHeight * 2,
-        8
-      ); // Location (smaller font)
+        10
+      ); // Location
 
       // --- Breakdown Request Details (Middle Right) ---
       drawText(String(request.requestId), rightColX, midSectionY); // Request ID
@@ -439,21 +439,24 @@ const ManagementDashboard = () => {
         request.createdAt ? new Date(request.createdAt).toLocaleString() : "-",
         rightColX,
         midSectionY - midRowHeight,
-        8
-      ); // Date/Time (smaller font)
+        10
+      ); // Date/Time
       drawText(
         request.emergencyType || "-",
         rightColX,
         midSectionY - midRowHeight * 2
       ); // Emergency
+      drawText(
+        request.dist || "-",
+        rightColX,
+        midSectionY - midRowHeight * 3
+      ); // Distance (km)
       // drawText("", rightColX, midSectionY - midRowHeight * 3); // Distance (km) - left blank
 
       // --- Service / Parts Used Table (Bottom) ---
-      const tableRowY = 375; // Adjusted Y (moved down slightly)
-      const col1X = 40; // Service/Parts Used
-      const col2X = 280; // Unit Price (moved left)
-      const col3X = 390; // QTY (moved left)
-      const col4X = 490; // Gross Amount (moved left)
+      const tableRowY = 350; // Adjusted Y (moved down slightly)
+      const col1X = 30; // Service/Parts Used
+      const col4X = 520; // Gross Amount (moved left)
 
       // Use the price stored in the request
       let price = parseFloat(request.price);
@@ -465,13 +468,11 @@ const ManagementDashboard = () => {
       const grossAmount = price * qty;
 
       drawText("Breakdown Request", col1X, tableRowY);
-      drawText(price.toFixed(2), col2X, tableRowY);
-      drawText(String(qty), col3X, tableRowY);
       drawText(grossAmount.toFixed(2), col4X, tableRowY);
 
       // --- Total Invoice Value ---
-      const totalY = 340; // Adjusted Y (moved down slightly)
-      const totalX = 490; // Aligned with Gross Amount column
+      const totalY = 320; // Adjusted Y (moved down slightly)
+      const totalX = 520; // Aligned with Gross Amount column
       drawText(grossAmount.toFixed(2), totalX, totalY);
 
       // Serialize the PDFDocument to bytes (a Uint8Array)
