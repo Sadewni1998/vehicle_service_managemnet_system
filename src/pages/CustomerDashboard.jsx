@@ -990,13 +990,6 @@ const CustomerDashboard = () => {
                               )}
                             </div>
                             <div className="flex flex-col items-end space-y-2 ml-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                  booking.status
-                                )}`}
-                              >
-                                {booking.status}
-                              </span>
                               {booking.status?.toLowerCase() === "pending" && (
                                 <button
                                   onClick={() =>
@@ -1005,8 +998,7 @@ const CustomerDashboard = () => {
                                   className="text-red-600 hover:text-red-700 px-3 py-1 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors flex items-center space-x-1"
                                   title="Cancel Booking"
                                 >
-                                  <XCircle className="w-4 h-4" />
-                                  <span>Cancel</span>
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               )}
                             </div>

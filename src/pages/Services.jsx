@@ -11,7 +11,7 @@ const Services = () => {
       title: "Diagnostic Test",
       icon: <Car className="w-8 h-8" />,
       image: "/img/service-1.jpg",
-      description: "With over 15 years of experience in auto servicing, GearUp has established itself as a leader in the automotive industry. Our team of skilled technicians brings a wealth of knowledge and expertise to every service and repair job."
+      description: "With over 15 years of experience in auto servicing, Hybrid Lank has established itself as a leader in the automotive industry. Our team of skilled technicians brings a wealth of knowledge and expertise to every service and repair job."
     },
     {
       id: 2,
@@ -25,7 +25,7 @@ const Services = () => {
       title: "Tires Replacement",
       icon: <Wrench className="w-8 h-8" />,
       image: "/img/service-3.jpg",
-      description: "Whether you need routine maintenance, complex repairs, or specialized modifications, we have the skills and dedication to ensure your vehicle receives top-notch care. At GearUp, our commitment to quality service and customer satisfaction is unmatched."
+      description: "Whether you need routine maintenance, complex repairs, or specialized modifications, we have the skills and dedication to ensure your vehicle receives top-notch care. At Hybrid Lanka, our commitment to quality service and customer satisfaction is unmatched."
     },
     {
       id: 4,
