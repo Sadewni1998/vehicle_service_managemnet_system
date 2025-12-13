@@ -1752,10 +1752,18 @@ const ManagementDashboard = () => {
         (b) => b.status === "Completed"
       );
       
-      const breakdownTable = completedBreakdowns.map((breakdown) => ({
-        requestId: breakdown.requestId,
-        totalAmount: parseFloat(breakdown.price || 5000),
-      }));
+      const breakdownTable = completedBreakdowns
+        .map((breakdown) => ({
+          requestId: breakdown.requestId,
+          totalAmount: parseFloat(breakdown.price || 5000),
+          createdAt: breakdown.createdAt || breakdown.requestDate || new Date().toISOString(),
+        }))
+        .sort((a, b) => {
+          // Sort from oldest to latest (ascending order by date)
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return dateA - dateB;
+        });
 
       const breakdownRevenue = breakdownTable.reduce((sum, entry) => sum + entry.totalAmount, 0);
 
@@ -1881,10 +1889,13 @@ const ManagementDashboard = () => {
 
       // Get the first page
       const pages = pdfDoc.getPages();
-      const page = pages[0];
+      const page1 = pages[0]; // Service Bookings
+      const page2 = pages[1]; // Breakdown Requests
+      const page3 = pages[2]; // E-Shop
+      const page4 = pages[3]; // Total Revenue
 
       // Helper function to draw text
-      const drawText = (text, x, y, size = 10, isBold = false) => {
+      const drawText = (page, text, x, y, size = 10, isBold = false) => {
         page.drawText(String(text || ""), {
           x,
           y,
@@ -1894,66 +1905,42 @@ const ManagementDashboard = () => {
         });
       };
 
-      // Coordinates (adjust based on template layout)
-      // Month and Year section (top area)
-      const monthX = 400; // Adjust based on template
-      const yearX = 500; // Right side for year
-      const headerY = 576; // Adjust based on template
+      // ========== HEADER SECTION ==========
+      // Month section - Display month name
+      const monthX = 402; // Position after "Month:" label
+      const monthY = 576; // Top area Y coordinate
+      drawText(page1, reportData.monthName, monthX, monthY, 12);
 
-      // Draw Month
-      drawText(reportData.monthName, monthX, headerY, 12, false);
+      // Year section - Display year right side of "Year:"
+      const yearX = 500; // Position after "Year:" label (right side)
+      const yearY = 576; // Same Y as month
+      drawText(page1, reportData.year, yearX, yearY, 12);
 
-      // Draw Year
-      drawText(reportData.year, yearX, headerY, 12, false);
-
-      // Service Booking Table coordinates
-      const serviceTableStartY = 495; // Adjust based on template
+      // ========== SERVICE BOOKING TABLE ==========
+      const serviceTableStartY = 495; // Starting Y position for service booking table
       const serviceTableX = 60;
-      const serviceColX = serviceTableX + 20;
-      const serviceChargeColX = serviceTableX + 195;
-      const noBookingsColX = serviceTableX + 310;
-      const totalAmountColX = serviceTableX + 420;
+      const serviceColX = serviceTableX + 20; // Services column
+      const serviceChargeColX = serviceTableX + 195; // Service Charges column
+      const noBookingsColX = serviceTableX + 310; // No. of Bookings column
+      const totalAmountColX = serviceTableX + 420; // Total Amount column
+      const bookingRevenueX = 465; // Right side of Booking Revenue
       const rowHeight = 20;
-      const rowsCount = reportData.serviceBookingTable.length;
+      const serviceRowsCount = reportData.serviceBookingTable.length;
 
-      // Draw Service Booking Table
+      // Draw Service Booking Table rows
       let currentY = serviceTableStartY;
-      reportData.serviceBookingTable.forEach((entry, index) => {
-        drawText(
-          entry.serviceName, 
-          serviceColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          `Rs. ${entry.serviceCharge.toFixed(2)}`,
-          serviceChargeColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          entry.numberOfBookings.toString(),
-          noBookingsColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          `Rs. ${entry.totalAmount.toFixed(2)}`,
-          totalAmountColX,
-          currentY,
-          10,
-          false
-        );
+      reportData.serviceBookingTable.forEach((entry) => {
+        drawText(page1, entry.serviceName, serviceColX, currentY);
+        drawText(page1, `Rs. ${entry.serviceCharge.toFixed(2)}`, serviceChargeColX, currentY);
+        drawText(page1, entry.numberOfBookings.toString(), noBookingsColX, currentY);
+        drawText(page1, `Rs. ${entry.totalAmount.toFixed(2)}`, totalAmountColX, currentY);
         currentY -= rowHeight;
       });
 
-      // Booking Revenue (right side of table)
-      const bookingRevenueX = 465; // Right side 
-      const bookingRevenueY = serviceTableStartY - (rowsCount * rowHeight) - 6; // Align with first row
+      // Booking Revenue - Right side, sum of total amount from service booking table
+      const bookingRevenueY = 147;
       drawText(
+        page1,
         `Rs. ${reportData.revenue.bookings.toFixed(2)}`,
         bookingRevenueX,
         bookingRevenueY,
@@ -1961,37 +1948,29 @@ const ManagementDashboard = () => {
         true
       );
 
-      // Breakdown Request Table coordinates
-      const breakdownTableStartY = serviceTableStartY - (rowsCount * rowHeight) - 90; // Adjust based on template
+      // ========== BREAKDOWN REQUEST TABLE ==========
+      const breakdownTableStartY = 495;
       const breakdownTableX = 60;
-      const breakdownIdColX = breakdownTableX + 20;
-      const breakdownAmountColX = breakdownTableX + 420;
-      const breakdownrowsCount = reportData.breakdownTable.length;
+      const breakdownIdColX = breakdownTableX + 20; // Breakdown Request ID column
+      const breakdownAmountColX = breakdownTableX + 420; // Total Amount column
+      const breakdownRevenueX = 465; // Right side of Breakdown Request Revenue
+      const breakdownRowsCount = reportData.breakdownTable.length;
 
-      // Draw Breakdown Request Table
+      drawText(page2, reportData.monthName, monthX, monthY, 12);
+      drawText(page2, reportData.year, yearX, monthY, 12);
+
+      // Draw Breakdown Request Table rows
       currentY = breakdownTableStartY;
       reportData.breakdownTable.forEach((entry) => {
-        drawText(
-          entry.requestId.toString(),
-          breakdownIdColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          `Rs. ${entry.totalAmount.toFixed(2)}`,
-          breakdownAmountColX,
-          currentY,
-          10,
-          false
-        );
+        drawText(page2, entry.requestId.toString(), breakdownIdColX, currentY, 10);
+        drawText(page2, `Rs. ${entry.totalAmount.toFixed(2)}`, breakdownAmountColX, currentY, 10);
         currentY -= rowHeight;
       });
 
-      // Breakdown Request Revenue (right side)
-      const breakdownRevenueX = 465;
-      const breakdownRevenueY = breakdownTableStartY - (breakdownrowsCount * rowHeight) - 22;
+      // Breakdown Request Revenue - Right si de, sum of total amount from breakdown request table
+      const breakdownRevenueY = 147;
       drawText(
+        page2,
         `Rs. ${reportData.revenue.breakdowns.toFixed(2)}`,
         breakdownRevenueX,
         breakdownRevenueY,
@@ -1999,53 +1978,41 @@ const ManagementDashboard = () => {
         true
       );
 
-      // E-shop Table coordinates
-      const eshopTableStartY = breakdownTableStartY - (rowsCount * rowHeight) - 170; // Adjust based on template
+      // ========== E-SHOP TABLE ==========
+      const eshopTableStartY = 495; // Starting Y position for e-shop table
       const eshopTableX = 60;
-      const eshopItemColX = eshopTableX + 20;
-      const eshopPriceColX = eshopTableX + 200;
-      const eshopQuantityColX = eshopTableX + 320;
-      const eshopTotalColX = eshopTableX + 420;
-      const eshopCount = reportData.eshopTable.length;
+      const eshopItemColX = eshopTableX + 20; // Items column
+      const eshopPriceColX = eshopTableX + 200; // Item Price column
+      const eshopQuantityColX = eshopTableX + 320; // No. of Items Purchased column
+      const eshopTotalColX = eshopTableX + 420; // Total Amount column
+      const eshopRevenueX = 465; // Right side of E-Shop Revenue
+      const eshopRowsCount = reportData.eshopTable.length;
 
-      // Draw E-shop Table
+      drawText(page3, reportData.monthName, monthX, monthY, 12);
+      drawText(page3, reportData.year, yearX, monthY, 12);
+
+      // Draw E-shop Table rows
       currentY = eshopTableStartY;
       reportData.eshopTable.forEach((entry) => {
-        drawText(
-          entry.itemName || "-",
-          eshopItemColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          `Rs. ${entry.itemPrice.toFixed(2)}`,
-          eshopPriceColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          entry.numberOfItemsPurchased.toString(),
-          eshopQuantityColX,
-          currentY,
-          10,
-          false
-        );
-        drawText(
-          `Rs. ${entry.totalAmount.toFixed(2)}`,
-          eshopTotalColX,
-          currentY,
-          10,
-          false
-        );
+        // Items column - Items in e-shop
+        drawText(page3, entry.itemName || "-", eshopItemColX, currentY, 10, false);
+        
+        // Item Price column - Respective item price
+        drawText(page3, `Rs. ${entry.itemPrice.toFixed(2)}`, eshopPriceColX, currentY, 10, false);
+        
+        // No. of Items Purchased column - Number of purchases
+        drawText(page3, entry.numberOfItemsPurchased.toString(), eshopQuantityColX, currentY, 10, false);
+
+        // Total Amount column - Item price * No. of Items Purchased
+        drawText(page3, `Rs. ${entry.totalAmount.toFixed(2)}`, eshopTotalColX, currentY, 10, false);
+
         currentY -= rowHeight;
       });
 
-      // E-Shop Revenue (right side)
-      const eshopRevenueX = 465;
-      const eshopRevenueY = eshopTableStartY - (eshopCount * rowHeight) - 4;
+      // E-Shop Revenue - Right side, total sum of total amount from e-shop table
+      const eshopRevenueY = 147;
       drawText(
+        page3,
         `Rs. ${reportData.revenue.eshop.toFixed(2)}`,
         eshopRevenueX,
         eshopRevenueY,
@@ -2053,13 +2020,56 @@ const ManagementDashboard = () => {
         true
       );
 
-      // Total Revenue (bottom area)
-      const totalRevenueX = 465; // Right side
-      const totalRevenueY = eshopTableStartY - (eshopCount * rowHeight) - 39; // Adjust based on template
+      // ========== TOTAL REVENUE TABLE ==========
+      const totalRevenueTableStartY = 495; // Starting Y position for total revenue table
+      const totalRevenueTableX = 60;
+      const revenueLabelColX = totalRevenueTableX + 20; // Revenue type labels
+      const revenueAmountColX = totalRevenueTableX + 420; // Total Amount column
+      const totalRevenueX = 465; // Right side of Total Revenue
+
+      drawText(page4, reportData.monthName, monthX, monthY, 12);
+      drawText(page4, reportData.year, yearX, monthY, 12);
+
+      // Service Booking Revenue
+      let revenueY = totalRevenueTableStartY;
       drawText(
+        page4,
+        `Rs. ${reportData.revenue.bookings.toFixed(2)}`,
+        revenueAmountColX,
+        revenueY,
+        10,
+        false
+      );
+
+      // Breakdown Requests Revenue
+      revenueY -= rowHeight;
+      drawText(
+        page4,
+        `Rs. ${reportData.revenue.breakdowns.toFixed(2)}`,
+        revenueAmountColX,
+        revenueY,
+        10,
+        false
+      );
+
+      // E-shop Revenue
+      revenueY -= rowHeight;
+      drawText(
+        page4,
+        `Rs. ${reportData.revenue.eshop.toFixed(2)}`,
+        revenueAmountColX,
+        revenueY,
+        10,
+        false
+      );
+
+      // Total Revenue - Sum of all three revenues
+      revenueY -= rowHeight + 10;
+      drawText(
+        page4,
         `Rs. ${reportData.revenue.total.toFixed(2)}`,
         totalRevenueX,
-        totalRevenueY,
+        revenueY,
         14,
         true
       );
