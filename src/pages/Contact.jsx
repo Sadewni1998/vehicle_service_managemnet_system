@@ -32,16 +32,16 @@ const Contact = () => {
 
   const contactInfo = [
     {
-      title: "Booking",
-      email: "book@hybridlanka.com",
+      title: "Contact Number",
+      email: "+94 112 620 757",
     },
     {
-      title: "General",
-      email: "info@hybridlanka.com",
+      title: "Email Address",
+      email: "hybridlankaservicecenter@gmail.com",
     },
     {
-      title: "Technical",
-      email: "tech@hybridlanka.com",
+      title: "Facebook Account",
+      email: "Hybrid Lanka",
     },
   ];
 
