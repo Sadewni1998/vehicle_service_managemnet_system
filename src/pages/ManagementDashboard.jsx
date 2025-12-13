@@ -19,6 +19,8 @@ import {
   Edit,
   Trash2,
   Search,
+  Download,
+  BarChart3,
 } from "lucide-react";
 import {
   bookingsAPI,
@@ -35,6 +37,743 @@ import {
   updateEshopItem,
   deleteEshopItem,
 } from "../utils/eshopApi";
+
+// Chart Components
+const RevenuePieChart = ({ bookings, breakdowns, eshop, total }) => {
+  const size = 220;
+  const radius = 85;
+  const centerX = size / 2;
+  const centerY = size / 2;
+
+  const calculateAngle = (value) => (value / total) * 360;
+
+  const bookingsAngle = calculateAngle(bookings);
+  const breakdownsAngle = calculateAngle(breakdowns);
+  const eshopAngle = calculateAngle(eshop);
+
+  const createArc = (startAngle, endAngle) => {
+    const start = (startAngle * Math.PI) / 180;
+    const end = (endAngle * Math.PI) / 180;
+    const x1 = centerX + radius * Math.cos(start);
+    const y1 = centerY + radius * Math.sin(start);
+    const x2 = centerX + radius * Math.cos(end);
+    const y2 = centerY + radius * Math.sin(end);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+    return `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+  };
+
+  let currentAngle = -90;
+  const bookingsPath = createArc(currentAngle, currentAngle + bookingsAngle);
+  currentAngle += bookingsAngle;
+  const breakdownsPath = createArc(currentAngle, currentAngle + breakdownsAngle);
+  currentAngle += breakdownsAngle;
+  const eshopPath = createArc(currentAngle, currentAngle + eshopAngle);
+
+  return (
+    <svg width={size} height={size} className="mx-auto drop-shadow-lg">
+      <defs>
+        <linearGradient id="bookingsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#3b82f6" />
+        </linearGradient>
+        <linearGradient id="breakdownsGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fb923c" />
+          <stop offset="100%" stopColor="#f97316" />
+        </linearGradient>
+        <linearGradient id="eshopGradientPie" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#c084fc" />
+          <stop offset="100%" stopColor="#a855f7" />
+        </linearGradient>
+        <filter id="shadow">
+          <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.3" />
+        </filter>
+      </defs>
+      {/* Outer glow effect */}
+      <circle cx={centerX} cy={centerY} r={radius + 2} fill="rgba(0,0,0,0.05)" />
+      <path d={bookingsPath} fill="url(#bookingsGradient)" stroke="#fff" strokeWidth="3" filter="url(#shadow)" />
+      <path d={breakdownsPath} fill="url(#breakdownsGradient)" stroke="#fff" strokeWidth="3" filter="url(#shadow)" />
+      <path d={eshopPath} fill="url(#eshopGradientPie)" stroke="#fff" strokeWidth="3" filter="url(#shadow)" />
+      <circle cx={centerX} cy={centerY} r={radius * 0.65} fill="white" stroke="#e5e7eb" strokeWidth="2" />
+      <text
+        x={centerX}
+        y={centerY - 8}
+        textAnchor="middle"
+        className="text-base font-bold fill-gray-800"
+        style={{ fontSize: '16px' }}
+      >
+        Total
+      </text>
+      <text
+        x={centerX}
+        y={centerY + 12}
+        textAnchor="middle"
+        className="text-sm font-semibold fill-gray-600"
+        style={{ fontSize: '13px' }}
+      >
+        Revenue
+      </text>
+    </svg>
+  );
+};
+
+const StatusPieChart = ({ verified, pending, cancelled, arrived, total }) => {
+  const size = 220;
+  const radius = 85;
+  const centerX = size / 2;
+  const centerY = size / 2;
+
+  const calculateAngle = (value) => {
+    if (total === 0) return 0;
+    return (value / total) * 360;
+  };
+
+  const verifiedAngle = calculateAngle(verified);
+  const pendingAngle = calculateAngle(pending);
+  const arrivedAngle = calculateAngle(arrived);
+  const cancelledAngle = calculateAngle(cancelled);
+
+  const createArc = (startAngle, endAngle) => {
+    if (endAngle - startAngle <= 0) return null;
+    const start = (startAngle * Math.PI) / 180;
+    const end = (endAngle * Math.PI) / 180;
+    const x1 = centerX + radius * Math.cos(start);
+    const y1 = centerY + radius * Math.sin(start);
+    const x2 = centerX + radius * Math.cos(end);
+    const y2 = centerY + radius * Math.sin(end);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+    return `M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+  };
+
+  let currentAngle = -90;
+  const segments = [];
+  
+  if (verified > 0) {
+    const path = createArc(currentAngle, currentAngle + verifiedAngle);
+    if (path) segments.push({ path, fill: 'url(#verifiedGradient)', value: verified });
+    currentAngle += verifiedAngle;
+  }
+  
+  if (pending > 0) {
+    const path = createArc(currentAngle, currentAngle + pendingAngle);
+    if (path) segments.push({ path, fill: 'url(#pendingGradient)', value: pending });
+    currentAngle += pendingAngle;
+  }
+  
+  if (arrived > 0) {
+    const path = createArc(currentAngle, currentAngle + arrivedAngle);
+    if (path) segments.push({ path, fill: 'url(#arrivedGradient)', value: arrived });
+    currentAngle += arrivedAngle;
+  }
+  
+  if (cancelled > 0) {
+    const path = createArc(currentAngle, currentAngle + cancelledAngle);
+    if (path) segments.push({ path, fill: 'url(#cancelledGradient)', value: cancelled });
+    currentAngle += cancelledAngle;
+  }
+
+  return (
+    <svg width={size} height={size} className="mx-auto drop-shadow-lg">
+      <defs>
+        <linearGradient id="verifiedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#34d399" />
+          <stop offset="100%" stopColor="#10b981" />
+        </linearGradient>
+        <linearGradient id="pendingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fde047" />
+          <stop offset="100%" stopColor="#eab308" />
+        </linearGradient>
+        <linearGradient id="arrivedGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#3b82f6" />
+        </linearGradient>
+        <linearGradient id="cancelledGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f87171" />
+          <stop offset="100%" stopColor="#ef4444" />
+        </linearGradient>
+        <filter id="shadowStatus">
+          <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.3" />
+        </filter>
+      </defs>
+      {/* Outer glow effect */}
+      <circle cx={centerX} cy={centerY} r={radius + 3} fill="rgba(0,0,0,0.05)" />
+      
+      {/* Render segments */}
+      {segments.map((segment, index) => (
+        <path
+          key={index}
+          d={segment.path}
+          fill={segment.fill}
+          stroke="#fff"
+          strokeWidth="3"
+          filter="url(#shadowStatus)"
+          className="transition-opacity hover:opacity-90"
+        />
+      ))}
+      
+      {/* Center circle with enhanced styling */}
+      <circle cx={centerX} cy={centerY} r={radius * 0.7} fill="white" stroke="#e5e7eb" strokeWidth="3" />
+      <circle cx={centerX} cy={centerY} r={radius * 0.65} fill="rgba(249, 250, 251, 0.8)" />
+      
+      <text
+        x={centerX}
+        y={centerY - 10}
+        textAnchor="middle"
+        className="text-lg font-bold fill-gray-800"
+        style={{ fontSize: '20px', fontWeight: '700' }}
+      >
+        {total}
+      </text>
+      <text
+        x={centerX}
+        y={centerY + 15}
+        textAnchor="middle"
+        className="text-sm font-semibold fill-gray-600"
+        style={{ fontSize: '14px' }}
+      >
+        Bookings
+      </text>
+    </svg>
+  );
+};
+
+const ServiceBookingBarChart = ({ data }) => {
+  const maxValue = Math.max(...data.map((d) => d.numberOfBookings), 1);
+  const chartHeight = 200;
+  const barWidth = 50;
+  const barSpacing = 15;
+  const chartWidth = Math.min(700, data.length * (barWidth + barSpacing) + 80);
+
+  // Calculate logical Y-axis intervals
+  const getLogicalIntervals = (max) => {
+    if (max === 0) return [0];
+    if (max <= 5) {
+      // For small values, show every integer
+      return Array.from({ length: max + 1 }, (_, i) => i);
+    } else if (max <= 10) {
+      // Show every 2
+      const step = 2;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else if (max <= 20) {
+      // Show every 5
+      const step = 5;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else if (max <= 50) {
+      // Show every 10
+      const step = 10;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else {
+      // For larger values, use 5 intervals
+      const step = Math.ceil(max / 5);
+      const roundedStep = step < 10 ? step : Math.ceil(step / 10) * 10;
+      return Array.from({ length: 6 }, (_, i) => i * roundedStep).filter(v => v <= max);
+    }
+  };
+
+  const yAxisValues = getLogicalIntervals(maxValue);
+  const yAxisMax = Math.max(...yAxisValues);
+
+  return (
+    <div className="w-full overflow-x-auto flex justify-center">
+      <svg width={chartWidth} height={chartHeight + 80} className="mx-auto">
+        {/* Y-axis line */}
+        <line
+          x1={50}
+          y1={20}
+          x2={50}
+          y2={chartHeight + 20}
+          stroke="#d1d5db"
+          strokeWidth="2"
+        />
+        
+        {/* Y-axis title */}
+        <text
+          x={15}
+          y={chartHeight / 2 + 20}
+          textAnchor="middle"
+          transform={`rotate(-90 15 ${chartHeight / 2 + 20})`}
+          className="text-xs fill-gray-600 font-semibold"
+        >
+          No. of Services
+        </text>
+        
+        {/* Y-axis labels with logical intervals */}
+        {yAxisValues.map((value) => {
+          const ratio = yAxisMax > 0 ? value / yAxisMax : 0;
+          return (
+            <g key={value}>
+              <line
+                x1={50}
+                y1={chartHeight - ratio * chartHeight + 20}
+                x2={chartWidth - 20}
+                y2={chartHeight - ratio * chartHeight + 20}
+                stroke="#f3f4f6"
+                strokeWidth="1"
+                strokeDasharray="2,2"
+              />
+              <text
+                x={45}
+                y={chartHeight - ratio * chartHeight + 25}
+                textAnchor="end"
+                className="text-xs fill-gray-500 font-medium"
+              >
+                {value}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis title */}
+        <text
+          x={chartWidth / 2}
+          y={chartHeight + 70}
+          textAnchor="middle"
+          className="text-xs fill-gray-600 font-semibold"
+        >
+          Services
+        </text>
+
+        {/* Bars with gradient effect */}
+        {data.map((item, index) => {
+          const barHeight = (item.numberOfBookings / yAxisMax) * chartHeight;
+          const x = 70 + index * (barWidth + barSpacing);
+          const y = chartHeight - barHeight + 20;
+
+          return (
+            <g key={index}>
+              {/* Bar shadow */}
+              <rect
+                x={x + 2}
+                y={y + 2}
+                width={barWidth}
+                height={barHeight}
+                fill="#1e40af"
+                opacity="0.2"
+                rx="6"
+              />
+              {/* Main bar */}
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                fill="url(#serviceGradient)"
+                rx="6"
+                className="hover:opacity-80 transition-opacity"
+              />
+              {/* Service name on bar (vertical) */}
+              {barHeight > 30 && (
+                <text
+                  x={x + barWidth / 2}
+                  y={y + barHeight / 2}
+                  textAnchor="middle"
+                  transform={`rotate(-90 ${x + barWidth / 2} ${y + barHeight / 2})`}
+                  className="text-xs fill-white font-semibold"
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {item.serviceName.length > 15
+                    ? item.serviceName.substring(0, 15) + "..."
+                    : item.serviceName}
+                </text>
+              )}
+              {/* Value label on top */}
+              <text
+                x={x + barWidth / 2}
+                y={y - 8}
+                textAnchor="middle"
+                className="text-xs font-semibold fill-gray-700"
+              >
+                {item.numberOfBookings}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Gradient definition */}
+        <defs>
+          <linearGradient id="serviceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#60a5fa" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+};
+
+const BreakdownBarChart = ({ data }) => {
+  const maxValue = Math.max(...data.map((d) => d.totalAmount), 1);
+  const chartHeight = 200;
+  const barWidth = 50;
+  const barSpacing = 15;
+  const chartWidth = Math.min(700, data.length * (barWidth + barSpacing) + 80);
+
+  // Calculate logical Y-axis intervals for revenue
+  const getLogicalRevenueIntervals = (max) => {
+    if (max === 0) return [0];
+    if (max <= 1000) {
+      const step = 250;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else if (max <= 10000) {
+      const step = 2000;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else if (max <= 50000) {
+      const step = 10000;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else {
+      const step = Math.ceil(max / 5);
+      const roundedStep = step < 1000 ? step : Math.ceil(step / 1000) * 1000;
+      return Array.from({ length: 6 }, (_, i) => i * roundedStep).filter(v => v <= max);
+    }
+  };
+
+  const yAxisValues = getLogicalRevenueIntervals(maxValue);
+  const yAxisMax = Math.max(...yAxisValues);
+
+  return (
+    <div className="w-full overflow-x-auto flex justify-center">
+      <svg width={chartWidth} height={chartHeight + 80} className="mx-auto">
+        {/* Y-axis line */}
+        <line
+          x1={50}
+          y1={20}
+          x2={50}
+          y2={chartHeight + 20}
+          stroke="#d1d5db"
+          strokeWidth="2"
+        />
+        
+        {/* Y-axis title */}
+        <text
+          x={8}
+          y={chartHeight / 2 + 20}
+          textAnchor="middle"
+          transform={`rotate(-90 8 ${chartHeight / 2 + 20})`}
+          className="text-xs fill-gray-600 font-semibold"
+        >
+          Charges
+        </text>
+        
+        {/* Y-axis labels with logical intervals */}
+        {yAxisValues.map((value) => {
+          const ratio = yAxisMax > 0 ? value / yAxisMax : 0;
+          return (
+            <g key={value}>
+              <line
+                x1={50}
+                y1={chartHeight - ratio * chartHeight + 20}
+                x2={chartWidth - 20}
+                y2={chartHeight - ratio * chartHeight + 20}
+                stroke="#f3f4f6"
+                strokeWidth="1"
+                strokeDasharray="2,2"
+              />
+              <text
+                x={45}
+                y={chartHeight - ratio * chartHeight + 25}
+                textAnchor="end"
+                className="text-xs fill-gray-500 font-medium"
+              >
+                {value.toLocaleString()}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis title */}
+        <text
+          x={chartWidth / 2}
+          y={chartHeight + 70}
+          textAnchor="middle"
+          className="text-xs fill-gray-600 font-semibold"
+        >
+          Breakdown Request IDs
+        </text>
+
+        {/* Bars with gradient effect */}
+        {data.map((item, index) => {
+          const barHeight = (item.totalAmount / yAxisMax) * chartHeight;
+          const x = 70 + index * (barWidth + barSpacing);
+          const y = chartHeight - barHeight + 20;
+
+          return (
+            <g key={index}>
+              {/* Bar shadow */}
+              <rect
+                x={x + 2}
+                y={y + 2}
+                width={barWidth}
+                height={barHeight}
+                fill="#ea580c"
+                opacity="0.2"
+                rx="6"
+              />
+              {/* Main bar */}
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                fill="url(#breakdownGradient)"
+                rx="6"
+                className="hover:opacity-80 transition-opacity"
+              />
+              {/* Value label on top */}
+              <text
+                x={x + barWidth / 2}
+                y={y - 8}
+                textAnchor="middle"
+                className="text-xs font-semibold fill-gray-700"
+              >
+                {item.totalAmount.toLocaleString()}
+              </text>
+              {/* Request ID */}
+              <text
+                x={x + barWidth / 2}
+                y={chartHeight + 45}
+                textAnchor="middle"
+                className="text-xs fill-gray-600 font-medium"
+              >
+                #{item.requestId}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Gradient definition */}
+        <defs>
+          <linearGradient id="breakdownGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#fb923c" />
+            <stop offset="100%" stopColor="#f97316" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+};
+
+const EshopBarChart = ({ data }) => {
+  // Handle empty data
+  if (!data || data.length === 0) {
+    const chartHeight = 200;
+    const chartWidth = 400;
+    return (
+      <div className="w-full overflow-x-auto flex justify-center">
+        <svg width={chartWidth} height={chartHeight + 80} className="mx-auto">
+          {/* Y-axis line */}
+          <line
+            x1={50}
+            y1={20}
+            x2={50}
+            y2={chartHeight + 20}
+            stroke="#d1d5db"
+            strokeWidth="2"
+          />
+          
+          {/* Y-axis title */}
+          <text
+            x={15}
+            y={chartHeight / 2 + 20}
+            textAnchor="middle"
+            transform={`rotate(-90 15 ${chartHeight / 2 + 20})`}
+            className="text-xs fill-gray-600 font-semibold"
+          >
+            No. of Purchases
+          </text>
+          
+          {/* Y-axis labels */}
+          <text
+            x={45}
+            y={chartHeight / 2 + 25}
+            textAnchor="end"
+            className="text-xs fill-gray-500 font-medium"
+          >
+            0
+          </text>
+          
+          {/* X-axis title */}
+          <text
+            x={chartWidth / 2}
+            y={chartHeight + 70}
+            textAnchor="middle"
+            className="text-xs fill-gray-600 font-semibold"
+          >
+            Items
+          </text>
+          
+          {/* Empty state message */}
+          <text
+            x={chartWidth / 2}
+            y={chartHeight / 2 + 20}
+            textAnchor="middle"
+            className="text-sm fill-gray-400 font-medium"
+          >
+            No E-shop data available
+          </text>
+        </svg>
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map((d) => d.numberOfItemsPurchased), 1);
+  const chartHeight = 200;
+  const barWidth = 50;
+  const barSpacing = 15;
+  const chartWidth = Math.min(700, data.length * (barWidth + barSpacing) + 80);
+
+  // Calculate logical Y-axis intervals for number of purchases
+  const getLogicalIntervals = (max) => {
+    if (max === 0) return [0];
+    if (max <= 5) {
+      // For small values, show every integer
+      return Array.from({ length: max + 1 }, (_, i) => i);
+    } else if (max <= 10) {
+      // Show every 2
+      const step = 2;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else if (max <= 20) {
+      // Show every 5
+      const step = 5;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else if (max <= 50) {
+      // Show every 10
+      const step = 10;
+      return Array.from({ length: Math.ceil(max / step) + 1 }, (_, i) => i * step);
+    } else {
+      // For larger values, use 5 intervals
+      const step = Math.ceil(max / 5);
+      const roundedStep = step < 10 ? step : Math.ceil(step / 10) * 10;
+      return Array.from({ length: 6 }, (_, i) => i * roundedStep).filter(v => v <= max);
+    }
+  };
+
+  const yAxisValues = getLogicalIntervals(maxValue);
+  const yAxisMax = Math.max(...yAxisValues);
+
+  return (
+    <div className="w-full overflow-x-auto flex justify-center">
+      <svg width={chartWidth} height={chartHeight + 80} className="mx-auto">
+        {/* Y-axis line */}
+        <line
+          x1={50}
+          y1={20}
+          x2={50}
+          y2={chartHeight + 20}
+          stroke="#d1d5db"
+          strokeWidth="2"
+        />
+        
+        {/* Y-axis title */}
+        <text
+          x={15}
+          y={chartHeight / 2 + 20}
+          textAnchor="middle"
+          transform={`rotate(-90 15 ${chartHeight / 2 + 20})`}
+          className="text-xs fill-gray-600 font-semibold"
+        >
+          No. of Purchases
+        </text>
+        
+        {/* Y-axis labels with logical intervals */}
+        {yAxisValues.map((value) => {
+          const ratio = yAxisMax > 0 ? value / yAxisMax : 0;
+          return (
+            <g key={value}>
+              <line
+                x1={50}
+                y1={chartHeight - ratio * chartHeight + 20}
+                x2={chartWidth - 20}
+                y2={chartHeight - ratio * chartHeight + 20}
+                stroke="#f3f4f6"
+                strokeWidth="1"
+                strokeDasharray="2,2"
+              />
+              <text
+                x={45}
+                y={chartHeight - ratio * chartHeight + 25}
+                textAnchor="end"
+                className="text-xs fill-gray-500 font-medium"
+              >
+                {value}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* X-axis title */}
+        <text
+          x={chartWidth / 2}
+          y={chartHeight + 70}
+          textAnchor="middle"
+          className="text-xs fill-gray-600 font-semibold"
+        >
+          Items
+        </text>
+
+        {/* Bars with gradient effect */}
+        {data.map((item, index) => {
+          const barHeight = (item.numberOfItemsPurchased / yAxisMax) * chartHeight;
+          const x = 70 + index * (barWidth + barSpacing);
+          const y = chartHeight - barHeight + 20;
+
+          return (
+            <g key={index}>
+              {/* Bar shadow */}
+              <rect
+                x={x + 2}
+                y={y + 2}
+                width={barWidth}
+                height={barHeight}
+                fill="#9333ea"
+                opacity="0.2"
+                rx="6"
+              />
+              {/* Main bar */}
+              <rect
+                x={x}
+                y={y}
+                width={barWidth}
+                height={barHeight}
+                fill="url(#eshopGradient)"
+                rx="6"
+                className="hover:opacity-80 transition-opacity"
+              />
+              {/* Value label on top */}
+              <text
+                x={x + barWidth / 2}
+                y={y - 8}
+                textAnchor="middle"
+                className="text-xs font-semibold fill-gray-700"
+              >
+                {item.numberOfItemsPurchased}
+              </text>
+              {/* Item name */}
+              <text
+                x={x + barWidth / 2}
+                y={chartHeight + 45}
+                textAnchor="middle"
+                className="text-xs fill-gray-600 font-medium"
+              >
+                {item.itemName.length > 12
+                  ? item.itemName.substring(0, 12) + "..."
+                  : item.itemName}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Gradient definition */}
+        <defs>
+          <linearGradient id="eshopGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#c084fc" />
+            <stop offset="100%" stopColor="#a855f7" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+};
 
 const ManagementDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -129,6 +868,14 @@ const ManagementDashboard = () => {
   const [customers, setCustomers] = useState([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+
+  // Reports state
+  const [reportMonth, setReportMonth] = useState(
+    new Date().toISOString().slice(0, 7)
+  );
+  const [reportData, setReportData] = useState(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   // Load dashboard data
   useEffect(() => {
@@ -889,6 +1636,451 @@ const ManagementDashboard = () => {
     }
   };
 
+  // Generate monthly report
+  const generateMonthlyReport = async () => {
+    setLoadingReport(true);
+    setError(null);
+    try {
+      const [year, month] = reportMonth.split("-");
+      const startDate = `${year}-${month}-01`;
+      const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+      const endDate = `${year}-${month}-${lastDay}`;
+
+      // Fetch all bookings and filter by month
+      const bookingsResponse = await bookingsAPI.getAll();
+      const allBookings = bookingsResponse.data || [];
+      const monthlyBookings = allBookings.filter((booking) => {
+        const bookingDate = new Date(booking.bookingDate || booking.createdAt);
+        const reportStart = new Date(startDate);
+        const reportEnd = new Date(endDate);
+        reportEnd.setHours(23, 59, 59, 999);
+        return bookingDate >= reportStart && bookingDate <= reportEnd;
+      });
+
+      // Fetch all breakdown requests and filter by month
+      const breakdownsResponse = await breakdownAPI.getAll();
+      const allBreakdowns = breakdownsResponse.data || [];
+      const monthlyBreakdowns = allBreakdowns.filter((request) => {
+        const requestDate = new Date(request.createdAt);
+        const reportStart = new Date(startDate);
+        const reportEnd = new Date(endDate);
+        reportEnd.setHours(23, 59, 59, 999);
+        return requestDate >= reportStart && requestDate <= reportEnd;
+      });
+
+      // Fetch eshop orders for the month
+      let monthlyEshopOrders = [];
+      try {
+        // Try to fetch all orders (may need admin endpoint)
+        const eshopResponse = await fetch(
+          `${import.meta.env.VITE_API_URL || "http://localhost:5000/api"}/eshop/orders`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        if (eshopResponse.ok) {
+          const eshopData = await eshopResponse.json();
+          const allOrders = eshopData.data || [];
+          monthlyEshopOrders = allOrders.filter((order) => {
+            const orderDate = new Date(order.createdAt || order.orderDate);
+            const reportStart = new Date(startDate);
+            const reportEnd = new Date(endDate);
+            reportEnd.setHours(23, 59, 59, 999);
+            return orderDate >= reportStart && orderDate <= reportEnd;
+          });
+        }
+      } catch (err) {
+        console.warn("Could not fetch eshop orders:", err);
+      }
+
+      // Fetch all services to get service charges
+      const servicesResponse = await servicesAPI.getAll();
+      const allServices = servicesResponse.data || [];
+
+      // Calculate service booking table data
+      const verifiedBookings = monthlyBookings.filter(
+        (b) => b.status === "verified" || b.status === "completed"
+      );
+
+      // Group bookings by service type
+      const serviceBookingMap = new Map();
+      
+      verifiedBookings.forEach((booking) => {
+        let serviceTypes = [];
+        if (booking.serviceTypes) {
+          if (Array.isArray(booking.serviceTypes)) {
+            serviceTypes = booking.serviceTypes;
+          } else if (typeof booking.serviceTypes === 'string') {
+            try {
+              serviceTypes = JSON.parse(booking.serviceTypes);
+            } catch {
+              serviceTypes = booking.serviceTypes.split(",").map(s => s.trim());
+            }
+          }
+        }
+
+        serviceTypes.forEach((serviceName) => {
+          const service = allServices.find(s => s.name === serviceName);
+          if (service) {
+            const serviceCharge = parseFloat(service.charge || 0);
+            const discount = parseFloat(service.discount || 0);
+            const finalCharge = serviceCharge - (serviceCharge * discount / 100);
+            
+            if (!serviceBookingMap.has(serviceName)) {
+              serviceBookingMap.set(serviceName, {
+                serviceName,
+                serviceCharge: finalCharge,
+                numberOfBookings: 0,
+                totalAmount: 0,
+              });
+            }
+            
+            const entry = serviceBookingMap.get(serviceName);
+            entry.numberOfBookings += 1;
+            entry.totalAmount += finalCharge;
+          }
+        });
+      });
+
+      const serviceBookingTable = Array.from(serviceBookingMap.values());
+      const bookingRevenue = serviceBookingTable.reduce((sum, entry) => sum + entry.totalAmount, 0);
+
+      // Calculate breakdown request table data
+      const completedBreakdowns = monthlyBreakdowns.filter(
+        (b) => b.status === "Completed"
+      );
+      
+      const breakdownTable = completedBreakdowns.map((breakdown) => ({
+        requestId: breakdown.requestId,
+        totalAmount: parseFloat(breakdown.price || 5000),
+      }));
+
+      const breakdownRevenue = breakdownTable.reduce((sum, entry) => sum + entry.totalAmount, 0);
+
+      // Calculate eshop table data
+      const eshopItemMap = new Map();
+      
+      monthlyEshopOrders.forEach((order) => {
+        let items = [];
+        if (order.items) {
+          if (Array.isArray(order.items)) {
+            items = order.items;
+          } else if (typeof order.items === 'string') {
+            try {
+              items = JSON.parse(order.items);
+            } catch {
+              items = [];
+            }
+          }
+        }
+
+        items.forEach((item) => {
+          const itemName = item.itemName || item.name || "Unknown Item";
+          const itemPrice = parseFloat(item.price || item.itemPrice || 0);
+          const quantity = parseInt(item.quantity || 1);
+
+          if (!eshopItemMap.has(itemName)) {
+            eshopItemMap.set(itemName, {
+              itemName,
+              itemPrice,
+              numberOfItemsPurchased: 0,
+              totalAmount: 0,
+            });
+          }
+
+          const entry = eshopItemMap.get(itemName);
+          entry.numberOfItemsPurchased += quantity;
+          entry.totalAmount += itemPrice * quantity;
+        });
+      });
+
+      const eshopTable = Array.from(eshopItemMap.values());
+      const eshopRevenue = eshopTable.reduce((sum, entry) => sum + entry.totalAmount, 0);
+
+      const totalRevenue = bookingRevenue + breakdownRevenue + eshopRevenue;
+
+      // Compile report data
+      const report = {
+        month: reportMonth,
+        year: year,
+        monthName: new Date(`${year}-${month}-01`).toLocaleDateString("en-US", {
+          month: "long",
+        }),
+        revenue: {
+          total: totalRevenue,
+          bookings: bookingRevenue,
+          breakdowns: breakdownRevenue,
+          eshop: eshopRevenue,
+        },
+        serviceBookingTable: serviceBookingTable,
+        breakdownTable: breakdownTable,
+        eshopTable: eshopTable,
+        bookings: {
+          total: monthlyBookings.length,
+          verified: verifiedBookings.length,
+          pending: monthlyBookings.filter((b) => b.status === "pending").length,
+          completed: monthlyBookings.filter(
+            (b) => b.status === "completed"
+          ).length,
+          cancelled: monthlyBookings.filter(
+            (b) => b.status === "cancelled" || b.status === "canceled"
+          ).length,
+          arrived: monthlyBookings.filter(
+            (b) => {
+              const status = (b.status || "").toLowerCase();
+              return status === "arrived" || status === "in_progress" || status === "arrived";
+            }
+          ).length,
+          data: monthlyBookings,
+        },
+        breakdowns: {
+          total: monthlyBreakdowns.length,
+          completed: completedBreakdowns.length,
+          pending: monthlyBreakdowns.filter(
+            (b) => b.status === "Pending"
+          ).length,
+          arrived: monthlyBreakdowns.filter(
+            (b) => b.status === "In Progress"
+          ).length,
+          data: monthlyBreakdowns,
+        },
+        eshop: {
+          total: monthlyEshopOrders.length,
+          revenue: eshopRevenue,
+          data: monthlyEshopOrders,
+        },
+      };
+
+      setReportData(report);
+    } catch (err) {
+      console.error("Error generating report:", err);
+      setError("Failed to generate report. Please try again.");
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  // Export report as PDF using template
+  const exportReportAsPDF = async () => {
+    if (!reportData) return;
+
+    try {
+      // Load the template PDF
+      const templateBytes = await fetch(
+        "/references/MonthlyReport.pdf"
+      ).then((res) => res.arrayBuffer());
+
+      // Load the PDF document
+      const pdfDoc = await PDFDocument.load(templateBytes);
+
+      // Embed fonts
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+      // Get the first page
+      const pages = pdfDoc.getPages();
+      const page = pages[0];
+
+      // Helper function to draw text
+      const drawText = (text, x, y, size = 10, isBold = false) => {
+        page.drawText(String(text || ""), {
+          x,
+          y,
+          size,
+          font: isBold ? boldFont : helveticaFont,
+          color: rgb(0, 0, 0),
+        });
+      };
+
+      // Coordinates (adjust based on template layout)
+      // Month and Year section (top area)
+      const monthX = 400; // Adjust based on template
+      const yearX = 500; // Right side for year
+      const headerY = 576; // Adjust based on template
+
+      // Draw Month
+      drawText(reportData.monthName, monthX, headerY, 12, false);
+
+      // Draw Year
+      drawText(reportData.year, yearX, headerY, 12, false);
+
+      // Service Booking Table coordinates
+      const serviceTableStartY = 495; // Adjust based on template
+      const serviceTableX = 60;
+      const serviceColX = serviceTableX + 20;
+      const serviceChargeColX = serviceTableX + 195;
+      const noBookingsColX = serviceTableX + 310;
+      const totalAmountColX = serviceTableX + 420;
+      const rowHeight = 20;
+      const rowsCount = reportData.serviceBookingTable.length;
+
+      // Draw Service Booking Table
+      let currentY = serviceTableStartY;
+      reportData.serviceBookingTable.forEach((entry, index) => {
+        drawText(
+          entry.serviceName, 
+          serviceColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          `Rs. ${entry.serviceCharge.toFixed(2)}`,
+          serviceChargeColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          entry.numberOfBookings.toString(),
+          noBookingsColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          `Rs. ${entry.totalAmount.toFixed(2)}`,
+          totalAmountColX,
+          currentY,
+          10,
+          false
+        );
+        currentY -= rowHeight;
+      });
+
+      // Booking Revenue (right side of table)
+      const bookingRevenueX = 465; // Right side 
+      const bookingRevenueY = serviceTableStartY - (rowsCount * rowHeight) - 6; // Align with first row
+      drawText(
+        `Rs. ${reportData.revenue.bookings.toFixed(2)}`,
+        bookingRevenueX,
+        bookingRevenueY,
+        12,
+        true
+      );
+
+      // Breakdown Request Table coordinates
+      const breakdownTableStartY = serviceTableStartY - (rowsCount * rowHeight) - 90; // Adjust based on template
+      const breakdownTableX = 60;
+      const breakdownIdColX = breakdownTableX + 20;
+      const breakdownAmountColX = breakdownTableX + 420;
+      const breakdownrowsCount = reportData.breakdownTable.length;
+
+      // Draw Breakdown Request Table
+      currentY = breakdownTableStartY;
+      reportData.breakdownTable.forEach((entry) => {
+        drawText(
+          entry.requestId.toString(),
+          breakdownIdColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          `Rs. ${entry.totalAmount.toFixed(2)}`,
+          breakdownAmountColX,
+          currentY,
+          10,
+          false
+        );
+        currentY -= rowHeight;
+      });
+
+      // Breakdown Request Revenue (right side)
+      const breakdownRevenueX = 465;
+      const breakdownRevenueY = breakdownTableStartY - (breakdownrowsCount * rowHeight) - 22;
+      drawText(
+        `Rs. ${reportData.revenue.breakdowns.toFixed(2)}`,
+        breakdownRevenueX,
+        breakdownRevenueY,
+        12,
+        true
+      );
+
+      // E-shop Table coordinates
+      const eshopTableStartY = breakdownTableStartY - (rowsCount * rowHeight) - 170; // Adjust based on template
+      const eshopTableX = 60;
+      const eshopItemColX = eshopTableX + 20;
+      const eshopPriceColX = eshopTableX + 200;
+      const eshopQuantityColX = eshopTableX + 320;
+      const eshopTotalColX = eshopTableX + 420;
+      const eshopCount = reportData.eshopTable.length;
+
+      // Draw E-shop Table
+      currentY = eshopTableStartY;
+      reportData.eshopTable.forEach((entry) => {
+        drawText(
+          entry.itemName || "-",
+          eshopItemColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          `Rs. ${entry.itemPrice.toFixed(2)}`,
+          eshopPriceColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          entry.numberOfItemsPurchased.toString(),
+          eshopQuantityColX,
+          currentY,
+          10,
+          false
+        );
+        drawText(
+          `Rs. ${entry.totalAmount.toFixed(2)}`,
+          eshopTotalColX,
+          currentY,
+          10,
+          false
+        );
+        currentY -= rowHeight;
+      });
+
+      // E-Shop Revenue (right side)
+      const eshopRevenueX = 465;
+      const eshopRevenueY = eshopTableStartY - (eshopCount * rowHeight) - 4;
+      drawText(
+        `Rs. ${reportData.revenue.eshop.toFixed(2)}`,
+        eshopRevenueX,
+        eshopRevenueY,
+        12,
+        true
+      );
+
+      // Total Revenue (bottom area)
+      const totalRevenueX = 465; // Right side
+      const totalRevenueY = eshopTableStartY - (eshopCount * rowHeight) - 39; // Adjust based on template
+      drawText(
+        `Rs. ${reportData.revenue.total.toFixed(2)}`,
+        totalRevenueX,
+        totalRevenueY,
+        14,
+        true
+      );
+
+      // Serialize the PDFDocument to bytes
+      const pdfBytes = await pdfDoc.save();
+
+      // Trigger download
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = window.URL.createObjectURL(blob);
+      link.download = `Monthly_Report_${reportData.month.replace("-", "_")}.pdf`;
+      link.click();
+
+      toast.success("Report exported successfully");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to export PDF report");
+    }
+  };
+
   // Generate invoice for booking
   const generateInvoice = async (booking) => {
     try {
@@ -1011,6 +2203,7 @@ const ManagementDashboard = () => {
     { id: "services", label: "Services" },
     { id: "spare-parts", label: "Spare Parts" },
     { id: "e-shop", label: "E-shop" },
+    { id: "reports", label: "Reports" },
   ];
 
   const normalizedBookingSearch = bookingSearchQuery.trim().toLowerCase();
@@ -2193,6 +3386,429 @@ const ManagementDashboard = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "reports" && (
+              <div>
+                {/* Header */}
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Monthly Reports
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Generate comprehensive monthly reports on revenue and services
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Month:
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowMonthPicker(!showMonthPicker)}
+                          className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg bg-white text-left focus:ring-2 focus:ring-red-500 focus:border-red-500 flex items-center justify-between gap-2 min-w-[200px]"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-500" />
+                            {reportMonth
+                              ? new Date(reportMonth + "-01").toLocaleDateString("en-US", {
+                                  month: "long",
+                                  year: "numeric",
+                                })
+                              : "Select Month"}
+                          </span>
+                          <svg
+                            className={`w-4 h-4 text-gray-500 transition-transform ${
+                              showMonthPicker ? "rotate-180" : ""
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+                        
+                        {showMonthPicker && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-10"
+                              onClick={() => setShowMonthPicker(false)}
+                            ></div>
+                            <div className="absolute z-20 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 min-w-[280px]">
+                              <div className="grid grid-cols-2 gap-4">
+                                {/* Year Selector */}
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                                    Year
+                                  </label>
+                                  <select
+                                    value={reportMonth ? reportMonth.split("-")[0] : new Date().getFullYear()}
+                                    onChange={(e) => {
+                                      const year = e.target.value;
+                                      const month = reportMonth ? reportMonth.split("-")[1] : String(new Date().getMonth() + 1).padStart(2, "0");
+                                      setReportMonth(`${year}-${month}`);
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                                  >
+                                    {Array.from({ length: 10 }, (_, i) => {
+                                      const year = new Date().getFullYear() - 5 + i;
+                                      return (
+                                        <option key={year} value={year}>
+                                          {year}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </div>
+
+                                {/* Month Selector */}
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                                    Month
+                                  </label>
+                                  <select
+                                    value={reportMonth ? reportMonth.split("-")[1] : String(new Date().getMonth() + 1).padStart(2, "0")}
+                                    onChange={(e) => {
+                                      const month = e.target.value;
+                                      const year = reportMonth ? reportMonth.split("-")[0] : new Date().getFullYear();
+                                      setReportMonth(`${year}-${month}`);
+                                    }}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                                  >
+                                    <option value="01">January</option>
+                                    <option value="02">February</option>
+                                    <option value="03">March</option>
+                                    <option value="04">April</option>
+                                    <option value="05">May</option>
+                                    <option value="06">June</option>
+                                    <option value="07">July</option>
+                                    <option value="08">August</option>
+                                    <option value="09">September</option>
+                                    <option value="10">October</option>
+                                    <option value="11">November</option>
+                                    <option value="12">December</option>
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Quick Actions */}
+                              <div className="mt-4 pt-4 border-t border-gray-200">
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const today = new Date();
+                                      setReportMonth(
+                                        `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
+                                      );
+                                      setShowMonthPicker(false);
+                                    }}
+                                    className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                                  >
+                                    This Month
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const lastMonth = new Date();
+                                      lastMonth.setMonth(lastMonth.getMonth() - 1);
+                                      setReportMonth(
+                                        `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`
+                                      );
+                                      setShowMonthPicker(false);
+                                    }}
+                                    className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                                  >
+                                    Last Month
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const threeMonthsAgo = new Date();
+                                      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+                                      setReportMonth(
+                                        `${threeMonthsAgo.getFullYear()}-${String(threeMonthsAgo.getMonth() + 1).padStart(2, "0")}`
+                                      );
+                                      setShowMonthPicker(false);
+                                    }}
+                                    className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded transition-colors"
+                                  >
+                                    3 Months Ago
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Close Button */}
+                              <div className="mt-4 pt-4 border-t border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowMonthPicker(false)}
+                                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={generateMonthlyReport}
+                        disabled={loadingReport}
+                        className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                      >
+                        {loadingReport ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="w-4 h-4" />
+                            Generate Report
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {reportData && (
+                  <div className="space-y-6">
+                    {/* Report Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">
+                              Total Revenue
+                            </p>
+                            <p className="text-2xl font-bold text-green-600">
+                              Rs. {reportData.revenue.total.toLocaleString()}
+                            </p>
+                          </div>
+                          <DollarSign className="w-8 h-8 text-green-600" />
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">
+                              Total Bookings
+                            </p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {reportData.bookings.total}
+                            </p>
+                          </div>
+                          <Calendar className="w-8 h-8 text-blue-600" />
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">
+                              Breakdown Requests
+                            </p>
+                            <p className="text-2xl font-bold text-orange-600">
+                              {reportData.breakdowns.total}
+                            </p>
+                          </div>
+                          <AlertCircle className="w-8 h-8 text-orange-600" />
+                        </div>
+                      </div>
+
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">
+                              E-shop Orders
+                            </p>
+                            <p className="text-2xl font-bold text-purple-600">
+                              {reportData.eshop.total}
+                            </p>
+                          </div>
+                          <Package className="w-8 h-8 text-purple-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Charts Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Revenue Breakdown Pie Chart */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <DollarSign className="w-5 h-5" />
+                          Revenue Breakdown
+                        </h4>
+                        <div className="flex items-center justify-center">
+                          <RevenuePieChart
+                            bookings={reportData.revenue.bookings}
+                            breakdowns={reportData.revenue.breakdowns}
+                            eshop={reportData.revenue.eshop}
+                            total={reportData.revenue.total}
+                          />
+                        </div>
+                        <div className="mt-6 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                              <span className="text-sm text-gray-600">Bookings</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              Rs. {reportData.revenue.bookings.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-orange-500 rounded"></div>
+                              <span className="text-sm text-gray-600">Breakdowns</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              Rs. {reportData.revenue.breakdowns.toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-purple-500 rounded"></div>
+                              <span className="text-sm text-gray-600">E-shop</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              Rs. {reportData.revenue.eshop.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bookings Status Distribution */}
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <Calendar className="w-5 h-5" />
+                          Bookings Status Distribution
+                        </h4>
+                        <div className="flex items-center justify-center">
+                          <StatusPieChart
+                            verified={reportData.bookings.verified}
+                            pending={reportData.bookings.pending}
+                            cancelled={reportData.bookings.cancelled}
+                            arrived={reportData.bookings.arrived}
+                            total={reportData.bookings.total}
+                          />
+                        </div>
+                        <div className="mt-6 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-green-500 rounded"></div>
+                              <span className="text-sm text-gray-600">Verified/Completed</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {reportData.bookings.verified}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+                              <span className="text-sm text-gray-600">Pending</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {reportData.bookings.pending}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                              <span className="text-sm text-gray-600">Arrived/In Progress</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {reportData.bookings.arrived}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-red-500 rounded"></div>
+                              <span className="text-sm text-gray-600">Cancelled</span>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {reportData.bookings.cancelled}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bar Charts - Side by Side */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      {/* Service Booking Revenue Bar Chart */}
+                      {reportData.serviceBookingTable && reportData.serviceBookingTable.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5" />
+                            Service Booking Revenue
+                          </h4>
+                          <ServiceBookingBarChart data={reportData.serviceBookingTable} />
+                        </div>
+                      )}
+
+                      {/* Breakdown Requests Bar Chart */}
+                      {reportData.breakdownTable && reportData.breakdownTable.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5" />
+                            Breakdown Requests Revenue
+                          </h4>
+                          <BreakdownBarChart data={reportData.breakdownTable} />
+                        </div>
+                      )}
+
+                      {/* E-shop Sales Bar Chart */}
+                      {reportData.eshopTable && reportData.eshopTable.length > 0 && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                            <Package className="w-5 h-5" />
+                            E-shop Sales
+                          </h4>
+                          <EshopBarChart data={reportData.eshopTable} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Export Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={exportReportAsPDF}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+                      >
+                        <Download className="w-5 h-5" />
+                        Export as PDF
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!reportData && !loadingReport && (
+                  <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
+                    <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-2">
+                      No report generated yet
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Select a month and click "Generate Report" to view monthly statistics
+                    </p>
                   </div>
                 )}
               </div>
