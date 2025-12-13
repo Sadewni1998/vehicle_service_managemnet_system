@@ -4,7 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import toast from "react-hot-toast";
 import {
   Users,
-  DollarSign,
+  ListPlus,
   User,
   Calendar,
   TrendingUp,
@@ -21,6 +21,7 @@ import {
   Search,
   Download,
   BarChart3,
+  Wrench,
 } from "lucide-react";
 import {
   bookingsAPI,
@@ -242,7 +243,7 @@ const ServiceBookingBarChart = ({ data }) => {
   const maxValue = Math.max(...data.map((d) => d.numberOfBookings), 1);
   const chartHeight = 200;
   const barWidth = 50;
-  const barSpacing = 15;
+  const barSpacing = 17;
   const chartWidth = Math.min(700, data.length * (barWidth + barSpacing) + 80);
 
   // Calculate logical Y-axis intervals
@@ -406,7 +407,7 @@ const BreakdownBarChart = ({ data }) => {
   const maxValue = Math.max(...data.map((d) => d.totalAmount), 1);
   const chartHeight = 200;
   const barWidth = 50;
-  const barSpacing = 15;
+  const barSpacing = 17;
   const chartWidth = Math.min(700, data.length * (barWidth + barSpacing) + 80);
 
   // Calculate logical Y-axis intervals for revenue
@@ -1921,6 +1922,7 @@ const ManagementDashboard = () => {
       const serviceTableX = 60;
       const serviceColX = serviceTableX + 20; // Services column
       const serviceChargeColX = serviceTableX + 195; // Service Charges column
+      const serviceChargeRightX = serviceChargeColX + 80; // column right edge
       const noBookingsColX = serviceTableX + 310; // No. of Bookings column
       const totalAmountColX = serviceTableX + 420; // Total Amount column
       const bookingRevenueX = 465; // Right side of Booking Revenue
@@ -3611,7 +3613,7 @@ const ManagementDashboard = () => {
                               Rs. {reportData.revenue.total.toLocaleString()}
                             </p>
                           </div>
-                          <DollarSign className="w-8 h-8 text-green-600" />
+                          <Wrench className="w-8 h-8 text-green-600" />
                         </div>
                       </div>
 
@@ -3639,7 +3641,7 @@ const ManagementDashboard = () => {
                               {reportData.breakdowns.total}
                             </p>
                           </div>
-                          <AlertCircle className="w-8 h-8 text-orange-600" />
+                          <ListPlus className="w-8 h-8 text-orange-600" />
                         </div>
                       </div>
 
@@ -3663,7 +3665,7 @@ const ManagementDashboard = () => {
                       {/* Revenue Breakdown Pie Chart */}
                       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                         <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                          <DollarSign className="w-5 h-5" />
+                          <Wrench className="w-5 h-5" />
                           Revenue Breakdown
                         </h4>
                         <div className="flex items-center justify-center">
@@ -3778,7 +3780,7 @@ const ManagementDashboard = () => {
                       {reportData.breakdownTable && reportData.breakdownTable.length > 0 && (
                         <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                           <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
+                            <ListPlus className="w-5 h-5" />
                             Breakdown Requests Revenue
                           </h4>
                           <BreakdownBarChart data={reportData.breakdownTable} />

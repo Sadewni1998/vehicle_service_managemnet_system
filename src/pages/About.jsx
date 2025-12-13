@@ -182,19 +182,6 @@ const About = () => {
                     alt={member.name}
                     className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
-                    <div className="opacity-0 hover:opacity-100 transition-opacity duration-300 flex space-x-3">
-                      {['facebook', 'twitter', 'instagram'].map((social) => (
-                        <a
-                          key={social}
-                          href="#"
-                          className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary-600 hover:bg-primary-600 hover:text-white transition-colors"
-                        >
-                          <span className="text-sm font-bold">{social[0].toUpperCase()}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
                 </div>
                 <div className="p-6 text-center">
                   <h5 className="text-xl font-bold mb-2">{member.name}</h5>

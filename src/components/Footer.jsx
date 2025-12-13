@@ -20,7 +20,7 @@ const Footer = () => {
               </p>
               <p className="flex items-center">
                 <Mail className="w-4 h-4 mr-3 text-primary-600" />
-                info@hybridlanka.com
+                hybridlankaservicenter@gmail.com
               </p>
             </div>
             <div className="flex space-x-2 mt-4">

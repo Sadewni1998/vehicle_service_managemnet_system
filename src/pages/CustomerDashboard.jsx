@@ -1666,7 +1666,6 @@ const CustomerDashboard = () => {
                                     onClick={() => handleBreakdownBillClick(request)}
                                     className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors flex items-center gap-2"
                                   >
-                                    <DollarSign className="w-4 h-4" />
                                     Bill
                                   </button>
                                 )}
@@ -1780,7 +1779,6 @@ const CustomerDashboard = () => {
                                 onClick={() => handleInvoiceClick(booking)}
                                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded transition-colors flex items-center gap-2"
                               >
-                                <DollarSign className="w-4 h-4" />
                                 Bill
                               </button>
                             </div>
